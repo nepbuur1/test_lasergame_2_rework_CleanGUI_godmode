@@ -1,0 +1,34 @@
+.cache
+compile_commands.json
+*.swp
+
+# arduino ide component voor esp-idf 53
+components/arduino-esp32/
+
+# ESP-IDF default build directory name
+build
+build/
+build_*/
+**/build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components
+__pycache__/
+out/
+_build/
+
+pytest_embedded_log/
+# VS Code Settings
+.vscode/
+
+# clangd set
+.clangd
+compile_commands.json
+.clang-format
+
+# pre-commit
+.pre-commit-config.yaml
+
+# voor nu even niet nodig:
+apps
