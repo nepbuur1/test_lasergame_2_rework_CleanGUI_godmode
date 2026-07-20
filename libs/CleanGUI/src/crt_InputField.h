@@ -85,7 +85,15 @@ namespace crt
 			tsButton.setText(label);
 			tsButton.setButtonName(label); // because IButton does not have a setText function.
 			Base::show(true); // redraw this Inputfield.
-			vTaskDelay(100); // wait for the redraw to be completed.
+
+			// Hier stond vTaskDelay(100) met als commentaar "wait for the redraw
+			// to be completed". Dat werkte averechts: deze functie draait in de
+			// AsyncDisplay-taak (pollTouch -> touchlistener -> keyPressed), en
+			// show() zet de tekencommando's alleen maar in queueCommands. Die
+			// queue wordt uitsluitend leeggehaald door de lus van diezelfde
+			// AsyncDisplay-taak, dus tijdens het slapen kon de redraw juist niet
+			// plaatsvinden - hij begon pas erna. Het was dus 100 ms dode tijd
+			// voor elke toetsaanslag, plus twee gemiste touch-polls van 50 ms.
 		}
 
 	public:

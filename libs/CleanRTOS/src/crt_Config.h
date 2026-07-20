@@ -5,7 +5,29 @@
 
 #pragma once
 #define CRT_DEBUG_LOGGING
-#define CRT_HIGH_WATERMARK_INCREASE_LOGGING
+
+// CRT_HIGH_WATERMARK_INCREASE_LOGGING laat elke Task per lus-iteratie
+// dumpStackHighWaterMarkIfIncreased() aanroepen. Die kost ~0,25 ms, ook als er
+// niets gelogd wordt: uxTaskGetStackHighWaterMark() scant telkens de hele stack
+// af op het vulpatroon. In taken die veel iteraties draaien (zoals AsyncDisplay,
+// die per iteratie precies een teken-commando verwerkt) tikt dat flink aan.
+//
+// Daarom: aan tijdens debuggen, uit in een release-build. sdkconfig.h definieert
+// precies een van de CONFIG_COMPILER_OPTIMIZATION_*-macro's; PERF is -O2 en SIZE
+// is -Os. Buiten ESP-IDF (bijv. Arduino IDE) bestaat sdkconfig.h niet en blijft
+// het gedrag zoals het was: aan.
+#if defined(__has_include)
+  #if __has_include(<sdkconfig.h>)
+    #include <sdkconfig.h>
+  #endif
+#endif
+
+#if defined(CONFIG_COMPILER_OPTIMIZATION_PERF) || defined(CONFIG_COMPILER_OPTIMIZATION_SIZE)
+  // release build: watermark-logging uit.
+#else
+  #define CRT_HIGH_WATERMARK_INCREASE_LOGGING
+#endif
+
 // #define ARDUINO_RUNNING_CORE 1  already defined in sdkconfig
 
 namespace crt
