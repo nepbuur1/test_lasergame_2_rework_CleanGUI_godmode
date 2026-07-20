@@ -1,5 +1,120 @@
 # Claude log
 
+## 2026-07-21 — Semantiek van Widget::show/hide in CleanGUI
+
+### Aanleiding
+Analyse van de flikker bij het typen in de Inputfield-demo. Om de fix goed te
+kiezen moest eerst precies duidelijk zijn wat `show(true)`/`hide(true)` doen.
+
+### Call-tree van een knop (tsButtonQ: Panel met afgeronde hoeken + Text-kind "q")
+```
+show(true)                          [Panel::show, crt_Panel.h:519]
+├─ showPanel()                      -> display->fillSmoothRoundRect(...)  (queue)
+└─ Widget::show(true)               [crt_Widget.h:275]
+   ├─ _bVisible = true
+   ├─ enable(false)                 -> bPressed=false, _bEnabled=true (touch AAN)
+   └─ per kind: child->show(true)
+      └─ text.showText()            -> display->drawString("q", ...)      (queue)
+
+hide(true)                          [Panel::hide, crt_Panel.h:526]
+├─ hidePanel()                      -> display->fillRect(rect, _colBg)    (queue)
+└─ Widget::hide(true)
+   ├─ _bVisible = false
+   ├─ disable(false)                -> _bEnabled=false (touch UIT)
+   └─ per kind: child->hide(true)
+      └─ text.hideText()            -> LEGE STUB, tekent niets
+```
+De display-aanroepen zijn queue-writes naar AsyncDisplay; het echte tekenen
+gebeurt later in de AsyncDisplay-taak (DisplayCommand::execute -> DisplayAdapter
+-> _tft -> SPI -> ILI9341).
+
+### Betekenis
+- **`show(true)` = "schilder mij nú, en zet mij aan."** Achtergrond eerst, dan
+  kinderen (painter's algorithm), plus `_bVisible=true` en touch inschakelen.
+- **`hide(true)` = "schilder mij wég, en zet mij uit."** Verbergen bestaat niet
+  op de ILI9341 - het is de eigen rect overschilderen met `_colBg`, plus
+  `_bVisible=false` en touch uitschakelen.
+
+### Drie asymmetrieën om te onthouden
+1. **Tekst wordt nooit expliciet gewist.** `Text::hideText()` (crt_Text.h:847) is
+   leeg; tekst verdwijnt alleen doordat de panel-fillRect eroverheen valt. Een
+   Text zonder Panel eronder kan dus niet verborgen worden.
+2. **Show/hide zijn imperatieve schilderopdrachten, geen state-wissels.** Er is
+   geen renderloop die `_bVisible` leest; de recursie in Widget::show tekent
+   kinderen onvoorwaardelijk. Daarom plakt een eenmalige `hide()` niet: de
+   eerstvolgende `show(true)` op de ouder tekent het kind gewoon weer.
+3. **Zichtbaarheid en touch zijn gescheiden velden.** Touch-afhandeling checkt
+   alleen `_bEnabled` (crt_TouchscreenButton.h:176), niet `_bVisible`. "Niet
+   tekenen maar wel touch ontvangen" is dus technisch mogelijk - relevant voor
+   de onzichtbare touch-catchers (tsOutsideInputfieldButton/-KeyboardButton).
+
+### Verwante bevinding (zelfde sessie)
+De flikker bij typen komt doordat `Inputfield::updateButtonLabel` de hele
+subtree hertekent, waarbij eerst `tsOutsideInputfieldButton` (100% vlak,
+colFg==colBg==zwart) wordt geschilderd en daaroverheen de echte knop. Let op:
+de vergelijkbare `tsOutsideKeyboardButton` is NIET puur onzichtbaar - die
+schildert de paarse achtergrond van het keyboard en wist het vlak bij hide
+(commentaar op crt_TouchscreenKeyboard.h:73: "displays the back of the
+keyboard"). `bInvertedArea` is dus geen betrouwbaar signaal voor "niet tekenen";
+een fix moet die twee gevallen uit elkaar houden. Nog niets gewijzigd.
+
+---
+
+## 2026-07-20 — Intern RAM versus PSRAM, en andere ESP-chips
+
+### Aanleiding
+Zijterzijde bij de sprite-metingen: het RAM op dit bord is de beperkende factor
+(204 KB vrij, maar grootste aaneengesloten blok 110.592 bytes). Vraag: zijn er
+ESP-chips met meer RAM?
+
+### Intern SRAM per chip
+| chip | intern SRAM |
+|---|---|
+| ESP32 (de CYD) | 520 KB |
+| ESP32-S2 | 320 KB |
+| ESP32-C3 | 400 KB |
+| ESP32-S3 | 512 KB |
+| ESP32-C6 | 512 KB |
+| ESP32-P4 | 768 KB |
+
+**Overstappen van chip levert dus vrijwel niets op.** Een paar honderd KB, waarvan
+een flink deel naar stacks, WiFi/BT-buffers en fragmentatie gaat. De echte
+oplossing is PSRAM.
+
+### Het verschil tussen intern SRAM en PSRAM
+**Intern SRAM** zit op de die zelf, direct aan de geheugenbus van de CPU. Toegang
+kost effectief een paar klokcycli, er komt geen cache aan te pas, en het is
+DMA-capable. Het is duur in siliciumoppervlak — vandaar dat het bij een paar
+honderd KB blijft, ongeacht welke chip je pakt.
+
+**PSRAM** is een aparte geheugenchip, in dezelfde package of ernaast, verbonden
+via een SPI-bus (quad of octal). De CPU adresseert hem niet rechtstreeks: het
+gaat via hetzelfde memory-mapped cache-mechanisme als flash. Een cache-hit is
+snel, een cache-miss is een SPI-transactie. Dus: megabytes in plaats van
+kilobytes, maar trager en afhankelijk van cachegedrag.
+
+Vuistregel: intern SRAM is écht werkgeheugen; PSRAM gedraagt zich meer als een
+zeer snelle, memory-mapped schijf.
+
+Voor dit probleem telt vooral dat PSRAM als **één groot aaneengesloten blok**
+beschikbaar komt — precies waar het hier op stukloopt.
+
+### Praktische keuze
+**ESP32-S3 met octal PSRAM** (8 MB). Octal is fors sneller dan de quad-PSRAM van
+de klassieke ESP32, die de bus bovendien met flash deelt. TFT_eSPI heeft er al
+een processor-header voor: `libs/TFT_eSPI/Processors/TFT_eSPI_ESP32_S3.h`.
+`callocSprite` gebruikt automatisch `ps_calloc` zodra `CONFIG_SPIRAM_SUPPORT`
+aan staat en er PSRAM gevonden wordt (`Extensions/Sprite.cpp:165`).
+
+### Twee kanttekeningen
+- **PSRAM en DMA gaan niet samen** in TFT_eSPI. `Sprite.cpp:165` valt bewust terug
+  op intern RAM zodra `_tft->DMA_Enabled` waar is. Logisch: de DMA-engine leest
+  alleen internal DRAM (zie de DMA-uitleg in de entry hieronder).
+- **De CYD is een ESP32-WROOM-32 zonder PSRAM.** Dit betekent dus een ánder bord,
+  geen configuratie-instelling.
+
+---
+
 ## 2026-07-20 — Sprites, flash-assets en de DMA-omslag (CYD / ILI9341)
 
 ### Aanleiding
