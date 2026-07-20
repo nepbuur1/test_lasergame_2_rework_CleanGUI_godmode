@@ -14,6 +14,7 @@
 #include <Arduino.h> // Only needed if Arduino compatible libraries are used.
 #include <crt_CleanRTOS.h>
 #include <crt_Logger.h>
+//#include "spi_benchmark.h"   // Meet pushSprite-doorvoer. Zie ook runSpiBenchmark() in app_main.
 
 namespace crt
 {
@@ -60,6 +61,15 @@ namespace crt
 #include <Inputfield.ino>
 //#include <Pong2.ino>
 
+// **** TFT_eSPI DMA examples ****
+// Let op: de map heet "DMA test" mét spatie. Die kan niet in
+// COMPONENT_ADD_INCLUDEDIRS (de legacy register_component() splitst de lijst
+// op spaties), dus hier een relatief pad - in een #include mag de spatie wel.
+// De .ino roept drawCube() aan vóór de definitie; de IDF-compiler wil hem
+// vooraf zien (zie de opmerking verderop over forward declarations).
+//void drawCube();
+//#include "../libs/TFT_eSPI/examples/DMA test/SpriteRotatingCube/SpriteRotatingCube.ino"
+
 // **** Test of thirdparty libs CleanGUI depends on ****
 //#include <LITTLEFS_test.ino>
 //void touch_calibrate();
@@ -102,6 +112,8 @@ void app_main(void)
     //     ret = nvs_flash_init();
     // }
     // ESP_ERROR_CHECK(ret);
+
+	//runSpiBenchmark();   // Activeer samen met de #include van spi_benchmark.h bovenaan.
 
 	#ifdef CONFIG_EXAMPLE_HTTP_ENDPOINT
 		http_client_setup();
