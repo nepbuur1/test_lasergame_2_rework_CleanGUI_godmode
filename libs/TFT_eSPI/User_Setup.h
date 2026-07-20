@@ -372,8 +372,8 @@
 // #define SPI_FREQUENCY   5000000
 // #define SPI_FREQUENCY  10000000
 // #define SPI_FREQUENCY  20000000
-#define SPI_FREQUENCY  27000000
-// #define SPI_FREQUENCY  40000000
+// #define SPI_FREQUENCY  27000000  // was 80/3 = 26.67MHz in practice (integer APB divider)
+#define SPI_FREQUENCY  40000000     // exactly 80/2, CYD handles this fine
 // #define SPI_FREQUENCY  55000000 // STM32 SPI1 only (SPI2 maximum is 27MHz)
 // #define SPI_FREQUENCY  80000000
 
@@ -386,7 +386,9 @@
 // The ESP32 has 2 free SPI ports i.e. VSPI and HSPI, the VSPI is the default.
 // If the VSPI port is in use and pins are not accessible (e.g. TTGO T-Beam)
 // then uncomment the following line:
-//#define USE_HSPI_PORT
+// CYD (ESP32-2432S028R): TFT pins 12/13/14/15 are HSPI's IOMUX pins, so drive
+// them from HSPI to bypass the GPIO matrix. Pin config below is unchanged.
+#define USE_HSPI_PORT
 
 // Comment out the following #define if "SPI Transactions" do not need to be
 // supported. When commented out the code size will be smaller and sketches will
