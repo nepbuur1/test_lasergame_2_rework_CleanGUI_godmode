@@ -24,10 +24,11 @@ namespace crt
 	public:
 		using WBase = Widget<MaxNofChildren>;
 
-		Text(const Vec2& locPos, CoordType coordTypeLocPos, 
+		Text(const Vec2& locPos, CoordType coordTypeLocPos,
 			  Alignment alignment,
-			  const char* str, uint8_t font, uint32_t color, uint8_t fontScale) :
-			  WBase(str, locPos, coordTypeLocPos, Vec2(0,0), CoordType::Pixels, alignment),
+			  const char* str, uint8_t font, uint32_t color, uint8_t fontScale,
+			  bool bDrawable = true) :
+			  WBase(str, locPos, coordTypeLocPos, Vec2(0,0), CoordType::Pixels, alignment, bDrawable),
 			  /*str(str), */_font(font), _fontScale(fontScale), _color(color), _bSizeUpToDate(false)
 			  {
 				  // determine dimensions of the text .. that'll need to 
@@ -163,6 +164,11 @@ namespace crt
 
 		void showText()
 		{
+			if (!WBase::isDrawable())
+			{
+				return;
+			}
+
 			Vec2 origin;
 
 			switch (WBase::getAlignment())
@@ -231,6 +237,11 @@ namespace crt
 
 		void hideText()
 		{
+			if (!WBase::isDrawable())
+			{
+				return;
+			}
+
 			// something with a bg color?
 		}
 	};

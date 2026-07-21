@@ -62,7 +62,7 @@ namespace crt
 			nofInputfieldListeners(0),
 			bChildWidgetsAdded(false),
 			inputfieldType(inputfieldType) /* will be updated at the end of the constructor. */,
-			tsOutsideInputfieldButton("tsOutsideInputfieldButton", Vec2(0,0), CoordType::Promillage, Vec2(1000,1000), 0, CoordType::Promillage, Alignment::TopLeft, colBg, colBg, true /*use inverted area for touch detection*/, "", 0, 0, 0, Alignment::TopLeft, 0, 0),
+			tsOutsideInputfieldButton("tsOutsideInputfieldButton", Vec2(0,0), CoordType::Promillage, Vec2(1000,1000), 0, CoordType::Promillage, Alignment::TopLeft, colBg, colBg, true /*use inverted area for touch detection*/, "", 0, 0, 0, Alignment::TopLeft, 0, 0, /*drawable*/false),
 			tsInputfieldButton("tsInputfieldButton", Vec2(0,0), CoordType::Promillage, Vec2(1000,1000), 0, CoordType::Promillage, Alignment::TopLeft, colPanel, colBg, false, "", 12, colFont, 0, Alignment::MidLeft, 0, 0)
 		{
 			pKeyboard->addKeyboardListener(this);

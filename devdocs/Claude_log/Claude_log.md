@@ -1,5 +1,34 @@
 # Claude log
 
+## 2026-07-21 — _bDrawable/isDrawable() toegevoegd aan CleanGUI-widgets
+
+### Aanleiding
+Sommige widgets moeten wél meedoen in de widget-tree en touch-afhandeling, maar
+níets tekenen — typisch een onzichtbare TouchscreenButton die alleen een
+touch-gebied afvangt.
+
+### Wat is toegevoegd
+- `IWidget` (`crt_IWidget.h`): `virtual bool isDrawable() = 0;`
+- `Widget` (`internals/crt_Widget.h`): member `_bDrawable` (naast `_bVisible`/
+  `_bEnabled`), gezet via nieuwe trailing ctor-parameter `bool bDrawable = true`,
+  plus de `isDrawable()`-implementatie.
+- `Panel`, `Text`, `TouchscreenButton`: ctor kreeg dezelfde trailing parameter
+  (default `true`, dus geen enkele bestaande call site hoefde aangepast).
+  TouchscreenButton geeft `bDrawable` door aan zowel de Panel-basis als het
+  Text-kind (label van een onzichtbare knop wordt ook niet getekend).
+- Guard `if (!isDrawable()) return;` vooraan in de functies die daadwerkelijk
+  display-commando's queuen: `Panel::showPanel/hidePanel`, `Text::showText/hideText`.
+
+### Semantiek
+`show()/hide()` blijven gewoon werken voor niet-tekenbare widgets: `_bVisible`
+en `_bEnabled` (en dus touch) worden normaal bijgehouden; alleen de
+display-aanroepen worden overgeslagen. PageRoot/ButtonGroup/Keyboard/Inputfield
+tekenen zelf niets en hadden geen aanpassing nodig.
+
+### Verificatie
+`idf.py build` compileert schoon (Inputfield-demo-app, gebruikt alle betrokken
+widgettypes). Gedrag ongewijzigd voor bestaande code omdat de default `true` is.
+
 ## 2026-07-21 — Semantiek van Widget::show/hide in CleanGUI
 
 ### Aanleiding
@@ -411,7 +440,4 @@ niet de vrije heap (204.144). De oorspronkelijke conclusie "past niet" was juist
   opbouwen tijdens de transfer van de vorige — daar is `createSprite(w, h, 2)`
   voor bedoeld. Grootste resterende winst na de kloksnelheid; de benchmark ligt
   klaar om het effect te meten.
-- **Onverklaard:** in een serial-capture verscheen
-  `TestInputfield: Input completed:ggmmIMMMMNYJ` zonder dat duidelijk was of er
-  iemand het scherm aanraakte. Als dat geen handmatige invoer was, zijn het
-  spurieuze touch-events en is inkoppeling vanaf de snellere SPI een verdachte.
+

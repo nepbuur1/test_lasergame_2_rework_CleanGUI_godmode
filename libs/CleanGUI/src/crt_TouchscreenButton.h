@@ -33,11 +33,12 @@ namespace crt
 
 		// fontScale=0 can be used to activate automatic font scaling.
 		TouchscreenButton(const char* buttonName, const Vec2& locPos, CoordType coordTypeLocPos,
-			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize, 
+			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize,
 			  Alignment alignment, uint32_t colPanel, uint32_t colBg, bool bInvertedArea,
-			  const char* str, uint8_t font, uint32_t colFont, uint8_t fontScale, Alignment fontAlignment, int32_t lowerCaseOffsetY, int32_t upperCaseOffsetY) :
-			  PBase(buttonName, locPos, coordTypeLocPos, size, cornerRadius, coordTypeSize, alignment, colPanel, colBg),
-			  text(Vec2(0,0), CoordType::Promillage, fontAlignment, str, font, colFont, fontScale),
+			  const char* str, uint8_t font, uint32_t colFont, uint8_t fontScale, Alignment fontAlignment, int32_t lowerCaseOffsetY, int32_t upperCaseOffsetY,
+			  bool bDrawable = true) :
+			  PBase(buttonName, locPos, coordTypeLocPos, size, cornerRadius, coordTypeSize, alignment, colPanel, colBg, bDrawable),
+			  text(Vec2(0,0), CoordType::Promillage, fontAlignment, str, font, colFont, fontScale, bDrawable),
 			  bTextAddedToThisPanel(false), bPressed(false), bInvertedArea(bInvertedArea), nofButtonListeners(0), lowerCaseOffsetY(lowerCaseOffsetY), upperCaseOffsetY(upperCaseOffsetY)
 		{
 			applyOffsetForLowerCaseText();

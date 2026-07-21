@@ -22,9 +22,9 @@ namespace crt
 		using WBase = Widget<MaxNofChildren>;
 
 		Panel(const char* strName, const Vec2& locPos, CoordType coordTypeLocPos,
-			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize, 
-			  Alignment alignment, uint32_t colFg, uint32_t colBg) :
-			  WBase(strName, locPos, coordTypeLocPos, size, coordTypeSize, alignment),
+			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize,
+			  Alignment alignment, uint32_t colFg, uint32_t colBg, bool bDrawable = true) :
+			  WBase(strName, locPos, coordTypeLocPos, size, coordTypeSize, alignment, bDrawable),
 			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius), 
 			  _cornerRadiusPix(-1),
 			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1)
@@ -90,6 +90,11 @@ namespace crt
 
 		void showPanel()
 		{
+			if (!WBase::isDrawable())
+			{
+				return;
+			}
+
 			updateCornerRadiusPixIfNeeded();
 
 			Vec2 pos = WBase::getGlobPosOfParent() + WBase::getLocPosPix();
@@ -112,6 +117,11 @@ namespace crt
 
 		void hidePanel()
 		{
+			if (!WBase::isDrawable())
+			{
+				return;
+			}
+
 			WBase::getDisplay()->fillRect(WBase::getGlobPosOfParent() + WBase::getLocPosPix(), WBase::getSizePix(), _colBg);
 		}
 	};

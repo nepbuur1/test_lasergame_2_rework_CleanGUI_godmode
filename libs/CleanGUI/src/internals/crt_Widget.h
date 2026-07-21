@@ -28,19 +28,21 @@ namespace crt
 		Alignment _alignment;
 		bool _bVisible;
 		bool _bEnabled;
+		bool _bDrawable;
 
 	protected: // Protected, to support easy enumeration by derived classes.
 		int _nofChildren;
 		IWidget* _arChildren[MaxNofChildren];
 
 	public:
-		Widget(const char* strName, const Vec2& locPos, CoordType coordTypeLocPos, 
-			   const Vec2& size, CoordType coordTypeSize, Alignment alignment) : 
+		Widget(const char* strName, const Vec2& locPos, CoordType coordTypeLocPos,
+			   const Vec2& size, CoordType coordTypeSize, Alignment alignment,
+			   bool bDrawable = true) :
 			_display(nullptr), _strName(strName),          // _display will be set when added to parent.
 			_globPosOfParent(0,0), _sizeOfParent(0,0),
 			_locPos(locPos), _coordTypeLocPos(coordTypeLocPos),
 			_size(size), _coordTypeSize(coordTypeSize), _alignment(alignment),
-			_bVisible(false), _bEnabled(true), _nofChildren(0)
+			_bVisible(false), _bEnabled(true), _bDrawable(bDrawable), _nofChildren(0)
 		{
 			for (int i = 0; i < MaxNofChildren; i++)
 			{
@@ -303,6 +305,13 @@ namespace crt
 		/*override*/ bool isShown()
 		{
 			return _bVisible;
+		}
+
+		// false: widget takes part in the tree and input handling,
+		// but never sends drawing commands to the display.
+		/*override*/ bool isDrawable()
+		{
+			return _bDrawable;
 		}
 
 		// enable/disable is about the functional aspect of 
