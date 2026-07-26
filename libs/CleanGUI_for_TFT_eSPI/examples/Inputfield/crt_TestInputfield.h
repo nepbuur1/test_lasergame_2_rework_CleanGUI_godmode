@@ -21,6 +21,10 @@
 
 #include <crt_TFT_eSPI_FreeFonts.h>
 
+// Hergebruikt uit het Panel-voorbeeld: imageGradient (64x48, dekkend) staat in
+// .rodata, dus deze decoratie kost geen DRAM.
+#include <crt_TestPanelImages.h>
+
 #include <crt_Logger.h>
 
 namespace crt
@@ -40,7 +44,13 @@ namespace crt
 		// wegschuiven: PageRoot tekent zelf niets, dus zonder een widget die de
 		// achtergrond bezit is er niets om de vrijgekomen strook mee te
 		// herstellen en blijft het oude beeld staan.
-		Panel<0> backgroundPanel;
+		Panel<3> backgroundPanel;
+
+		// Decoratie in het vlak waar het toetsenbord overheen schuift. Ze horen
+		// weer tevoorschijn te komen zodra het toetsenbord zakt: dat is de test
+		// dat moveTo de vrijgekomen strook echt door de tree laat herstellen, en
+		// niet met een egale kleur dichtsmeert.
+		Panel<0> decoLeft, decoMid, decoRight;
 
 		Panel<1> outputPanel;						
 		using TOUCHSCREENKEYBOARD = TouchscreenKeyboard<0 /*MaxNofChildren*/, 1 /*MaxNofKeyboardListeners*/>;
@@ -69,6 +79,18 @@ namespace crt
 			backgroundPanel("background", /*locPos*/Vec2(0, 0), CoordType::Promillage,
 				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
 				/*colFg*/(uint32_t)0x00000000, /*colBg*/0x00000000),
+
+			decoLeft("decoLeft", /*locPos*/Vec2(16, 136), CoordType::Pixels,
+				/*size*/Vec2(64, 48), /*cornerRadius*/0, CoordType::Pixels, Alignment::TopLeft,
+				/*colFg*/(uint32_t)0x00000000, /*colBg*/0x00000000, imageGradient),
+
+			decoMid("decoMid", /*locPos*/Vec2(128, 172), CoordType::Pixels,
+				/*size*/Vec2(64, 48), /*cornerRadius*/0, CoordType::Pixels, Alignment::TopLeft,
+				/*colFg*/(uint32_t)0x00000000, /*colBg*/0x00000000, imageGradient),
+
+			decoRight("decoRight", /*locPos*/Vec2(240, 136), CoordType::Pixels,
+				/*size*/Vec2(64, 48), /*cornerRadius*/0, CoordType::Pixels, Alignment::TopLeft,
+				/*colFg*/(uint32_t)0x00000000, /*colBg*/0x00000000, imageGradient),
 
 			outputPanel("MenuPanel", /*locPos*/Vec2(0, 0), CoordType::Promillage,
 				/*size*/Vec2(1000, 400), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
@@ -154,6 +176,9 @@ namespace crt
 
 			// Eerst toegevoegd, dus eerst getekend: painter's algorithm.
 			page1.addChildWidget(backgroundPanel);
+			backgroundPanel.addChildWidget(decoLeft);
+			backgroundPanel.addChildWidget(decoMid);
+			backgroundPanel.addChildWidget(decoRight);
 
 			asyncDisplay.addTouchListener(&inputfield);
 
