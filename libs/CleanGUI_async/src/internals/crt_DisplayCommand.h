@@ -12,7 +12,8 @@ namespace crt
 	enum class DisplayCommandType:int 
 	{None=0, fillScreen=1, drawRect=2, fillRect=3, drawRoundRect=4, 
 	 fillRoundRect=5, fillSmoothRoundRect = 6, drawString=7, setPrintColor=8, setPrintFont=9,
-		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14
+		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14,
+		drawImage=15
 	};
 
 	class DisplayCommand : public IDisplayDraw, public IDisplayPrint
@@ -35,8 +36,11 @@ namespace crt
 		                    // of the associated allocated memory until the 
 							// command has finished!
 							// For instance, by using fixed-size, statically
-							// allocated strings, you can guarantee that by 
+							// allocated strings, you can guarantee that by
 							// definition.
+		const Image* pImage;	// NOTE: same lifetime agreement as for str above.
+								// The pixel data is not copied either. For const
+								// images in flash both are guaranteed by definition.
 		const Task* pTask;
 
 	private:
@@ -55,7 +59,7 @@ namespace crt
 		}
 
 	public:
-		DisplayCommand():command(DisplayCommandType::None),str(&nullChar), pTask(nullptr)
+		DisplayCommand():command(DisplayCommandType::None),str(&nullChar), pImage(nullptr), pTask(nullptr)
 		{
 		}
 
@@ -66,7 +70,9 @@ namespace crt
 			uintA(other.uintA),
 			uintB(other.uintB),
 			intA(other.intA),
+			intB(other.intB),
 			str(other.str),
+			pImage(other.pImage),
 			pTask(other.pTask)
 		{
 		}
@@ -79,7 +85,9 @@ namespace crt
 			uintA = other.uintA;
 			uintB = other.uintB;
 			intA = other.intA;
+			intB = other.intB;
 			this->str = other.str;
+			this->pImage = other.pImage;
 			this->pTask = other.pTask;
 
 			return *this;
@@ -116,6 +124,12 @@ namespace crt
 				break;
 			case DisplayCommandType::drawString:
 				display.drawString(str, vecA, (Alignment)intB, (uint8_t)uintA, (uint8_t)intA, (uint32_t)uintB);
+				break;
+			case DisplayCommandType::drawImage:
+				if (pImage != nullptr)
+				{
+					display.drawImage(vecA, vecB, *pImage, (Alignment)intA);
+				}
 				break;
 			case DisplayCommandType::setPrintColor:
 				printContext.color = uintA;
@@ -235,6 +249,16 @@ namespace crt
 			uintB = (uint32_t)color;
 			intB = (int32_t)alignment;
 			this->str = str;
+		}
+
+		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+		{
+			command = DisplayCommandType::drawImage;
+			vecA = topLeftPix;
+			vecB = sizePix;
+			intA = (int32_t)alignment;
+			this->pImage = &image;
+			this->str = &nullChar;
 		}
 
 		/*override*/ void setPrintColor(void* pTask, uint32_t color)

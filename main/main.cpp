@@ -50,7 +50,7 @@ namespace crt
 
 // **** .CleanGUI related Tests ****
 //#include <Vec2.ino>
-//#include <Panel.ino>
+#include <Panel.ino>
 //#include <Button_demo.ino>
 //#include <AsyncDisplay.ino>
 //#include <Free_Font_Demo.ino>
@@ -58,7 +58,7 @@ namespace crt
 //#include <TouchscreenButton.ino>
 //#include <TouchscreenButtonGroup.ino>
 //#include <TouchscreenKeyboard.ino>
-#include <Inputfield.ino>
+//#include <Inputfield.ino>
 //#include <Pong2.ino>
 
 // **** TFT_eSPI DMA examples ****

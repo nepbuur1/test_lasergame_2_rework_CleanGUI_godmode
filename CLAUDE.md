@@ -43,6 +43,25 @@ idf.py -p /dev/ttyUSB0 monitor
   nodig: nul extra bytes.
 - Blitten uit flash is goedkoop (161 MB/s, ~3% van de transfertijd) en de
   flash-cache maakt het net zo snel als uit RAM. Assets voorkopiëren heeft geen zin.
-- Gebruik altijd bulk-operaties: `pushImage` haalt 12,4 ns/pixel, `drawPixel`
-  581 ns/pixel — factor 47.
+- **Twee heel verschillende snelheden — haal ze niet door elkaar:**
+  - *Naar het scherm* (SPI): **~400 ns/pixel**, en dat is een hard plafond.
+    2 bytes bij 40 MHz. Gemeten: fullscreen clear 76.800 px in 31,4 ms =
+    409 ns/pixel; 64x64 pushen kost 1645 µs = 402 ns/pixel.
+  - *In geheugen* (sprite): `spr.pushImage()` 12,4 ns/pixel, `spr.drawPixel()`
+    581 ns/pixel — factor 47. Gebruik daar altijd bulk-operaties.
+
+  De sprite-getallen zijn **geen** display-doorvoer: 12,4 ns/pixel is 161 MB/s
+  en over een 40 MHz-bus fysiek onmogelijk. Reken tekenwerk naar het scherm dus
+  altijd met ~400 ns/pixel.
+- Praktisch gevolg: bijna al het tekenwerk is **busgelimiteerd**, niet
+  CPU-gelimiteerd. Gemeten met het Panel-voorbeeld zit zelfs
+  `fillSmoothRoundRect` maar 4% boven het busplafond, en levert een release-build
+  (-O2) op die posten 0% op. Zoek winst dus in *minder pixels versturen*, niet in
+  snellere code. De grootste hefboom is meestal: niet elk frame de hele
+  achtergrond wissen als je hem toch overtekent.
+- Uitzondering: een **transparante** `pushImage` betaalt ~12 µs per *run* van
+  aaneengesloten niet-transparante pixels (één `setWindow` per run). Goedkoop bij
+  lange runs, duur bij veel losse eilandjes — het aantal runs telt, niet het
+  aantal pixels. Gemeten: een 64x64 ring met 1.592 zichtbare pixels in 200 runs
+  kostte 3,06 ms waar de bus 0,65 ms nodig had (factor 4,7).
 - De app gebruikt nog gewoon `pushSprite()`; niets is omgebouwd naar DMA.

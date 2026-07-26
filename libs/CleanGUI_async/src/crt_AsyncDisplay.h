@@ -197,6 +197,13 @@ namespace crt
 			queueCommands.write(displayCommand);
 		}
 
+		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+		{
+			DisplayCommand displayCommand;
+			displayCommand.drawImage(topLeftPix, sizePix, image, alignment);
+			queueCommands.write(displayCommand);
+		}
+
 		/*override*/ void setPrintColor(void* pTask, uint32_t color)
 		{
 			Task* pTask2 = (Task*)pTask;

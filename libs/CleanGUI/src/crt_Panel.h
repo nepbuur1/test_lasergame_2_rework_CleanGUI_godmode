@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <crt_FreeRTOS.h>
 #include "crt_typesAndConstants.h"
+#include "crt_Image.h"
 #include "crt_IDisplay.h"
 #include "crt_Widget.h"
 
@@ -18,6 +19,11 @@ namespace crt
 		int32_t _cornerRadiusPix;
 
 		int32_t _cornerRadiusWhenCornerRadiusPixWasCalculated;
+
+		// nullptr: the panel draws itself as a plain (rounded) rectangle.
+		// Otherwise it blits this image instead. The Image is NOT copied - the
+		// caller guarantees its lifetime (trivially so for const data in flash).
+		const Image* _pImage;
 	public:
 		using WBase = Widget<MaxNofChildren>;
 
@@ -25,9 +31,24 @@ namespace crt
 			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize,
 			  Alignment alignment, uint32_t colFg, uint32_t colBg, bool bDrawable = true) :
 			  WBase(strName, locPos, coordTypeLocPos, size, coordTypeSize, alignment, bDrawable),
-			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius), 
+			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius),
 			  _cornerRadiusPix(-1),
-			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1)
+			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
+			  _pImage(nullptr)
+		{
+		}
+
+		// Same, but the panel shows an image. The image is aligned within the
+		// panel using the alignment parameter, and clipped to the panel.
+		Panel(const char* strName, const Vec2& locPos, CoordType coordTypeLocPos,
+			  const Vec2& size, int32_t cornerRadius, CoordType coordTypeSize,
+			  Alignment alignment, uint32_t colFg, uint32_t colBg,
+			  const Image& image, bool bDrawable = true) :
+			  WBase(strName, locPos, coordTypeLocPos, size, coordTypeSize, alignment, bDrawable),
+			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius),
+			  _cornerRadiusPix(-1),
+			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
+			  _pImage(&image)
 		{
 		}
 
@@ -44,6 +65,17 @@ namespace crt
 			_colFg = colFg;
 			_colBg = colBg;
 			_cornerRadius = cornerRadius;
+		}
+
+		// Pass nullptr to turn the panel back into a plain coloured rectangle.
+		void setImage(const Image* pImage)
+		{
+			_pImage = pImage;
+		}
+
+		const Image* getImage()
+		{
+			return _pImage;
 		}
 
 		/* override */ WidgetType getWidgetType()
@@ -88,6 +120,30 @@ namespace crt
 			}
 		}
 
+		// An image is drawn on top of the panel background. Painting that
+		// background first is wasted bus traffic when the image covers it
+		// anyway - and it is plain wrong for a transparent image, because there
+		// it is exactly the pixels underneath (drawn by the parent) that should
+		// stay visible.
+		// Note: an opaque image that covers the whole panel therefore also
+		// suppresses the rounded corners - a rectangular blit cannot honour
+		// them. Give such a panel a transparent image if you want rounded
+		// corners, or make the panel bigger than the image.
+		bool needsBackground(const Vec2& sizePix)
+		{
+			if (_pImage == nullptr)
+			{
+				return true;
+			}
+			if (_pImage->bHasTransparency)
+			{
+				return false;
+			}
+			// Opaque image: only paint the background if the image leaves part
+			// of the panel uncovered.
+			return (_pImage->width < sizePix.x) || (_pImage->height < sizePix.y);
+		}
+
 		void showPanel()
 		{
 			if (!WBase::isDrawable())
@@ -102,13 +158,21 @@ namespace crt
 			//ESP_LOGI("Panel", "showPanel called: pos(%ld,%ld) size(%ld,%ld) colFg=0x%08lX cornerRadius=%ld",
 			//	(long)pos.x, (long)pos.y, (long)size.x, (long)size.y, (unsigned long)_colFg, (long)_cornerRadiusPix);
 
-			if (_cornerRadiusPix > 0)
+			if (needsBackground(size))
 			{
-				WBase::getDisplay()->fillSmoothRoundRect(pos, size, _cornerRadiusPix, _colFg, _colBg);
+				if (_cornerRadiusPix > 0)
+				{
+					WBase::getDisplay()->fillSmoothRoundRect(pos, size, _cornerRadiusPix, _colFg, _colBg);
+				}
+				else
+				{
+					WBase::getDisplay()->fillRect(pos, size, _colFg);
+				}
 			}
-			else
+
+			if (_pImage != nullptr)
 			{
-				WBase::getDisplay()->fillRect(pos, size, _colFg);
+				WBase::getDisplay()->drawImage(pos, size, *_pImage, WBase::getAlignment());
 			}
 			//ESP_LOGI("Panel shown", "globparent Y = %d", _widgetProps.getGlobPosOfParent().y);
 			//ESP_LOGI("Panel shown", "locpospix Y = %d", _widgetProps.getLocPosPix().y);

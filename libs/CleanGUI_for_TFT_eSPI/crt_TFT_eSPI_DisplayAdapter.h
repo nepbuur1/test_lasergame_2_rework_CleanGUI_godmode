@@ -193,6 +193,65 @@ namespace crt
             _tft.setTextSize(1);
         }
 
+        // Blits an image straight from wherever its pixels live - typically a
+        // const array in flash. No sprite, no line buffer, no extra DRAM: the
+        // data goes from .rodata into the SPI FIFO.
+        /*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+        {
+            if ((image.pData == nullptr) || (image.width <= 0) || (image.height <= 0))
+            {
+                return;
+            }
+            if ((sizePix.x <= 0) || (sizePix.y <= 0))
+            {
+                return;
+            }
+            if (image.format != PixelFormat::RGB565)
+            {
+                ESP_LOGI("TFT_eSPI_DisplayAdapter", "Unsupported PixelFormat: %d", (int)image.format);
+                return;
+            }
+
+            Vec2 imagePos = calcAlignedTopLeftPix(topLeftPix, sizePix, Vec2(image.width, image.height), alignment);
+
+            // Clipping to the panel rectangle is done by TFT_eSPI's viewport:
+            // the PI_CLIP macro inside every pushImage crops against it.
+            // vpDatum == false keeps the coordinate origin at the top left of
+            // the screen, so imagePos stays in absolute screen coordinates.
+            _tft.setViewport(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, false /*vpDatum*/);
+
+            // The image data is in host (little endian) byte order, the panel
+            // wants big endian. The swap is free: pushSwapBytePixels swaps the
+            // next chunk while the previous SPI transfer is still running.
+            bool bSwapBytesBefore = _tft.getSwapBytes();
+            _tft.setSwapBytes(true);
+
+            // const_cast is deliberate and safe here. TFT_eSPI has a separate
+            // "const" overload only because on AVR, PROGMEM is a distinct
+            // address space needing pgm_read_word. On the ESP32 flash is
+            // memory mapped, so the non-const overload reads .rodata just fine -
+            // and it is the faster path: it pushes the whole unclipped image in
+            // one pushPixels call instead of copying it line by line into a
+            // stack buffer first. pushImage only ever reads the data.
+            uint16_t* pPixels = const_cast<uint16_t*>(static_cast<const uint16_t*>(image.pData));
+
+            if (image.bHasTransparency)
+            {
+                // This overload collects runs of non-transparent pixels per
+                // scan line and writes each run as one block: exactly the
+                // per-pixel/per-block split we want, without a framebuffer.
+                _tft.pushImage(imagePos.x, imagePos.y, image.width, image.height,
+                               pPixels, colTo16bit(image.colTransparent));
+            }
+            else
+            {
+                _tft.pushImage(imagePos.x, imagePos.y, image.width, image.height, pPixels);
+            }
+
+            _tft.setSwapBytes(bSwapBytesBefore);
+            _tft.resetViewport();
+        }
+
         /*override*/ void setPrintColor(void* pTask, uint32_t color)
         {
             _tft.setTextColor(colTo16bit(color));

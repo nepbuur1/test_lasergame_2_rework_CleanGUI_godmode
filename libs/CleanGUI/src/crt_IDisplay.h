@@ -3,6 +3,7 @@
 #pragma once
 #include <crt_ITouchListener.h>
 #include <crt_CleanRTOS.h>
+#include "crt_Image.h"
 
 namespace crt
 {
@@ -31,6 +32,14 @@ namespace crt
 		virtual void fillRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color) = 0;
 		virtual void fillSmoothRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t colFg, uint32_t colBg) = 0;
 		virtual void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t fontScale, uint32_t color) = 0;
+
+		// Draws an image inside the rectangle (topLeftPix, sizePix).
+		// The image is placed within that rectangle according to alignment (see
+		// calcAlignedTopLeftPix) and clipped to it: an image larger than the
+		// rectangle is cropped, a smaller one leaves the surrounding pixels
+		// untouched.
+		// The image data is not copied - see the lifetime note in crt_Image.h.
+		virtual void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment) = 0;
 	};
 
 	// The interface below is part of the IDisplay interface.

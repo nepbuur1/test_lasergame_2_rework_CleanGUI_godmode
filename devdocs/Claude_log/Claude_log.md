@@ -1,5 +1,178 @@
 # Claude log
 
+## 2026-07-26 — Images in CleanGUI: bufferloos 16bpp blitten uit flash
+
+### Doel
+Een `Panel` kan bij constructie een image meekrijgen en tekent dan die image in
+plaats van een gekleurde rechthoek. Rechtstreeks 16bpp blitten uit `const`
+geheugen, zónder tussenbuffer; bij transparantie de runs van niet-transparante
+pixels per blok versturen. CleanGUI blijft display-adapter-onafhankelijk.
+
+### Uitkomst van het vooronderzoek: géén TFT-sprite nodig
+TFT_eSPI heeft alles al in huis:
+- `pushImage(x,y,w,h,uint16_t*)` (TFT_eSPI.cpp:1361) schrijft een ongekapt beeld
+  in één `pushPixels(data, w*h)` — nul kopieën, van .rodata rechtstreeks de
+  SPI-FIFO in.
+- De transparante overload (TFT_eSPI.cpp:1391) verzamelt per beeldregel runs van
+  niet-transparante pixels en schrijft elke run weg met één `setWindow()` +
+  `pushPixels()`. Precies de gewenste per-pixel/per-blok-splitsing.
+Een sprite ertussen zou alleen een kopie en `2*w*h` bytes DRAM toevoegen.
+
+Twee bevindingen die het ontwerp bepaalden:
+- **De `const`-overload is nét niet de snelste.** Regel 1450 kopieert eerst regel
+  voor regel naar een stack-lijnbuffer en pusht dán. Die splitsing bestaat voor
+  AVR, waar PROGMEM een aparte adresruimte is. Op de ESP32 is flash
+  memory-mapped en `pushImage` leest alleen — een `const_cast` in de adapter is
+  hier dus veilig en levert de echte bufferloze weg op.
+- **Byte-volgorde kost niets.** `pushSwapBytePixels`
+  (Processors/TFT_eSPI_ESP32.c:288) draait de bytes om terwijl de vorige
+  512-bits transfer nog loopt: 16 shuffles tegen 12,8 µs bustijd, volledig
+  verstopt. Data dus in host-volgorde houden en `setSwapBytes(true)` zetten
+  (netjes terugzetten na afloop, want het is globale state op `_tft`).
+
+### Wat is toegevoegd
+- **`libs/CleanGUI/src/crt_Image.h`** (nieuw): `enum class PixelFormat`,
+  `class Image` (opaque handle: `pData`, `width`, `height`, `format`,
+  `bHasTransparency`, `colTransparent` in ARGB), plus de vrije functie
+  `calcAlignedTopLeftPix()`.
+  CleanGUI raakt de pixels nooit aan; de format-tag laat een andere adapter
+  weigeren of converteren. Bewust géén abstracte `IImage` met `getPixel()` —
+  dat zou elke pixel virtueel maken. `Image` heeft `constexpr` constructors, dus
+  een image kan volledig in flash staan.
+- **`IDisplayDraw`** kreeg er één functie bij:
+  `drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)`.
+  Semantiek: plaats de image binnen de rechthoek volgens `alignment` en **clip**
+  hem daarop. De uitlijnrekensom zit in `calcAlignedTopLeftPix()` in CleanGUI —
+  gedeeld, niet per adapter gekopieerd. Er is bewust géén aparte clip-rechthoek
+  in de signatuur: de doelrechthoek *is* de cliprechthoek, waardoor het commando
+  in de bestaande `vecA`/`vecB`/`intA`-velden van `DisplayCommand` past.
+- **`Panel`**: extra ctor-overload met `const Image&`, plus `setImage()`/
+  `getImage()`. De image wordt uitgelijnd met de al bestaande `Alignment` van de
+  widget (die voor Panel tot nu toe ongebruikt was).
+- **Drie implementors bijgewerkt** (dat is de complete lijst):
+  `TFT_eSPI_DisplayAdapter`, `AsyncDisplay`, `DisplayCommand`
+  (`drawImage=15` plus één `const Image*`-veld; lifetime-afspraak identiek aan
+  die van `str`, en voor const statics in flash automatisch waar).
+
+### Clipping: via de viewport van TFT_eSPI
+`setViewport(x, y, w, h, false /*vpDatum*/)` zet de cliprechthoek zonder de
+oorsprong te verschuiven, waarna de `PI_CLIP`-macro binnenin élke `pushImage`
+het kappen doet. Daarna `resetViewport()`. Geen eigen clip-rekenwerk, en het is
+exact hetzelfde pad dat de sprite-code van de library gebruikt.
+
+### Achtergrond niet vooraf vullen
+`Panel::needsBackground()` slaat de `fillRect`/`fillSmoothRoundRect` over als er
+een image is die de panel volledig bedekt (verspilde bustijd) én altijd als de
+image transparantie heeft — daar zijn juist de pixels van de ouder eronder wat
+zichtbaar moet blijven. Gevolg: een dekkende image die de panel vult onderdrukt
+ook de afgeronde hoeken; een rechthoekige blit kan die nu eenmaal niet honoreren.
+
+### Meegenomen foutje
+De copy-ctor en `operator=` van `DisplayCommand` kopieerden `intB` niet — het
+veld waar `drawString` de alignment in stopt. Het viel niet op omdat
+`Queue::write` via FreeRTOS een rauwe memcpy doet. Bij het toevoegen van
+`pImage` alsnog rechtgezet.
+
+### Voorbeeld
+`libs/CleanGUI_for_TFT_eSPI/examples/Panel` uitgebreid met drie image-panels:
+- `crt_TestPanelImages.h` (gegenereerd): `imageGradient` (64x48, dekkend, met
+  witte rand en zwarte diagonaal) en `imageRing` (64x64, schietschijf met
+  magenta 0x00FF00FF als transparante kleur). Samen 14.336 bytes in .rodata.
+- panel groter dan de image, `MidMid` → gecentreerd met blauwe rand eromheen;
+- panel kleiner dan de image, `BottomRight` → zichtbaar gekapt;
+- transparante ring als kind van een groen achtergrondpaneel → het groen blijft
+  door de transparante delen heen zichtbaar.
+
+### Verificatie
+`idf.py build` compileert schoon met `#include <Panel.ino>` in main.cpp.
+`nm` bevestigt dat beide pixelarrays én beide `Image`-objecten op 0x3F40xxxx
+liggen (flash-gemapte .rodata): nul bytes DRAM.
+Nog **niet** op de CYD getest — `/dev/ttyUSB0` bestond niet meer na de
+WSL-herstart (usbipd opnieuw attachen).
+
+### Meting: alles is busgelimiteerd, behalve de transparante blit
+Het voorbeeld tekent nu zo snel als de bus toelaat en rapporteert elke 2 s een
+exponentieel voortschrijdend gemiddelde (`ema += (measured - ema) / 16`, geen
+history-buffer). Elk paneel wordt apart geklokt. Resultaat, rotsvast:
+
+```
+17.85 fps | clear 31.44 ms
+  show (us): red 2685 | centered 3833 | clipped 1021 | backdrop 12745 | ring 3145
+```
+
+Referentiesnelheid uit de fullscreen clear zelf: 76.800 px / 31.440 us =
+**409 ns/pixel**. Daarmee klopt de boekhouding tot op 0,5%:
+
+| onderdeel | gepushte pixels | bus-verwacht | gemeten | premie |
+|---|---|---|---|---|
+| clear 320x240 | 76.800 | (referentie) | 31,44 ms | 1,00 |
+| rood paneel 80x80 | 6.400 | 2,62 ms | 2,68 ms | 1,02 |
+| centered: fill 84x68 + image 64x48 | 8.784 | 3,59 ms | 3,82 ms | 1,06 |
+| clipped: 40x40 uit de image | 1.600 | 0,65 ms | 1,02 ms | 1,56 |
+| backdrop fillSmoothRoundRect 230x130 | 29.900 | 12,23 ms | 12,72 ms | 1,04 |
+| ring, transparant | 1.592 | 0,65 ms | 3,06 ms | **4,70** |
+
+Totaal 54,74 ms + 1 ms `vTaskDelay` = 55,74 ms -> 17,94 fps (gemeten 17,85).
+
+**`fillSmoothRoundRect` is niet traag.** Hij zit 4% boven het busplafond, dus hij
+vult het interieur gewoon met blokken en anti-aliast alleen de hoekbogen. De
+eerdere verdenking (per-pixel anti-aliasing, 581 ns/pixel) klopt niet.
+
+**De enige echte premie zit op transparantie: 4,7x.** Niet per pixel maar per
+run: de ring heeft 1.592 niet-transparante pixels verdeeld over **200 runs**, en
+elke run kost een `setWindow`. 2,4 ms extra / 200 = ~12 us per setWindow. Een
+transparante image is dus goedkoop zolang de runs lang zijn, en duur bij veel
+losse eilandjes. Dat is het echte ontwerpcriterium, niet het pixelaantal.
+
+### Correctie op een vuistregel in CLAUDE.md
+De regel "`pushImage` haalt 12,4 ns/pixel, `drawPixel` 581 ns/pixel" komt uit de
+tabel in de entry van 2026-07-20, waar die getallen `spr.pushImage()` en
+`spr.drawPixel()` heten: **sprite-operaties in geheugen**, geen SPI-uitvoer.
+CLAUDE.md heeft de `spr.`-prefix laten vallen, waardoor het leest als
+display-doorvoer. 12,4 ns/pixel = 161 MB/s en is over een 40 MHz-bus fysiek
+onmogelijk. Het busplafond is ~400 ns/pixel (2 bytes bij 40 MHz plus overhead);
+diezelfde entry zegt dat zelf ook al: 64x64 pushen naar het scherm kost 1645 us,
+oftewel 402 ns/pixel.
+
+### Helpt een release-build? Nauwelijks -- en dat bevestigt de diagnose
+Gemeten met `CONFIG_COMPILER_OPTIMIZATION_PERF` (-O2) + assertions uit,
+tegenover de debug-build (`CONFIG_COMPILER_OPTIMIZATION_DEBUG`):
+
+| | debug | release | verschil |
+|---|---|---|---|
+| clear 320x240 | 31,44 ms | 31,30 ms | -0,4% |
+| rood paneel | 2680 us | 2674 us | -0,2% |
+| backdrop roundrect | 12724 us | 12717 us | -0,1% |
+| centered + image | 3816 us | 3753 us | -1,6% |
+| clipped image | 1021 us | 922 us | **-9,7%** |
+| transparante ring | 3059 us | 2645 us | **-13,5%** |
+| totaal | 17,85 fps | 18,17 fps | +1,8% |
+
+De drie busgelimiteerde posten bewegen niet -- daar wacht de CPU op de SPI.
+Precies de twee posten met per-run CPU-werk winnen 10-14%. Onafhankelijke
+bevestiging dat de 4,7x premie op de transparante blit de setWindow-aanroepen
+zijn en niet iets aan de bus.
+
+Let op: `CRT_HIGH_WATERMARK_INCREASE_LOGGING` (de stack-dumps, ~0,25 ms per
+lus-iteratie) speelt in dit voorbeeld geen rol -- `TestPanel::main` roept
+`dumpStackHighWaterMarkIfIncreased()` niet aan. Waar dat wel gebeurt is het een
+heel ander verhaal, met name `crt_AsyncDisplay.h:51`: daar gaat hij af per
+verwerkt teken-commando.
+
+sdkconfig staat weer op debug; 1,8% weegt niet op tegen asserts tijdens de
+ontwikkeling.
+
+### De echte hefboom voor de framerate
+De fullscreen clear is 31,4 van de 55,7 ms (56%) en wordt daarna grotendeels
+weer overtekend door de panelen. Niet elk frame wissen -- of alleen wissen wat
+geen paneel bedekt -- verdubbelt de framerate zowat. Aan de panelen zelf valt
+weinig te halen: die zitten al op de bus vast.
+
+### Losse observatie
+`sdkconfig` (staat in .gitignore) was teruggevallen op defaults, met
+`CONFIG_FREERTOS_HZ=100`; arduino-esp32 eist 1000. Handmatig teruggezet, anders
+komt de build niet eens door cmake heen.
+
 ## 2026-07-21 — _bDrawable/isDrawable() toegevoegd aan CleanGUI-widgets
 
 ### Aanleiding
