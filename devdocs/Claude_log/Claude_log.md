@@ -1,5 +1,93 @@
 # Claude log
 
+## 2026-07-27 — Touch-polling vrat de helft van de tekentijd
+
+### Aanleiding
+Vraag: hoeveel tijd zou het schelen als elke toets een image in flash was, zodat
+hij alleen nog geblit hoeft te worden in plaats van getekend? Om dat te kunnen
+beantwoorden eerst gemeten waar de tijd van een keyboard-hertekening in gaat -
+en daarbij bleek iets heel anders de hoofdrolspeler.
+
+### Antwoord op de blit-vraag
+Een volledige hertekening, uitgesplitst per commando (release-build):
+
+| onderdeel | aantal | tijd | gemiddeld |
+|---|---|---|---|
+| rug (`fillBeveledRect`) | 1 | 16,5 ms | |
+| toetsen (`fillBeveledRect`) | 31 | 17,8 ms | 574 us |
+| labels (`drawString`) | 31 | 12,3 ms | 397 us |
+| **totaal tekenwerk** | 64 | **47,1 ms** | |
+
+Met een image per toets: 25.392 pixels blitten = 10,4 ms, en de labels zitten in
+de image. Totaal 27,1 ms, dus **42% minder tekenwerk voor 51 KB flash**.
+
+De rug levert vrijwel niets op (16,5 -> 15,7 ms): een egale vulling zit al op het
+busplafond. Blitten helpt alleen waar je nu meer werk doet dan de pixels vragen,
+en bij een toets is dat zo: 574 us voor 648 pixels is 886 ns/pixel tegen een
+vloer van 409, doordat `fillBeveledRect` zeven losse `fillRect`s met elk een
+eigen `setWindow` doet (~34 us overhead per stuk).
+
+Het hele toetsenbord als **een** image zou 15,7 ms zijn - **67% minder** voor
+76,8 KB - maar dan zitten de labels vast in het beeld en heeft elke
+toetsenbordstand een eigen image nodig.
+
+### De echte vondst: pollTouch
+De wandkloktijd van diezelfde hertekening was 65-100 ms terwijl het tekenwerk
+constant 43 ms was. Twee verkeerde verklaringen onderweg (queue-overhead; mijn
+eigen meetlus die CPU zou stelen) - beide weerlegd door meting. Toen alles apart
+geklokt:
+
+```
+leegdraaien 90089 us = tekenen 43603 + pollTouch 53495 (2x) + rest -7009
+```
+
+**`pollTouch` kostte ~25 ms per aanroep, elke 50 ms.** Losstaand gemeten kostte
+een `getTouch()` 14 ms terwijl er niets werd aangeraakt.
+
+### Waar die 14 ms in zat
+Met tellers in `validTouch` gemeten: **18 debounce-rondes over 7 aanroepen**, dus
+~2,6 rondes per `validTouch` - geen uitschieter. De factor die het deed was dat
+`getTouch` `validTouch` **vijf keer** aanroept, onvoorwaardelijk:
+
+| | |
+|---|---|
+| 5 x validTouch, elk ~2,6 debounce-rondes | ~13 rondes |
+| elke ronde `delay(1)` | ~10 ms slapen |
+| elke ronde `getTouchRawZ()` van 275 us | ~3,6 ms |
+
+Die 275 us is inherent: de touch-SPI is bit-banged met twee
+`delayMicroseconds(1)` per bit. En `delay(1)` slaapt, dus de tekentaak lag stil -
+het was geen CPU-verbruik maar blokkade.
+
+De vijf pogingen zijn overigens goed bedoeld: `validTouch` is streng (twee
+positiemetingen die binnen `_RAWERR` moeten overeenkomen), en op een resistief
+paneel wiebelt een echte vingerdruk. Vijf kansen waarvan er een hoeft te slagen
+maakt het geheel ruisbestendig zonder echte drukken te missen. Alleen stopt de
+lus nergens vroeg, dus het meest voorkomende geval - niemand raakt aan - betaalt
+de volle prijs voor een vraag die na de eerste 275 us al beantwoord was.
+
+### De reparatie
+Twee regels in `TFT_eSPI::getTouch()`: een enkele Z-meting vooraf voor het
+"geen druk"-geval, en `break` zodra een poging slaagt. Vastgelegd in
+**`libs/CleanGUI_for_TFT_eSPI/TOUCH_PERFORMANCE.md`**, want het is een lokale
+wijziging in TFT_eSPI die bij een upgrade verdwijnt.
+
+| | voor | na |
+|---|---|---|
+| `getTouch()`, niets aangeraakt | 14.300 us | **245 us** |
+| keyboard-hertekening, wandklok | 65-100 ms | **45,9 ms, stabiel** |
+
+245 us is precies een `getTouchRawZ()`. De hertekening is nu net zo voorspelbaar
+als het tekenwerk zelf; alle spreiding kwam van touch-polls die er wel of niet
+tussen vielen.
+
+**49% winst zonder een byte flash**, tegenover 42% van het tekenwerk voor 51 KB
+aan images. De goedkope knop zat dus ergens anders dan de vraag suggereerde.
+
+### Ook geprobeerd: meerdere commando's per waitAny
+`AsyncDisplay` handelde er een per ronde af. Op 10 gezet: 95 -> 85 ms, ruim 10%.
+Behouden, maar het was niet de kostenpost waarvoor ik het aanzag.
+
 ## 2026-07-26 — getScreenSize klopte niet, en de layout leunde op een race
 
 ### Wat er mis was

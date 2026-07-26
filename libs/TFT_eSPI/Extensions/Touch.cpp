@@ -257,11 +257,22 @@ uint8_t TFT_eSPI::getTouch(uint16_t *x, uint16_t *y, uint16_t threshold){
   if (threshold<20) threshold = 20;
   if (_pressTime > millis()) threshold=20;
 
+  // ---- CleanGUI-aanpassing, zie CleanGUI_for_TFT_eSPI/TOUCH_PERFORMANCE.md ----
+  // (1) Verreweg het vaakst wordt er niets aangeraakt. Een enkele Z-meting kost
+  //     275 us en beantwoordt die vraag al. Zonder deze uitstap volgden er vijf
+  //     volledige validTouch-pogingen, elk met een debounce-lus vol delay(1):
+  //     samen ~14 ms, twintig keer per seconde.
+  if (getTouchRawZ() <= threshold) { _pressTime = 0; return false; }
+  // ---------------------------------------------------------------------------
+
   uint8_t n = 5;
   uint8_t valid = 0;
   while (n--)
   {
-    if (validTouch(&x_tmp, &y_tmp, threshold)) valid++;;
+    // (2) De acceptatietoets hieronder is valid<1, dus na een geslaagde poging
+    //     staat de uitkomst vast. Zonder deze break liepen de resterende
+    //     pogingen alsnog af.
+    if (validTouch(&x_tmp, &y_tmp, threshold)) { valid++; break; }
   }
 
   if (valid<1) { _pressTime = 0; return false; }
