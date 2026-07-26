@@ -67,6 +67,16 @@ namespace crt
 			_cornerRadius = cornerRadius;
 		}
 
+		uint32_t getColFg()
+		{
+			return _colFg;
+		}
+
+		uint32_t getColBg()
+		{
+			return _colBg;
+		}
+
 		// Pass nullptr to turn the panel back into a plain coloured rectangle.
 		void setImage(const Image* pImage)
 		{

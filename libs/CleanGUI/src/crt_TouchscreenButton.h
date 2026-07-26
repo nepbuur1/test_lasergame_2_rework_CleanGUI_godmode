@@ -22,6 +22,7 @@ namespace crt
 		Text<0> text;
 
 		bool bTextAddedToThisPanel;
+		bool bOpaqueText;			// see setOpaqueText()
 		bool bPressed;
 		bool bInvertedArea;	        // if true, the button registers a touch when the touch is outside the button.
 
@@ -39,7 +40,7 @@ namespace crt
 			  bool bDrawable = true) :
 			  PBase(buttonName, locPos, coordTypeLocPos, size, cornerRadius, coordTypeSize, alignment, colPanel, colBg, bDrawable),
 			  text(Vec2(0,0), CoordType::Promillage, fontAlignment, str, font, colFont, fontScale, bDrawable),
-			  bTextAddedToThisPanel(false), bPressed(false), bInvertedArea(bInvertedArea), nofButtonListeners(0), lowerCaseOffsetY(lowerCaseOffsetY), upperCaseOffsetY(upperCaseOffsetY)
+			  bTextAddedToThisPanel(false), bOpaqueText(false), bPressed(false), bInvertedArea(bInvertedArea), nofButtonListeners(0), lowerCaseOffsetY(lowerCaseOffsetY), upperCaseOffsetY(upperCaseOffsetY)
 		{
 			applyOffsetForLowerCaseText();
 		}
@@ -70,6 +71,10 @@ namespace crt
 				// This is a heuristic, and may not work for all fonts.
 				int32_t offsetY = (isAllLowercaseLetters(str, 1000)) ? lowerCaseOffsetY : upperCaseOffsetY;
 					
+				// Note: this also resets the x to 0, undoing the indent that
+				// setSizeOfParent gives a MidLeft label. That indent is fontHeight -
+				// a vertical metric used as a horizontal margin - which is wider
+				// than a character, so flush left looks better. Left as it was.
 				text.setLocPos(Vec2(0,offsetY),text.getCoordTypeLocPos(),text.getAlignment()); // move the text up a bit, to center it on the button.
 			}
 		}
@@ -78,6 +83,28 @@ namespace crt
 		{
 			text.setText(str);
 			applyOffsetForLowerCaseText();
+		}
+
+		// Makes the label draw itself opaquely against this button's own panel
+		// colour, reserving the button width so that a longer previous label is
+		// blanked in the same pass. That is what makes updateText() flicker-free.
+		// The panel size is not known at construction time, so the request is
+		// remembered and applied as soon as setSizeOfParent has run.
+		void setOpaqueText(bool bOpaque)
+		{
+			bOpaqueText = bOpaque;
+			applyOpaqueTextIfPossible();
+		}
+
+		// Replaces the label WITHOUT repainting the panel underneath.
+		// That is the whole point: a normal show(true) first fills the panel -
+		// wiping the old text - and only then draws the new one, which is exactly
+		// the gap you see as flicker. Requires setOpaqueText(true), otherwise the
+		// previous label is still on screen and the two overlap.
+		void updateText(const char* str)
+		{
+			setText(str);
+			text.redraw();
 		}
 
 		/* override */ WidgetType getWidgetType()
@@ -156,6 +183,10 @@ namespace crt
 					break;
 				}
 			}
+
+			// The panel size (and the text's position within it) are known now, so
+			// a pending setOpaqueText request can finally be honoured.
+			applyOpaqueTextIfPossible();
 		}
 
 		/*override keyword not supported in current compiler*/
@@ -242,6 +273,39 @@ namespace crt
 		}
 
 	private:
+		// The reserved width runs from the text's own origin to the right edge of
+		// the panel, so that the blanking never paints outside the button.
+		void applyOpaqueTextIfPossible()
+		{
+			if (!bOpaqueText)
+			{
+				text.setTransparent();
+				return;
+			}
+
+			Vec2 panelSizePix = PBase::getSizePix();
+			if (panelSizePix.x <= 0)
+			{
+				return;		// size not known yet - setSizeOfParent will call us again.
+			}
+
+			// Text derives the reserved area from its parent's rect at draw time,
+			// so it stays correct when the label's position shifts afterwards
+			// (applyOffsetForLowerCaseText does exactly that).
+			text.setOpaque(PBase::getColFg());
+
+			// Opaque text paints a background behind its glyph cell, and that cell
+			// is kept inside the button. If the font is taller than the button,
+			// descenders get clipped. Transparent text hid this - it simply drew
+			// outside the button - so say it out loud rather than clip silently.
+			int32_t fontHeightPix = PBase::getDisplay()->getFontHeight(text.getFont()) * text.getFontScale();
+			if (fontHeightPix > panelSizePix.y)
+			{
+				ESP_LOGI("TouchscreenButton", "%s: font is %d pix high but the button only %d - descenders will be clipped. Use a smaller font or a taller button.",
+					this->getName(), (int)fontHeightPix, (int)panelSizePix.y);
+			}
+		}
+
 		bool isAllLowercaseLetters(const char* str, int maxAmountCheck) {
 			const char* pChar = str;
 			size_t i = 0;

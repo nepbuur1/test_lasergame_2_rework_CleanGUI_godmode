@@ -33,6 +33,23 @@ namespace crt
 		virtual void fillSmoothRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t colFg, uint32_t colBg) = 0;
 		virtual void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t fontScale, uint32_t color) = 0;
 
+		// Same as drawString, but the glyph cells are painted with colBg instead of
+		// being left transparent, and whatever the text does not cover within
+		// paddingSizePix is blanked with colBg as well.
+		//
+		// This is the flicker-free way to replace a label: the new text is written
+		// and the remains of the previous, longer text are blanked in that same
+		// single pass. There is no moment in between where the area is empty, so
+		// no background needs to be painted first - which is exactly what makes an
+		// update visibly flicker.
+		//
+		// paddingSizePix is the area reserved for the text, positioned around
+		// bottomLeftPix by the same alignment rule (see calcAlignedTopLeftPix).
+		// Nothing is drawn outside it, so pass the bounds of the widget the text
+		// lives in. A zero size means "no padding": only the glyph cells are
+		// painted, and a previous longer text is NOT cleaned up.
+		virtual void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t fontScale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix) = 0;
+
 		// Draws an image inside the rectangle (topLeftPix, sizePix).
 		// The image is placed within that rectangle according to alignment (see
 		// calcAlignedTopLeftPix) and clipped to it: an image larger than the

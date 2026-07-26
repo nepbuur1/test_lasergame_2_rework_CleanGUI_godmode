@@ -149,48 +149,97 @@ namespace crt
 
         /*override*/ void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t color)
         {
-            uint8_t textDatum = 0;
-
-            switch (alignment)
-            {
-            case Alignment::TopLeft:
-                textDatum = TL_DATUM;
-                break;
-            case Alignment::BottomLeft:
-                textDatum = BL_DATUM;
-                break;
-            case Alignment::MidLeft:
-                textDatum = CL_DATUM;
-                break;
-            case Alignment::TopRight:
-                textDatum = TR_DATUM;
-                break;
-            case Alignment::BottomRight:
-                textDatum = BR_DATUM;
-                break;
-            case Alignment::MidRight:
-                textDatum = CR_DATUM;
-                break;
-            case Alignment::MidMid:
-                textDatum = MC_DATUM;
-                break;
-            case Alignment::TopMid:
-                textDatum = TC_DATUM;
-                break;
-            case Alignment::BottomMid:
-                textDatum = BC_DATUM;
-                break;
-
-            default:
-                ESP_LOGI("TFT_eSPI_DisplayAdapter", "Unimplemented alignment: %d", (int)alignment);
-                break;
-            }
-            _tft.setTextDatum(textDatum);
-            _tft.setTextColor(colTo16bit(color));
+            _tft.setTextDatum(textDatumFromAlignment(alignment));
+            _tft.setTextColor(colTo16bit(color));    // one argument: transparent background
             _tft.setTextSize(scale);
             uint8_t usedFont = selectFontOrFreeFont(font);
             _tft.drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
             _tft.setTextSize(1);
+        }
+
+        // Flicker-free label replacement. Two steps, in this order:
+        //   1. draw the text with an opaque background, so TFT_eSPI paints each
+        //      glyph cell with colBg while it writes the glyph (it does that for
+        //      free fonts too, see TFT_eSPI.cpp:5020/5039);
+        //   2. blank only what the new text does not cover but the previous,
+        //      longer one might have: the strips between the text and the
+        //      reserved area.
+        // Because the text is written before anything is blanked, there is no
+        // moment where the area is empty - and no background has to be painted
+        // beforehand, which is exactly what makes a normal redraw flicker.
+        //
+        // Note: TFT_eSPI's own setTextPadding() is deliberately NOT used, even
+        // though it would work here. For free fonts it sets padding=101
+        // (TFT_eSPI.cpp:4938) and the blanking switch only handles 1/2/3; the
+        // correction back to 1/2/3 happens at TFT_eSPI.cpp:5041, but only inside
+        // the branch that also requires the first glyph to be within the font's
+        // range. An empty string therefore does not blank anything - and that is
+        // exactly the case hideText() relies on. Doing the blanking here covers
+        // both, and keeps the behaviour identical for every font type.
+        //
+        // What is NOT avoided: for free fonts TFT_eSPI fills the whole text cell
+        // before drawing the glyphs into it (TFT_eSPI.cpp:5039). So a small erase
+        // remains, but it now spans the text cell instead of the entire widget,
+        // and it is no longer a separate queued command with a gap after it.
+        /*override*/ void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix)
+        {
+            bool bHasPadding = (paddingSizePix.x > 0) && (paddingSizePix.y > 0);
+
+            // The reserved box, positioned around the datum by the same rule the
+            // text itself follows.
+            Vec2 padTopLeft = calcAlignedTopLeftPix(bottomLeftPix, Vec2(0, 0), paddingSizePix, alignment);
+
+            if (bHasPadding)
+            {
+                // Clip everything to the reserved box. Without this, the glyph
+                // cell that TFT_eSPI paints can be taller than the widget it
+                // belongs to (its height is the font's ascender+descender, not
+                // the widget height), and it would paint colBg just outside the
+                // widget - visible as a band that makes the widget look taller.
+                // Same mechanism as in drawImage: vpDatum false keeps the
+                // coordinates absolute.
+                _tft.setViewport(padTopLeft.x, padTopLeft.y, paddingSizePix.x, paddingSizePix.y, false /*vpDatum*/);
+            }
+
+            _tft.setTextDatum(textDatumFromAlignment(alignment));
+            _tft.setTextColor(colTo16bit(colFg), colTo16bit(colBg));  // two arguments: opaque
+            _tft.setTextSize(scale);
+            uint8_t usedFont = selectFontOrFreeFont(font);
+            _tft.drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
+
+            // Measure while textsize is still `scale` - both textWidth and
+            // fontHeight include it (TFT_eSPI.cpp:2973 and :3001).
+            int32_t textWidthPix = _tft.textWidth(str, usedFont);
+            int32_t textHeightPix = _tft.fontHeight(usedFont);
+            _tft.setTextSize(1);
+
+            if (bHasPadding && (paddingSizePix.x > textWidthPix))
+            {
+                // Blank what the new text does not cover but a previous, longer
+                // one may have. The strips span the full height of the reserved
+                // box, so nothing of the old text can survive above or below the
+                // new glyph cells.
+                Vec2 textTopLeft = calcAlignedTopLeftPix(bottomLeftPix, Vec2(0, 0), Vec2(textWidthPix, textHeightPix), alignment);
+                uint16_t col16Bg = colTo16bit(colBg);
+
+                int32_t widthLeftStrip = textTopLeft.x - padTopLeft.x;
+                if (widthLeftStrip > 0)
+                {
+                    _tft.fillRect(padTopLeft.x, padTopLeft.y, widthLeftStrip, paddingSizePix.y, col16Bg);
+                }
+
+                int32_t xRightStrip = textTopLeft.x + textWidthPix;
+                int32_t widthRightStrip = (padTopLeft.x + paddingSizePix.x) - xRightStrip;
+                if (widthRightStrip > 0)
+                {
+                    _tft.fillRect(xRightStrip, padTopLeft.y, widthRightStrip, paddingSizePix.y, col16Bg);
+                }
+            }
+
+            if (bHasPadding)
+            {
+                _tft.resetViewport();
+            }
         }
 
         // Blits an image straight from wherever its pixels live - typically a
@@ -538,6 +587,25 @@ namespace crt
         }
 
     private:
+        uint8_t textDatumFromAlignment(Alignment alignment)
+        {
+            switch (alignment)
+            {
+            case Alignment::TopLeft:     return TL_DATUM;
+            case Alignment::BottomLeft:  return BL_DATUM;
+            case Alignment::MidLeft:     return CL_DATUM;
+            case Alignment::TopRight:    return TR_DATUM;
+            case Alignment::BottomRight: return BR_DATUM;
+            case Alignment::MidRight:    return CR_DATUM;
+            case Alignment::MidMid:      return MC_DATUM;
+            case Alignment::TopMid:      return TC_DATUM;
+            case Alignment::BottomMid:   return BC_DATUM;
+            default:
+                ESP_LOGI("TFT_eSPI_DisplayAdapter", "Unimplemented alignment: %d", (int)alignment);
+                return TL_DATUM;
+            }
+        }
+
         uint8_t selectFontOrFreeFont(uint8_t font)
         {
 #ifdef LOAD_GFXFF

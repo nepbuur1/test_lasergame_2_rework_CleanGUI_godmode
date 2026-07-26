@@ -21,6 +21,14 @@ namespace crt
 		uint8_t _fontScale;  // integer pix multiplier
 		uint32_t _color;
 		bool _bSizeUpToDate; // no longer used? Obsolete?
+
+		// Opaque drawing: the glyph cells are painted with _colBg instead of being
+		// left transparent, and whatever the text does not cover within
+		// _paddingSizePix is painted with that same colour. That makes replacing the text a single pass - no erase
+		// first, so no moment where the area is blank, so no flicker.
+		// Off by default, so existing widgets keep drawing exactly as before.
+		bool _bOpaque;
+		uint32_t _colBg;
 	public:
 		using WBase = Widget<MaxNofChildren>;
 
@@ -29,7 +37,8 @@ namespace crt
 			  const char* str, uint8_t font, uint32_t color, uint8_t fontScale,
 			  bool bDrawable = true) :
 			  WBase(str, locPos, coordTypeLocPos, Vec2(0,0), CoordType::Pixels, alignment, bDrawable),
-			  /*str(str), */_font(font), _fontScale(fontScale), _color(color), _bSizeUpToDate(false)
+			  /*str(str), */_font(font), _fontScale(fontScale), _color(color), _bSizeUpToDate(false),
+			  _bOpaque(false), _colBg(0)
 			  {
 				  // determine dimensions of the text .. that'll need to 
 				  // be postponed till we have a handle of the display to ask it.
@@ -54,6 +63,38 @@ namespace crt
 		/* override */ WidgetType getWidgetType()
 		{
 			return WidgetType::Text;
+		}
+
+		// Makes this Text draw itself opaquely: the glyph cells and the rest of
+		// the reserved area are painted with colBg. Use it for text that changes
+		// while it is on screen - a label can then be replaced without first
+		// erasing it, which is what removes the flicker.
+		// colBg should match whatever is behind the text - typically the colFg of
+		// the panel it sits on. The area reserved for the text is derived from
+		// the parent's rect at draw time (see calcPaddingSizePix), so it keeps
+		// following the text if its position changes afterwards.
+		void setOpaque(uint32_t colBg)
+		{
+			_bOpaque = true;
+			_colBg = colBg;
+		}
+
+		void setTransparent()
+		{
+			_bOpaque = false;
+		}
+
+		bool isOpaque()
+		{
+			return _bOpaque;
+		}
+
+		// Redraws just this text, without touching whatever is behind it.
+		// Only flicker-free if this Text is opaque - otherwise the previous text
+		// is still there and the two will overlap.
+		void redraw()
+		{
+			showText();
 		}
 
 		uint8_t getFontScale()
@@ -169,6 +210,55 @@ namespace crt
 				return;
 			}
 
+			drawTextOrPadding(WBase::getName());
+		}
+
+		// Issues the actual draw call for str, at this Text's own position.
+		// Split off from showText so that hideText can reuse the very same
+		// geometry by passing an empty string.
+		void drawTextOrPadding(const char* str)
+		{
+			Vec2 pos = calcOriginPix() + WBase::getLocPosPix();
+
+			if (_bOpaque)
+			{
+				WBase::getDisplay()->drawStringOpaque(str, pos, WBase::getAlignment(),
+					_font, _fontScale, _color, _colBg, calcPaddingSizePix());
+			}
+			else
+			{
+				WBase::getDisplay()->drawString(str, pos, WBase::getAlignment(), _font, _fontScale, _color);
+			}
+		}
+
+		// The area this Text may paint in: from its own origin to the edge of its
+		// parent, as high as the parent. Nothing is drawn outside it, so a widget
+		// can never smear over its neighbours - and a previous, longer text is
+		// blanked all the way to the parent's edge.
+		Vec2 calcPaddingSizePix()
+		{
+			Vec2 parentSizePix = WBase::getSizeOfParent();
+			Vec2 locPosPix = WBase::getLocPosPix();
+
+			switch (WBase::getAlignment())
+			{
+			case Alignment::TopLeft:
+			case Alignment::MidLeft:
+			case Alignment::BottomLeft:
+				return Vec2(parentSizePix.x - locPosPix.x, parentSizePix.y);
+
+			case Alignment::TopRight:
+			case Alignment::MidRight:
+			case Alignment::BottomRight:
+				return Vec2(parentSizePix.x + locPosPix.x, parentSizePix.y);
+
+			default:	// centred: keep it symmetrical around the shifted origin.
+				return Vec2(parentSizePix.x - 2 * ((locPosPix.x < 0) ? -locPosPix.x : locPosPix.x), parentSizePix.y);
+			}
+		}
+
+		Vec2 calcOriginPix()
+		{
 			Vec2 origin;
 
 			switch (WBase::getAlignment())
@@ -232,7 +322,7 @@ namespace crt
 				break;
 			}
 
-			WBase::getDisplay()->drawString(WBase::getName(), origin + WBase::getLocPosPix(), WBase::getAlignment(), _font, _fontScale, _color);
+			return origin;
 		}
 
 		void hideText()
@@ -242,7 +332,18 @@ namespace crt
 				return;
 			}
 
-			// something with a bg color?
+			if (!_bOpaque)
+			{
+				// A transparent Text has no idea what colour is behind it, so it
+				// cannot paint itself away. It disappears only because the panel
+				// it sits on repaints over it - which is why a Text without a
+				// Panel underneath cannot be hidden at all.
+				return;
+			}
+
+			// Draw an empty string over the reserved width: nothing is written,
+			// and the whole padded area is blanked with _colBg.
+			drawTextOrPadding("");
 		}
 	};
 };

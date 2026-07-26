@@ -13,7 +13,7 @@ namespace crt
 	{None=0, fillScreen=1, drawRect=2, fillRect=3, drawRoundRect=4, 
 	 fillRoundRect=5, fillSmoothRoundRect = 6, drawString=7, setPrintColor=8, setPrintFont=9,
 		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14,
-		drawImage=15
+		drawImage=15, drawStringOpaque=16
 	};
 
 	class DisplayCommand : public IDisplayDraw, public IDisplayPrint
@@ -26,6 +26,7 @@ namespace crt
 		Vec2 vecB;
 		uint32_t uintA;
 		uint32_t uintB;
+		uint32_t uintC;
 		int32_t intA;
 		int32_t intB;
 		const char nullChar = '\0';  // Dummy, could have been static, but then 
@@ -69,6 +70,7 @@ namespace crt
 			vecB(other.vecB),
 			uintA(other.uintA),
 			uintB(other.uintB),
+			uintC(other.uintC),
 			intA(other.intA),
 			intB(other.intB),
 			str(other.str),
@@ -84,6 +86,7 @@ namespace crt
 			vecB = other.vecB;
 			uintA = other.uintA;
 			uintB = other.uintB;
+			uintC = other.uintC;
 			intA = other.intA;
 			intB = other.intB;
 			this->str = other.str;
@@ -96,6 +99,11 @@ namespace crt
 		const Task* getTask()
 		{
 			return pTask;
+		}
+
+		DisplayCommandType getCommandType()
+		{
+			return command;
 		}
 
 		void execute(IDisplay& display, PrintContext& printContext)
@@ -124,6 +132,9 @@ namespace crt
 				break;
 			case DisplayCommandType::drawString:
 				display.drawString(str, vecA, (Alignment)intB, (uint8_t)uintA, (uint8_t)intA, (uint32_t)uintB);
+				break;
+			case DisplayCommandType::drawStringOpaque:
+				display.drawStringOpaque(str, vecA, (Alignment)intB, (uint8_t)uintA, (uint8_t)intA, (uint32_t)uintB, (uint32_t)uintC, vecB);
 				break;
 			case DisplayCommandType::drawImage:
 				if (pImage != nullptr)
@@ -247,6 +258,19 @@ namespace crt
 			uintA = (int32_t)font;
 			intA = (int32_t)scale;
 			uintB = (uint32_t)color;
+			intB = (int32_t)alignment;
+			this->str = str;
+		}
+
+		/*override*/ void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix)
+		{
+			command = DisplayCommandType::drawStringOpaque;
+			vecA = bottomLeftPix;
+			vecB = paddingSizePix;
+			uintA = (uint32_t)font;
+			intA = (int32_t)scale;
+			uintB = (uint32_t)colFg;
+			uintC = (uint32_t)colBg;
 			intB = (int32_t)alignment;
 			this->str = str;
 		}

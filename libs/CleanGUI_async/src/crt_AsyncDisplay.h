@@ -60,7 +60,22 @@ namespace crt
 
 					pPrintContext = queryPrintContext(curCommand.getTask());
 					assert(pPrintContext != nullptr);
+#ifdef CRT_ASYNCDISPLAY_COMMAND_TIMING
+					// Diagnostic, off unless CRT_ASYNCDISPLAY_COMMAND_TIMING is defined
+					// before including this header: logs every executed drawing
+					// command with its duration, which makes the sequence per redraw
+					// visible. Beware that the logging itself costs bus time (~9 ms
+					// per line at 115200 baud), so it distorts what it measures if
+					// commands come in fast.
+					int64_t timeBeforeUs = esp_timer_get_time();
 					curCommand.execute(display, *pPrintContext);
+					int64_t timeAfterUs = esp_timer_get_time();
+					ESP_LOGI("cmd", "%-20s %6d us  (t=%d)",
+						commandTypeName(curCommand.getCommandType()),
+						(int)(timeAfterUs - timeBeforeUs), (int)(timeAfterUs / 1000));
+#else
+					curCommand.execute(display, *pPrintContext);
+#endif
 				}
 				
 				if (hasFired(periodicTimer))
@@ -69,6 +84,28 @@ namespace crt
 				}
 			}
 		}
+
+#ifdef CRT_ASYNCDISPLAY_COMMAND_TIMING
+	private:
+		static const char* commandTypeName(DisplayCommandType type)
+		{
+			switch (type)
+			{
+			case DisplayCommandType::fillScreen:          return "fillScreen";
+			case DisplayCommandType::drawRect:            return "drawRect";
+			case DisplayCommandType::fillRect:            return "fillRect";
+			case DisplayCommandType::drawRoundRect:       return "drawRoundRect";
+			case DisplayCommandType::fillRoundRect:       return "fillRoundRect";
+			case DisplayCommandType::fillSmoothRoundRect: return "fillSmoothRoundRect";
+			case DisplayCommandType::drawString:          return "drawString";
+			case DisplayCommandType::drawStringOpaque:    return "drawStringOpaque";
+			case DisplayCommandType::drawImage:           return "drawImage";
+			case DisplayCommandType::print:               return "print";
+			case DisplayCommandType::println:             return "println";
+			default:                                      return "(other)";
+			}
+		}
+#endif
 
 	private:
 		PrintContext* queryPrintContext(const Task* pTask)
@@ -194,6 +231,13 @@ namespace crt
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawString(str, bottomLeftPix, alignment, font, scale, color);
+			queueCommands.write(displayCommand);
+		}
+
+		/*override*/ void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix)
+		{
+			DisplayCommand displayCommand;
+			displayCommand.drawStringOpaque(str, bottomLeftPix, alignment, font, scale, colFg, colBg, paddingSizePix);
 			queueCommands.write(displayCommand);
 		}
 

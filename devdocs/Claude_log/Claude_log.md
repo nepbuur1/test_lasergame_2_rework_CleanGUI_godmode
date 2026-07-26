@@ -1,5 +1,84 @@
 # Claude log
 
+## 2026-07-26 — Flikkervrij label vervangen, zonder buffer
+
+### Vraag
+Heeft de displaylaag faciliteiten tegen flikker? **Nee, geen enkele.**
+`IDisplayDraw` kent alleen directe teken-primitieven; elke widget schildert
+onmiddellijk naar de ILI9341 volgens painter's algorithm. `AsyncDisplay` lijkt op
+buffering maar serialiseert alleen commando's van meerdere taken. De ILI9341
+heeft geen tweede GRAM-pagina. Het enige wat TFT_eSPI biedt is `TFT_eSprite`, en
+die wordt nergens gebruikt behalve in `main/spi_benchmark.h`.
+
+Randvoorwaarde was **geen buffer**. Dat sluit sprites en double buffering uit;
+dan blijft er één techniek over: *niet wissen wat je gaat overtekenen*.
+
+### Gemeten oorzaak
+`Inputfield::updateButtonLabel` deed `Base::show(true)`. Per toetsaanslag, met
+`CRT_ASYNCDISPLAY_COMMAND_TIMING` + auto-typer:
+
+```
+fillRect     2567-2572 us   (constant: het hele veld, 256x24 = 6144 px)
+drawString    335-1355 us   (groeit met de tekstlengte)
+```
+
+De 2,57 ms fill komt exact overeen met 6144 px x 409 ns/pixel. Het veld stond dus
+**2,9 tot 3,9 ms leeg** per aanslag, in twee losse queue-commando's.
+
+### Na de fix
+```
+drawStringOpaque  3064-3946 us   (een enkel commando)
+```
+Totale bustijd gelijk - dezelfde pixels worden geschreven - maar nu *met de tekst
+er al in* in plaats van eerst leeg en dan gevuld. De veldbrede wis is weg.
+Visueel bevestigd: knippert niet meer.
+
+### Correctie op de eerste aanname
+Het plan stelde dat het lege venster "nul per constructie" zou worden. Dat klopt
+niet. Bij free fonts vult TFT_eSPI eerst de hele tekstcel en tekent daarna de
+glyphs erin (`TFT_eSPI.cpp:5039`). Er blijft dus een wis, maar die beslaat de
+tekstcel in plaats van het hele veld, en er zit geen tweede commando achteraan.
+
+### Wat setTextPadding wel en niet doet
+Eerst leek `setTextPadding()` onbruikbaar voor free fonts: `padding = 101`
+(`TFT_eSPI.cpp:4938`) terwijl de blank-switch alleen 1/2/3 kent. Maar op
+`:5041` staat `padding -= 100`, binnen de tak die opake tekst afhandelt. Hij
+werkt dus wél - alleen niet voor een lege string, want die tak eist ook dat het
+eerste glyph binnen het fontbereik valt. Juist die lege string heeft `hideText()`
+nodig. Daarom blankt de adapter zelf, uniform voor beide fonttypes.
+
+### Twee zichtbare artefacten, en wat ze blootlegden
+1. **Balk leek te hoog behalve links.** De blank-strook was `fontHeight` (29 px)
+   hoog in plaats van de paneelhoogte (24), dus er werd grijs *buiten* het paneel
+   geschilderd. Opgelost met `setViewport` om het gereserveerde vak, hetzelfde
+   mechanisme als in `drawImage`.
+2. **Na de eerste letter verdween het effect links.**
+   `applyOffsetForLowerCaseText` zet de x van het label op 0 en gooit daarmee de
+   inspringing weg die `setSizeOfParent` aan een MidLeft-label geeft; de tekst
+   sprong dus naar de linkerrand en de strook dekte opeens de volle breedte.
+   Zo gelaten: die inspringing is `fontHeight`, een verticale maat als
+   horizontale marge, en breder dan een letter.
+
+### De onderliggende vondst: het font past niet
+```
+panel 256x24, fontHeight 29
+```
+FSB12 heeft een glyph-cel van 29 px in een veld van 24. Transparante tekst
+verborg dat door simpelweg buiten de widget te tekenen; zodra tekst zijn eigen
+achtergrond meebrengt moet je kiezen tussen 5 px grijs buiten het veld of
+clippen. `TouchscreenButton` waarschuwt dit nu expliciet, en het voorbeeld geeft
+het invoerveld 140 promillage (33 px) in plaats van 100 (24 px).
+
+### Losse observatie: sdkconfig is grondiger teruggevallen dan gedacht
+Naast `CONFIG_FREERTOS_HZ` bleken ook de partitietabel
+(`partitions_singleapp.csv` in plaats van de eigen `partitions.csv`) en de
+flashgrootte (2MB terwijl de chip er 4 heeft) op defaults te staan. Zonder de
+spiffs-partitie op 0x290000 kan `/TouchCalData1` niet worden bewaard, dus vroeg
+het bord bij elke boot om touchkalibratie. Na het herstellen van beide bleek de
+oude kalibratiedata er nog gewoon te staan: `[226, 3403, 319, 3413, 7]`.
+**Overweeg een `sdkconfig.defaults` in de repo** - `sdkconfig` staat in
+.gitignore, dus deze reeks gaat zich anders herhalen.
+
 ## 2026-07-26 — Images in CleanGUI: bufferloos 16bpp blitten uit flash
 
 ### Doel

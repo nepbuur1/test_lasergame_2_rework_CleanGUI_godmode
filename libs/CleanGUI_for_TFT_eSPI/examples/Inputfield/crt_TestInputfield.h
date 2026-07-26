@@ -69,7 +69,9 @@ namespace crt
 				/*colFg*/(uint32_t)0x00880088, /*colBg*/0x00000000, TouchscreenKeyboardMode::LowercaseAlphabet),
 
 			inputfield(&touchscreenKeyboard, InputfieldType::TextField, "", /*locPos*/Vec2(100, 100), CoordType::Promillage,
-				/*size*/Vec2(800, 100), /*cornerRadius 0,*/ CoordType::Promillage, Alignment::TopLeft,
+				// 140 promillage van 240 = 33 pix. Moet minstens de fontHeight van
+				// FSB12 (29 pix) zijn, anders klipt de staart van een 'g' eraf.
+				/*size*/Vec2(800, 140), /*cornerRadius 0,*/ CoordType::Promillage, Alignment::TopLeft,
 				/*colPanel*/(uint32_t)0x00888888, /*colBg*/0x00000000, /*colFont*/0x00FFFFFF, InputfieldType::TextField),
 			
 			flagNewKey(this),
@@ -119,6 +121,31 @@ namespace crt
 
 			page1.addChildWidget(inputfield);
 			page1.show(true);
+
+#ifdef CRT_INPUTFIELD_AUTOTYPE
+			// Off unless CRT_INPUTFIELD_AUTOTYPE is defined: drives the inputfield
+			// without touch, so the redraw per keystroke can be measured
+			// repeatably. keyPressed is the same entry point the keyboard uses.
+			// Combine with CRT_ASYNCDISPLAY_COMMAND_TIMING to see which commands
+			// a keystroke actually produces.
+			vTaskDelay(5000);	// let the initial draw of the whole page finish first,
+								// otherwise the keystrokes land while the command queue
+								// is still working through ~30 keyboard buttons.
+			ESP_LOGI("autotype", "=== start ===");
+			{
+				static const char* arKeys[] = { "a", "b", "c", "d", "e", "f", "g", "DEL", "DEL", "DEL", "DEL", "DEL", "DEL", "DEL" };
+				for (int round = 0; round < 3; round++)
+				{
+					for (int i = 0; i < 14; i++)
+					{
+						ESP_LOGI("autotype", "--- key '%s'", arKeys[i]);
+						inputfield.keyPressed(arKeys[i]);
+						vTaskDelay(400);
+					}
+				}
+			}
+			ESP_LOGI("autotype", "=== done ===");
+#endif
 
 			const char* strKey;
 

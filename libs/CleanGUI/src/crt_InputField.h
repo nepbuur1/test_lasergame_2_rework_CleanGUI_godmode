@@ -77,14 +77,34 @@ namespace crt
 			Base::addTouchListener(tsOutsideInputfieldButton, tsOutsideInputfieldButton);
 			Base::addTouchListener(tsInputfieldButton, tsInputfieldButton);
 
+			// The field content changes on every keystroke, so let it paint its
+			// own background: that is what allows updateButtonLabel to replace
+			// the text without erasing the field first (see there).
+			// The button size is not known yet at this point; the request is
+			// applied as soon as it is.
+			tsInputfieldButton.setOpaqueText(true);
+
 			bChildWidgetsAdded = true;
 		}
 
 		void updateButtonLabel(TSButton& tsButton, const char* label)
 		{
-			tsButton.setText(label);
 			tsButton.setButtonName(label); // because IButton does not have a setText function.
-			Base::show(true); // redraw this Inputfield.
+
+			// Only the label is redrawn; the panel underneath is deliberately NOT
+			// repainted. Hier stond Base::show(true), en dat was de flikker: die
+			// vult eerst het hele veld met colPanel - waardoor de tekst weg is -
+			// en tekent hem daarna pas opnieuw. Gemeten was dat veld daardoor 2,9
+			// tot 3,9 ms leeg per toetsaanslag (fillRect 2,57 ms + drawString).
+			// Het label is opaak (zie addChildWidgets), dus het schildert zijn
+			// eigen achtergrond en wist in diezelfde pass de staart van een
+			// langere vorige tekst. Er is dus geen moment waarop er niets staat.
+			//
+			// Let op: dit werkt doordat de tekst niet verspringt tussen updates.
+			// De inputfield-knop krijgt lowerCaseOffsetY == upperCaseOffsetY == 0,
+			// dus applyOffsetForLowerCaseText verplaatst hem nooit. Zou dat wel
+			// gebeuren, dan bleef de oude tekst op de oude hoogte staan.
+			tsButton.updateText(label);
 
 			// Hier stond vTaskDelay(100) met als commentaar "wait for the redraw
 			// to be completed". Dat werkte averechts: deze functie draait in de
