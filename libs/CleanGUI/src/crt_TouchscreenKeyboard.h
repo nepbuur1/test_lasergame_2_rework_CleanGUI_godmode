@@ -32,12 +32,26 @@ namespace crt
 		const uint32_t colBg   = 0x00000000;
 		const uint32_t colFont = 0x00FFFFFF;
 
+		// Grijstinten bemonsterd uit een referentie-afbeelding, dwars door een
+		// toets: kier 12, toetsvlak 49, glans 61 (links) tot 80 (boven),
+		// keyboardrug 37. De glans staat binnen de kier, aan de boven- en
+		// linkerkant, zodat elke toets opstaand lijkt. Zie het logboek van
+		// 2026-07-26 voor het volledige profiel.
+		const uint32_t colKey          = 0x00313131;
+		const uint32_t colKeyHighlight = 0x00505050;
+		const uint32_t colKeyShadow    = 0x000C0C0C;
+
+		// Het keyboard als geheel is zelf ook een toets: dezelfde opbouw, maar
+		// donkerder, zodat de kieren tussen de toetsen erin wegvallen.
+		const uint32_t colBackHighlight = 0x003A3A3A;
+		const uint32_t colBackShadow    = 0x00000000;
+
 		IKeyboardListener* arKeyboardListener[MaxNofKeyboardListeners] = {};
 		uint16_t nofKeyboardListeners;
 
 		bool bChildWidgetsAdded;
 
-		const int keyCornerRadiusPromillage=50;
+		const int keyCornerRadiusPromillage=0;	// rechte toetsen; de bevel doet het werk.
 		const int buttonFont = 12;
 		TouchscreenKeyboardMode touchscreenKeyboardMode;
 
@@ -70,6 +84,7 @@ namespace crt
 			touchscreenKeyboardMode(TouchscreenKeyboardMode::LowercaseAlphabet) /* will be updated at the end of the constructor. */,
 			tsOutsideKeyboardButton("tsOutsideKeyboardButton", Vec2(0,0), CoordType::Promillage, Vec2(1000,1000), 0, CoordType::Promillage, Alignment::TopLeft, colFg, colBg, true /*use inverted area for touch detection*/, "", 0, 0, 0, Alignment::TopLeft, 0, 0)
 		{
+			tsOutsideKeyboardButton.setBevel(colBackHighlight, colBackShadow);
 			tsOutsideKeyboardButton.addButtonListener(this);	// This large "button" displays the back of the keyboard, and will be used to register a touch outside the keyboard.
 
 			initTsButton(tsButtonQ, "q", 0, 0);
@@ -163,9 +178,10 @@ namespace crt
 			tsButton.setTouchScreenButtonProps(/*name*/name,
 				/*locPos*/Vec2(x, y),
 				CoordType::Promillage, /*size*/Vec2(keyWidth*keyWidthMultiplier, keyHeight), /*cornerRadius*/keyCornerRadiusPromillage, CoordType::Promillage,
-				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000, /*bInvertedArea*/false,
+				Alignment::TopLeft,	/*colPanel*/colKey, /*colBg*/colBg, /*bInvertedArea*/false,
 				/*text*/ name, /*buttonFont*/ buttonFont, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid, /*lowerCaseOffsetY*/-120, /*upperCaseOffsetY*/-70);
 
+			tsButton.setBevel(colKeyHighlight, colKeyShadow);
 			tsButton.addButtonListener(this);
 		}
 

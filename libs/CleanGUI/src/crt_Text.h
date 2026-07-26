@@ -29,6 +29,7 @@ namespace crt
 		// Off by default, so existing widgets keep drawing exactly as before.
 		bool _bOpaque;
 		uint32_t _colBg;
+		int32_t _opaqueMarginPix;	// houdt het gereserveerde vak van de randen af
 	public:
 		using WBase = Widget<MaxNofChildren>;
 
@@ -38,7 +39,7 @@ namespace crt
 			  bool bDrawable = true) :
 			  WBase(str, locPos, coordTypeLocPos, Vec2(0,0), CoordType::Pixels, alignment, bDrawable),
 			  /*str(str), */_font(font), _fontScale(fontScale), _color(color), _bSizeUpToDate(false),
-			  _bOpaque(false), _colBg(0)
+			  _bOpaque(false), _colBg(0), _opaqueMarginPix(0)
 			  {
 				  // determine dimensions of the text .. that'll need to 
 				  // be postponed till we have a handle of the display to ask it.
@@ -73,10 +74,14 @@ namespace crt
 		// the panel it sits on. The area reserved for the text is derived from
 		// the parent's rect at draw time (see calcPaddingSizePix), so it keeps
 		// following the text if its position changes afterwards.
-		void setOpaque(uint32_t colBg)
+		// marginPix keeps the reserved area away from the parent's edges. Needed
+		// when the parent draws something there that must survive, such as a
+		// bevel - otherwise the blanking would paint straight over it.
+		void setOpaque(uint32_t colBg, int32_t marginPix = 0)
 		{
 			_bOpaque = true;
 			_colBg = colBg;
+			_opaqueMarginPix = marginPix;
 		}
 
 		void setTransparent()
@@ -239,21 +244,22 @@ namespace crt
 		{
 			Vec2 parentSizePix = WBase::getSizeOfParent();
 			Vec2 locPosPix = WBase::getLocPosPix();
+			int32_t m = _opaqueMarginPix;
 
 			switch (WBase::getAlignment())
 			{
 			case Alignment::TopLeft:
 			case Alignment::MidLeft:
 			case Alignment::BottomLeft:
-				return Vec2(parentSizePix.x - locPosPix.x, parentSizePix.y);
+				return Vec2(parentSizePix.x - locPosPix.x - m, parentSizePix.y - 2 * m);
 
 			case Alignment::TopRight:
 			case Alignment::MidRight:
 			case Alignment::BottomRight:
-				return Vec2(parentSizePix.x + locPosPix.x, parentSizePix.y);
+				return Vec2(parentSizePix.x + locPosPix.x - m, parentSizePix.y - 2 * m);
 
 			default:	// centred: keep it symmetrical around the shifted origin.
-				return Vec2(parentSizePix.x - 2 * ((locPosPix.x < 0) ? -locPosPix.x : locPosPix.x), parentSizePix.y);
+				return Vec2(parentSizePix.x - 2 * ((locPosPix.x < 0) ? -locPosPix.x : locPosPix.x) - 2 * m, parentSizePix.y - 2 * m);
 			}
 		}
 

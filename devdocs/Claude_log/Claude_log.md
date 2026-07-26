@@ -1,5 +1,55 @@
 # Claude log
 
+## 2026-07-26 — Toetsenbord in toetsstijl, en een verzonken invoerveld
+
+### Aanleiding
+Het keyboard had rode afgeronde toetsen op een paarse rug. Gevraagd: de stijl van
+een referentie-afbeelding - grijze rechte toetsen met een glanslijntje boven en
+links, en donker daarbuiten als schaduw van de kier. Het invoerveld juist
+andersom: verzonken in plaats van opstaand.
+
+### Kleuren gemeten in plaats van geschat
+PIL was niet beschikbaar, dus de PNG zelf gedecodeerd (zlib + de vijf
+PNG-filters). Horizontale doorsnede dwars door een toets:
+
+```
+rug 37 | 17, 11 kier | 61 glans | 49 49 50 toetsvlak | 40 | 17, 12 kier
+```
+
+en verticaal: kier 12 -> glans 80 -> vlak 49. Dat bevestigde de opbouw: het
+donker zit **buiten** het lichte lijntje. De glans is bovenaan sterker (80) dan
+links (61), wat klopt met licht van boven.
+
+| | |
+|---|---|
+| toetsvlak | `0x313131` |
+| glans (boven + links) | `0x505050` |
+| kier / schaduw (rondom) | `0x0C0C0C` |
+| rug van het toetsenbord | `0x222222` |
+
+### Een primitief in plaats van losse lijnen
+`IDisplayDraw::fillBeveledRect(topLeft, size, colFg, colHighlight, colShadow,
+style)`: schaduwrand rondom, glanslijn daarbinnen. `BevelStyle::Raised` zet die
+langs boven en links, `Sunken` langs onder en rechts - want in een uitsparing
+valt het licht op de tegenoverliggende binnenwand. Kleuren omwisselen zou niet
+werken: de schaduw loopt rondom, alleen de glans verhuist.
+
+Drie kleuren plus een stijl passen exact in de bestaande `uintA/uintB/uintC` en
+`intA` van `DisplayCommand`. Dat is de reden voor een primitief in plaats van
+zes `fillRect`-aanroepen vanuit `Panel`: bij 31 toetsen scheelt dat ~155
+commando's per hertekening, en `CommandBufferSize` is 300.
+
+`Panel` kreeg `setBevel()`, standaard uit. Het keyboard zet hem op elke toets en
+op zijn eigen rug (die is zelf ook een toets), hoekradius op 0.
+
+### Wat bijna stukging: opake tekst eet de rand op
+Het invoerveld tekent zijn label opaak, en dat gereserveerde vak besloeg het hele
+paneel. De blank-strook zou de bevel-lijntjes bij de eerste toetsaanslag hebben
+overgeschilderd - rand zichtbaar tot je typt, dan weg. `Text` kreeg daarom een
+marge op dat vak, gevuld door `TouchscreenButton` met `Panel::getBevelInsetPix()`
+(2 px: schaduwrand plus glanslijn). Omdat `drawStringOpaque` alles op dat vak
+clipt, blijft de rand ook heel als de tekst ertegenaan loopt.
+
 ## 2026-07-26 — Flikkervrij label vervangen, zonder buffer
 
 ### Vraag

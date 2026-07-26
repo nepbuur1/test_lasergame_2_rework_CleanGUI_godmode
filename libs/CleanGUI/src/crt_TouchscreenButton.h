@@ -292,7 +292,7 @@ namespace crt
 			// Text derives the reserved area from its parent's rect at draw time,
 			// so it stays correct when the label's position shifts afterwards
 			// (applyOffsetForLowerCaseText does exactly that).
-			text.setOpaque(PBase::getColFg());
+			text.setOpaque(PBase::getColFg(), PBase::getBevelInsetPix());
 
 			// Opaque text paints a background behind its glyph cell, and that cell
 			// is kept inside the button. If the font is taller than the button,

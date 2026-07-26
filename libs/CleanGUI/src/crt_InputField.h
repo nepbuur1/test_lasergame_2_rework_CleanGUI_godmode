@@ -39,6 +39,11 @@ namespace crt
 		const int keyCornerRadiusPromillage=50;
 		const int buttonFont = 12;
 
+		// Verzonken rand. Lichter dan het veld aan de onder- en rechterkant, want
+		// daar valt het licht op de binnenwand; donker rondom als de kier.
+		const uint32_t colFieldHighlight = 0x00B8B8B8;
+		const uint32_t colFieldShadow    = 0x00303030;
+
 		//TouchscreenButton<0 /*MaxNofChildren*/, 1/*MaxButtonListenerCount*/> tsButtonA;
 		using TSButton = TouchscreenButton<0, 1>;
 		
@@ -76,6 +81,11 @@ namespace crt
 			ESP_LOGI("Inputfield", "will Add ChildWidgets");
 			Base::addTouchListener(tsOutsideInputfieldButton, tsOutsideInputfieldButton);
 			Base::addTouchListener(tsInputfieldButton, tsInputfieldButton);
+
+			// Sunken instead of raised: the gloss sits along the bottom and right,
+			// so the field reads as a recess in the screen rather than a key
+			// standing on it. Counterpart of the keyboard, whose keys stand out.
+			tsInputfieldButton.setBevel(colFieldHighlight, colFieldShadow, BevelStyle::Sunken);
 
 			// The field content changes on every keystroke, so let it paint its
 			// own background: that is what allows updateButtonLabel to replace

@@ -99,6 +99,7 @@ namespace crt
 			case DisplayCommandType::fillSmoothRoundRect: return "fillSmoothRoundRect";
 			case DisplayCommandType::drawString:          return "drawString";
 			case DisplayCommandType::drawStringOpaque:    return "drawStringOpaque";
+			case DisplayCommandType::fillBeveledRect:     return "fillBeveledRect";
 			case DisplayCommandType::drawImage:           return "drawImage";
 			case DisplayCommandType::print:               return "print";
 			case DisplayCommandType::println:             return "println";
@@ -224,6 +225,13 @@ namespace crt
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillSmoothRoundRect(topLeftPix, sizePix, radius, colFg, colBg);
+			queueCommands.write(displayCommand);
+		}
+
+		/* override */ void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style)
+		{
+			DisplayCommand displayCommand;
+			displayCommand.fillBeveledRect(topLeftPix, sizePix, colFg, colHighlight, colShadow, style);
 			queueCommands.write(displayCommand);
 		}
 

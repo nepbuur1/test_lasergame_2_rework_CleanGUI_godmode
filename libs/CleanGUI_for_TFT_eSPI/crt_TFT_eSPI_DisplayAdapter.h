@@ -147,6 +147,44 @@ namespace crt
             _tft.fillSmoothRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(colFg), colTo16bit(colBg));
         }
 
+        /*override*/ void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style)
+        {
+            int32_t x = topLeftPix.x, y = topLeftPix.y, w = sizePix.x, h = sizePix.y;
+            if ((w <= 0) || (h <= 0))
+            {
+                return;
+            }
+
+            uint16_t col16Fg = colTo16bit(colFg);
+            uint16_t col16Highlight = colTo16bit(colHighlight);
+            uint16_t col16Shadow = colTo16bit(colShadow);
+
+            _tft.fillRect(x, y, w, h, col16Fg);
+
+            // The gap around the key.
+            _tft.fillRect(x, y, w, 1, col16Shadow);         // top
+            _tft.fillRect(x, y, 1, h, col16Shadow);         // left
+            _tft.fillRect(x, y + h - 1, w, 1, col16Shadow); // bottom
+            _tft.fillRect(x + w - 1, y, 1, h, col16Shadow); // right
+
+            // The gloss, just inside the gap. Raised: on the top and left, as if
+            // lit from above. Sunken: on the bottom and right, because there the
+            // light falls on the inner wall of the recess.
+            if ((w > 2) && (h > 2))
+            {
+                if (style == BevelStyle::Sunken)
+                {
+                    _tft.fillRect(x + 1, y + h - 2, w - 2, 1, col16Highlight); // bottom
+                    _tft.fillRect(x + w - 2, y + 1, 1, h - 2, col16Highlight); // right
+                }
+                else
+                {
+                    _tft.fillRect(x + 1, y + 1, w - 2, 1, col16Highlight);     // top
+                    _tft.fillRect(x + 1, y + 1, 1, h - 2, col16Highlight);     // left
+                }
+            }
+        }
+
         /*override*/ void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t color)
         {
             _tft.setTextDatum(textDatumFromAlignment(alignment));

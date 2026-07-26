@@ -13,7 +13,7 @@ namespace crt
 	{None=0, fillScreen=1, drawRect=2, fillRect=3, drawRoundRect=4, 
 	 fillRoundRect=5, fillSmoothRoundRect = 6, drawString=7, setPrintColor=8, setPrintFont=9,
 		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14,
-		drawImage=15, drawStringOpaque=16
+		drawImage=15, drawStringOpaque=16, fillBeveledRect=17
 	};
 
 	class DisplayCommand : public IDisplayDraw, public IDisplayPrint
@@ -129,6 +129,9 @@ namespace crt
 				break;
 			case DisplayCommandType::fillSmoothRoundRect:
 				display.fillSmoothRoundRect(vecA, vecB, intA, uintA, uintB);
+				break;
+			case DisplayCommandType::fillBeveledRect:
+				display.fillBeveledRect(vecA, vecB, uintA, uintB, uintC, (BevelStyle)intA);
 				break;
 			case DisplayCommandType::drawString:
 				display.drawString(str, vecA, (Alignment)intB, (uint8_t)uintA, (uint8_t)intA, (uint32_t)uintB);
@@ -260,6 +263,18 @@ namespace crt
 			uintB = (uint32_t)color;
 			intB = (int32_t)alignment;
 			this->str = str;
+		}
+
+		/* override */ void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style)
+		{
+			command = DisplayCommandType::fillBeveledRect;
+			vecA = topLeftPix;
+			vecB = sizePix;
+			uintA = colFg;
+			uintB = colHighlight;
+			uintC = colShadow;
+			intA = (int32_t)style;
+			this->str = &nullChar;
 		}
 
 		/*override*/ void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix)

@@ -61,7 +61,9 @@ namespace crt
 
 			touchscreenKeyboard("touchscreenKeyboard", /*locPos*/Vec2(0, 500), CoordType::Promillage,
 				/*size*/Vec2(1000, 500), /*cornerRadius 0,*/ CoordType::Promillage, Alignment::TopLeft,
-				/*colFg*/(uint32_t)0x00888888, /*colBg*/0x00000000, TouchscreenKeyboardMode::LowercaseAlphabet),
+				// colFg is de rug van het toetsenbord, waar de kieren tussen de
+				// toetsen in vallen.
+				/*colFg*/(uint32_t)0x00222222, /*colBg*/0x00000000, TouchscreenKeyboardMode::LowercaseAlphabet),
 				
 			queueKeyPressedStrings(this),
 			queueKeyReleasedStrings(this),

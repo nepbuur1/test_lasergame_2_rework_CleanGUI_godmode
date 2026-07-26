@@ -31,6 +31,17 @@ namespace crt
 		virtual void drawRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color) = 0;
 		virtual void fillRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color) = 0;
 		virtual void fillSmoothRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t colFg, uint32_t colBg) = 0;
+
+		// A filled rectangle that looks raised, like a physical key: a one pixel
+		// colShadow border all around, and a colHighlight line just inside it
+		// along the top and the left. So from the outside inwards on the lit
+		// sides you get shadow, then gloss, then the face - the shadow being the
+		// gap next to the key - while the bottom and right only get shadow.
+		// BevelStyle::Sunken puts the gloss along the bottom and right instead,
+		// which reads as recessed rather than raised.
+		// One call rather than half a dozen fillRects, which matters when a whole
+		// keyboard is redrawn through a command queue.
+		virtual void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style) = 0;
 		virtual void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t fontScale, uint32_t color) = 0;
 
 		// Same as drawString, but the glyph cells are painted with colBg instead of

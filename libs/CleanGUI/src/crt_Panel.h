@@ -20,6 +20,14 @@ namespace crt
 
 		int32_t _cornerRadiusWhenCornerRadiusPixWasCalculated;
 
+		// Raised-key look: a colShadow border with a colHighlight gloss just
+		// inside it along the top and left. Off unless setBevel() was called.
+		// A bevel and a corner radius do not combine - the bevel wins, because
+		// its lines are straight.
+		bool _bBeveled;
+		uint32_t _colHighlight, _colShadow;
+		BevelStyle _bevelStyle;
+
 		// nullptr: the panel draws itself as a plain (rounded) rectangle.
 		// Otherwise it blits this image instead. The Image is NOT copied - the
 		// caller guarantees its lifetime (trivially so for const data in flash).
@@ -34,6 +42,7 @@ namespace crt
 			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius),
 			  _cornerRadiusPix(-1),
 			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
+			  _bBeveled(false), _colHighlight(0), _colShadow(0), _bevelStyle(BevelStyle::Raised),
 			  _pImage(nullptr)
 		{
 		}
@@ -48,6 +57,7 @@ namespace crt
 			  _colFg(colFg), _colBg(colBg), _cornerRadius(cornerRadius),
 			  _cornerRadiusPix(-1),
 			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
+			  _bBeveled(false), _colHighlight(0), _colShadow(0), _bevelStyle(BevelStyle::Raised),
 			  _pImage(&image)
 		{
 		}
@@ -65,6 +75,28 @@ namespace crt
 			_colFg = colFg;
 			_colBg = colBg;
 			_cornerRadius = cornerRadius;
+		}
+
+		// Makes this panel look like a raised key. See IDisplayDraw::fillBeveledRect
+		// for what gets drawn where.
+		void setBevel(uint32_t colHighlight, uint32_t colShadow, BevelStyle style = BevelStyle::Raised)
+		{
+			_bBeveled = true;
+			_colHighlight = colHighlight;
+			_colShadow = colShadow;
+			_bevelStyle = style;
+		}
+
+		// How far content must stay away from the edges so it does not paint over
+		// the bevel. Two pixels: the shadow border plus the gloss line.
+		int32_t getBevelInsetPix()
+		{
+			return _bBeveled ? 2 : 0;
+		}
+
+		void clearBevel()
+		{
+			_bBeveled = false;
 		}
 
 		uint32_t getColFg()
@@ -170,7 +202,11 @@ namespace crt
 
 			if (needsBackground(size))
 			{
-				if (_cornerRadiusPix > 0)
+				if (_bBeveled)
+				{
+					WBase::getDisplay()->fillBeveledRect(pos, size, _colFg, _colHighlight, _colShadow, _bevelStyle);
+				}
+				else if (_cornerRadiusPix > 0)
 				{
 					WBase::getDisplay()->fillSmoothRoundRect(pos, size, _cornerRadiusPix, _colFg, _colBg);
 				}
