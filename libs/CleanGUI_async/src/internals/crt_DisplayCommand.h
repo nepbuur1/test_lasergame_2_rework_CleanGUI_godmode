@@ -13,7 +13,8 @@ namespace crt
 	{None=0, fillScreen=1, drawRect=2, fillRect=3, drawRoundRect=4, 
 	 fillRoundRect=5, fillSmoothRoundRect = 6, drawString=7, setPrintColor=8, setPrintFont=9,
 		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14,
-		drawImage=15, drawStringOpaque=16, fillBeveledRect=17
+		drawImage=15, drawStringOpaque=16, fillBeveledRect=17,
+		setClipRect=18, clearClipRect=19
 	};
 
 	class DisplayCommand : public IDisplayDraw, public IDisplayPrint
@@ -112,6 +113,12 @@ namespace crt
 			{
 			case DisplayCommandType::None:
 				break;
+			case DisplayCommandType::setClipRect:
+				display.setClipRect(vecA, vecB);
+				break;
+			case DisplayCommandType::clearClipRect:
+				display.clearClipRect();
+				break;
 			case DisplayCommandType::fillScreen:
 				display.fillScreen(uintA);
 				break;
@@ -198,6 +205,20 @@ namespace crt
 			ESP_LOGI("uintB", "%" PRIu32, uintB);
 			ESP_LOGI("intA", "%" PRId32, intA);
 		}
+		/* override */ void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix)
+		{
+			command = DisplayCommandType::setClipRect;
+			vecA = topLeftPix;
+			vecB = sizePix;
+			this->str = &nullChar;
+		}
+
+		/* override */ void clearClipRect()
+		{
+			command = DisplayCommandType::clearClipRect;
+			this->str = &nullChar;
+		}
+
 		/* override */ void fillScreen(uint32_t color)
 		{
 			command = DisplayCommandType::fillScreen;

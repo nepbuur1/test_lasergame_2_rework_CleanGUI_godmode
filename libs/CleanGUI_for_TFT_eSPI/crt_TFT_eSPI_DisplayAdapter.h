@@ -40,6 +40,12 @@ namespace crt
         const char* _filenameCalibration;
         bool _bRepeatCalibration;
         uint8_t _rotation;
+
+        // The clip set through setClipRect. Everything that draws within a
+        // viewport of its own has to intersect with this instead of overwriting
+        // it - see applyViewport/restoreViewport.
+        bool _bClipActive;
+        Vec2 _clipTopLeftPix, _clipSizePix;
         
     public:
         TFT_eSPI_DisplayAdapter(TFT_eSPI_IFreeFonts& freeFonts, const char* filenameCalibration, 
@@ -47,8 +53,23 @@ namespace crt
             :_touchDetector(_tft),
             _freeFonts(freeFonts), _filenameCalibration(filenameCalibration),
             _bRepeatCalibration(bRepeatCalibration),
-            _rotation(0)
+            _rotation(0),
+            _bClipActive(false)
         {}
+
+        /*override*/ void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix)
+        {
+            _bClipActive = true;
+            _clipTopLeftPix = topLeftPix;
+            _clipSizePix = sizePix;
+            restoreViewport();
+        }
+
+        /*override*/ void clearClipRect()
+        {
+            _bClipActive = false;
+            restoreViewport();
+        }
 
         // Simple initialization without calibration - useful for non-touch scenarios
         void begin(uint8_t rotation)
@@ -236,7 +257,7 @@ namespace crt
                 // widget - visible as a band that makes the widget look taller.
                 // Same mechanism as in drawImage: vpDatum false keeps the
                 // coordinates absolute.
-                _tft.setViewport(padTopLeft.x, padTopLeft.y, paddingSizePix.x, paddingSizePix.y, false /*vpDatum*/);
+                applyViewport(padTopLeft, paddingSizePix);
             }
 
             _tft.setTextDatum(textDatumFromAlignment(alignment));
@@ -276,7 +297,7 @@ namespace crt
 
             if (bHasPadding)
             {
-                _tft.resetViewport();
+                restoreViewport();
             }
         }
 
@@ -305,7 +326,7 @@ namespace crt
             // the PI_CLIP macro inside every pushImage crops against it.
             // vpDatum == false keeps the coordinate origin at the top left of
             // the screen, so imagePos stays in absolute screen coordinates.
-            _tft.setViewport(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, false /*vpDatum*/);
+            applyViewport(topLeftPix, sizePix);
 
             // The image data is in host (little endian) byte order, the panel
             // wants big endian. The swap is free: pushSwapBytePixels swaps the
@@ -336,7 +357,7 @@ namespace crt
             }
 
             _tft.setSwapBytes(bSwapBytesBefore);
-            _tft.resetViewport();
+            restoreViewport();
         }
 
         /*override*/ void setPrintColor(void* pTask, uint32_t color)
@@ -625,6 +646,44 @@ namespace crt
         }
 
     private:
+        // Sets the viewport to the given rectangle, intersected with the clip
+        // that setClipRect established. Without the intersection a widget that
+        // clips internally - drawImage, drawStringOpaque - would silently draw
+        // outside the region a partial repaint is limited to.
+        // An empty intersection yields a width or height below 1, on which
+        // setViewport sets its own out-of-bounds flag and inhibits all drawing.
+        void applyViewport(const Vec2& topLeftPix, const Vec2& sizePix)
+        {
+            int32_t x0 = topLeftPix.x;
+            int32_t y0 = topLeftPix.y;
+            int32_t x1 = x0 + sizePix.x;
+            int32_t y1 = y0 + sizePix.y;
+
+            if (_bClipActive)
+            {
+                if (_clipTopLeftPix.x > x0) { x0 = _clipTopLeftPix.x; }
+                if (_clipTopLeftPix.y > y0) { y0 = _clipTopLeftPix.y; }
+                if (_clipTopLeftPix.x + _clipSizePix.x < x1) { x1 = _clipTopLeftPix.x + _clipSizePix.x; }
+                if (_clipTopLeftPix.y + _clipSizePix.y < y1) { y1 = _clipTopLeftPix.y + _clipSizePix.y; }
+            }
+
+            _tft.setViewport(x0, y0, x1 - x0, y1 - y0, false /*vpDatum*/);
+        }
+
+        // Back to the active clip, or to the whole screen if there is none.
+        // Never call resetViewport directly - that would drop the clip.
+        void restoreViewport()
+        {
+            if (_bClipActive)
+            {
+                _tft.setViewport(_clipTopLeftPix.x, _clipTopLeftPix.y, _clipSizePix.x, _clipSizePix.y, false /*vpDatum*/);
+            }
+            else
+            {
+                _tft.resetViewport();
+            }
+        }
+
         uint8_t textDatumFromAlignment(Alignment alignment)
         {
             switch (alignment)

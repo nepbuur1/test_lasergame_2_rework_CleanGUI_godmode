@@ -36,6 +36,12 @@ namespace crt
 		TFT_eSPI_DisplayAdapter<MaxNofTouchListeners> tft_eSPI_DisplayAdapter;
 		AsyncDisplay<CommandBufferSize, MaxNofClientTasks> asyncDisplay;
 		
+		// Bezit de achtergrond. Nodig om het toetsenbord te kunnen laten
+		// wegschuiven: PageRoot tekent zelf niets, dus zonder een widget die de
+		// achtergrond bezit is er niets om de vrijgekomen strook mee te
+		// herstellen en blijft het oude beeld staan.
+		Panel<0> backgroundPanel;
+
 		Panel<1> outputPanel;						
 		using TOUCHSCREENKEYBOARD = TouchscreenKeyboard<0 /*MaxNofChildren*/, 1 /*MaxNofKeyboardListeners*/>;
 		TOUCHSCREENKEYBOARD touchscreenKeyboard;			
@@ -59,6 +65,10 @@ namespace crt
 			asyncDisplay("AsyncDisplay", 2 /*priority*/, 20000 + CommandBufferSize*sizeof(DisplayCommand)+
 				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE, 
 				            tft_eSPI_DisplayAdapter, 3/*rotation*/, 2/*fontTouchCalibration*/),
+
+			backgroundPanel("background", /*locPos*/Vec2(0, 0), CoordType::Promillage,
+				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
+				/*colFg*/(uint32_t)0x00000000, /*colBg*/0x00000000),
 
 			outputPanel("MenuPanel", /*locPos*/Vec2(0, 0), CoordType::Promillage,
 				/*size*/Vec2(1000, 400), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
@@ -101,6 +111,35 @@ namespace crt
 
 
 	private:
+		// Schuift het toetsenbord van yFromPix naar yToPix. moveTo herstelt per
+		// stap de vrijgekomen strook door de tree eroverheen te laten tekenen;
+		// _bVisible en _bEnabled blijven onaangeroerd, dus er knippert niets aan
+		// en uit. Wel de touch uitzetten tijdens de beweging: tikken op
+		// verschuivende toetsen slaat nergens op.
+		void slideKeyboard(int32_t yFromPix, int32_t yToPix)
+		{
+			const int32_t stepPix = 8;
+			int32_t step = (yToPix > yFromPix) ? stepPix : -stepPix;
+
+			touchscreenKeyboard.disable(true);
+
+			int32_t y = yFromPix;
+			while (y != yToPix)
+			{
+				y += step;
+				if (((step > 0) && (y > yToPix)) || ((step < 0) && (y < yToPix)))
+				{
+					y = yToPix;
+				}
+				touchscreenKeyboard.moveTo(Vec2(0, y), CoordType::Pixels);
+			}
+
+			if (yToPix < yFromPix)		// alleen als hij in beeld staat
+			{
+				touchscreenKeyboard.enable(true);
+			}
+		}
+
 		void main()
 		{
 			vTaskDelay(1000); // wait for other threads to have started up as well.
@@ -112,6 +151,10 @@ namespace crt
 			IDisplay& display = asyncDisplay;   // To make it evident that the rest of the code is
 			                                      // display independent.
 			PageRoot<10> page1("root", display);
+
+			// Eerst toegevoegd, dus eerst getekend: painter's algorithm.
+			page1.addChildWidget(backgroundPanel);
+
 			asyncDisplay.addTouchListener(&inputfield);
 
 			asyncDisplay.addTouchListener(&touchscreenKeyboard);
@@ -123,7 +166,25 @@ namespace crt
 			// outputPanel.addChildWidget(inputfield);
 
 			page1.addChildWidget(inputfield);
+
+			// Het toetsenbord begint net onder het scherm, zodat het straks van
+			// onderaf in beeld kan schuiven.
+			Vec2 screenSizePix = display.getScreenSize();
+			const int32_t yKeyboardDownPix = screenSizePix.y;
+			const int32_t yKeyboardUpPix   = screenSizePix.y - touchscreenKeyboard.getSizePix().y;
+			touchscreenKeyboard.setLocPos(Vec2(0, yKeyboardDownPix), CoordType::Pixels, Alignment::TopLeft);
+			bool bKeyboardIsUp = false;
+
 			page1.show(true);
+
+#ifdef CRT_INPUTFIELD_AUTOSLIDE
+			// Off unless CRT_INPUTFIELD_AUTOSLIDE is defined: zet dezelfde vlag
+			// die een aanraking op het invoerveld zet, zodat de schuifanimatie
+			// zonder touch reproduceerbaar is - langs precies het echte codepad.
+			vTaskDelay(3000);
+			ESP_LOGI("autoslide", "=== trigger via flagInputfieldPressed ===");
+			flagInputfieldPressed.set();
+#endif
 
 #ifdef CRT_INPUTFIELD_AUTOTYPE
 			// Off unless CRT_INPUTFIELD_AUTOTYPE is defined: drives the inputfield
@@ -164,9 +225,10 @@ namespace crt
 				{
 					ESP_LOGI(Task::taskName, "Inputfield got focus.");
 					
-					if(!touchscreenKeyboard.isShown())
+					if(!bKeyboardIsUp)
 					{
-						touchscreenKeyboard.show(true);
+						slideKeyboard(yKeyboardDownPix, yKeyboardUpPix);
+						bKeyboardIsUp = true;
 					}
 
 					inputfield.enable(true);
@@ -185,7 +247,11 @@ namespace crt
 						// The input has been completed.
 						inputfield.getTextValue(strFieldContent);
 						ESP_LOGI(Task::taskName, "Input completed:%s", strFieldContent.begin());
-						touchscreenKeyboard.hide(true);
+						if(bKeyboardIsUp)
+						{
+							slideKeyboard(yKeyboardUpPix, yKeyboardDownPix);
+							bKeyboardIsUp = false;
+						}
 					}
 				}
 			}

@@ -25,6 +25,16 @@ namespace crt
 	class IDisplayDraw
 	{
 	public:
+		// Restricts every subsequent drawing command to this rectangle, until
+		// clearClipRect(). Used to repaint just a part of the screen - for
+		// instance the strip a widget vacated when it moved - without every
+		// widget that happens to overlap it painting outside that strip.
+		// Only one clip is active at a time; setting a new one replaces it.
+		// Note that these go through the command queue like any other drawing
+		// command, so the clip applies in queue order rather than at call time.
+		virtual void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix) = 0;
+		virtual void clearClipRect() = 0;
+
 		virtual void fillScreen(uint32_t color) = 0;
 		virtual void drawRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color) = 0;
 		virtual void fillRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color) = 0;

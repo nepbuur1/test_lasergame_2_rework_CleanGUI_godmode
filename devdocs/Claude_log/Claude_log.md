@@ -1,5 +1,104 @@
 # Claude log
 
+## 2026-07-26 — Widgets verplaatsen, en een queue die stilzwijgend werk weggooide
+
+### Vraag
+Zou een toetsenbord dat van onderaf in beeld schuift werken door herhaald de
+y-positie aan te passen, en zet de widget de vrijgekomen ruimte terug?
+
+**Nee.** `Widget::setLocPos()` herberekent alleen `_locPosPix` en geeft de nieuwe
+globale positie door aan de kinderen; het stuurt nul tekencommando's. Tekenen
+gebeurt uitsluitend in `show()`/`hide()`, en `hidePanel()` vult de rect waar het
+paneel op dat moment staat met zijn eigen `_colBg`. Het bestaande voorbeeld
+`crt_TestAsyncDisplay.h:105-115` doet daarom bewust hide -> setLocPos -> show.
+
+### Wat er is gebouwd
+- **`setClipRect`/`clearClipRect` in `IDisplayDraw`**, via de viewport, en door de
+  commandoqueue heen zodat de clip in de juiste volgorde geldt.
+- **`Widget::redrawRegion()`** loopt door de tree en tekent alleen wat de regio
+  snijdt. `paint()` is nieuw in `IWidget`: "teken alleen mijzelf", zonder aan
+  `_bVisible`/`_bEnabled` te komen.
+- **`Widget::moveTo()`** verplaatst, berekent welke stroken vrijkomen (maximaal
+  vier; bij een rechte schuif is er een niet-leeg) en laat de tree die herstellen
+  vanaf de root. Bewust geen hide/show: dat wist eerst de hele widget (flikker),
+  vult met een gokkleur in plaats van te herstellen, en zou de touch-afhandeling
+  elke stap aan en uit zetten.
+- **`IWidget` kreeg `getParent()`/`setParent()`** - die verwijzing bestond niet,
+  dus een widget kon zijn ouder niets vragen.
+- Het viewport-conflict opgelost: `drawImage` en `drawStringOpaque` zetten sinds
+  eerder vandaag zelf een viewport en deden `resetViewport()`. Met een actieve
+  clip gooiden ze die weg. Ze snijden nu door met de clip via
+  `applyViewport()`/`restoreViewport()`.
+
+### De "crash" was stilzwijgend commandoverlies
+Gemeld: het schuiven liep vast midden in de tweede toetsenrij. Reproduceerbaar
+gemaakt door de schuif via dezelfde vlag te triggeren die een aanraking zet.
+Resultaat: **682 weggegooide tekencommando's**, types 7 (drawString), 17
+(fillBeveledRect) en 19 (**clearClipRect**).
+
+`crt_Queue.h:26` maakt de queue met `bWriteWaitIfQueueFull=false`, dus
+`xQueueSend` krijgt timeout 0 en geeft bij een volle queue simpelweg `false`
+terug - `AsyncDisplay` negeerde die returnwaarde. Sneuvelt een `clearClipRect`,
+dan blijft de clip staan en verandert er daarna niets meer op het scherm. Het
+programma draait door; het beeld staat stil. Dat ziet eruit als een crash.
+
+Opgelost: `AsyncDisplay::writeCommand()` wacht tot er plaats is (queue nu met
+`bWriteWaitIfQueueFull=true`). Wordt er geschreven vanuit de tekentaak zelf -
+touch-afhandeling draait daar - dan zou blokkeren een impasse met zichzelf zijn,
+dus maakt hij eerst plaats door zelf een commando uit te voeren. Plus een teller
+`getNofQueueFullEvents()`, zodat queuedruk zichtbaar is in plaats van stil.
+
+### Twee eigen misslagen, voor de volledigheid
+1. **"Het hangt"** - te snel geconcludeerd uit stilgevallen logregels. Er logde
+   daarna simpelweg niets; die stilte bewees niets.
+2. **Een optimalisatie die averechts werkte.** Eerder vandaag bleek release 9x
+   sneller (284 -> 31 ms/stap) en wees ik `dumpStackHighWaterMarkIfIncreased()`
+   in de AsyncDisplay-lus aan als oorzaak. Die aanroep verplaatst naar de timer
+   in plaats van per commando: **767 ms/stap**, bijna drie keer trager.
+   Teruggedraaid. De werkelijke oorzaak van de wisselende debug-tijden was mijn
+   eigen spinlus `while (!write) vTaskDelay(1)` tegen een taak van gelijke
+   prioriteit - die gaf 284, 767 en >25000 ms bij identieke code. Met een echt
+   blokkerende queue is het stabiel. **Les: laat de queue wachten, ga niet zelf
+   pollen.**
+
+### Metingen (15 stappen van 8 pixels, toetsenbord 320x120)
+| | debug | release |
+|---|---|---|
+| per stap | 183 ms | **21 ms** |
+| hele schuif | 2757 ms | **319 ms** |
+
+Beter dan de ~38 ms/stap uit het plan, doordat toetsen buiten beeld worden
+weggeculld. Zonder buffer blijft een volledige hertekening per stap nodig: de
+verschoven inhoud kan niet worden geblit.
+
+### Ontwerppunt: de root tekent niets
+`PageRoot` heeft geen eigen kleur, dus zonder een widget die de achtergrond
+bezit, is er niets om een vrijgekomen strook mee te herstellen en blijft het
+oude beeld staan. Het Inputfield-voorbeeld heeft daarom een `backgroundPanel`
+gekregen, als eerste kind toegevoegd en dus als eerste getekend.
+
+### Openstaande bug: getScreenSize klopt niet, en de layout leunt op een race
+Gemeten tijdens het schuiven:
+```
+getScreenSize=(240,320)   root=(320,240)
+```
+Precies verwisseld. `crt_TFT_eSPI_DisplayAdapter.h:86` wisselt breedte en hoogte
+om bij rotatie 1 en 3, terwijl TFT_eSPI's `width()`/`height()` na `setRotation()`
+zelf al gedraaid zijn - een dubbele omwisseling.
+
+Dat het tot nu toe goed ging: `PageRoot` vraagt zijn maat op terwijl
+`AsyncDisplay` gelijktijdig `touchCalibrate()` draait (beide taken worden na hun
+`vTaskDelay(1000)` tegelijk wakker). `PageRoot` treft daardoor het venster waarin
+`_rotation` al 3 is maar `_tft.setRotation()` nog niet is uitgevoerd, en dan
+levert de dubbele omwisseling toevallig het goede getal op. **De schermafmeting
+van dit project berust dus op een race.**
+
+`Widget::clipToRoot()` clipt daarom op de rect van de root en niet op
+`getScreenSize()`: de layout is op de root gebaseerd, dus dat is per definitie
+consistent. De adapterbug zelf staat nog open - de swap eruit halen zou zonder
+meer elke demo op zijn kant zetten, want dan krijgt PageRoot in dat venster
+240x320.
+
 ## 2026-07-26 — Toetsenbord in toetsstijl, en een verzonken invoerveld
 
 ### Aanleiding

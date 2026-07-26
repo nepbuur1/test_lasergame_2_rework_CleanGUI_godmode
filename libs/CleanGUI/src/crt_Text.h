@@ -161,6 +161,11 @@ namespace crt
 		//       The actual (un-)display functionality is to be implemented
 		//       by the specific widget class (like TouchScreenButton),
 		//       which is derived from IWidget as well.
+		/*override*/ void paint()
+		{
+			showText();
+		}
+
 		/*override*/ void show(bool bIncludeChildren)
 		{
 			showText();

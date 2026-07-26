@@ -24,14 +24,15 @@ namespace crt
 		Timer periodicTimer;
 		Flag flagTouchCalibrate;
 		DisplayCommand curCommand;
+		uint32_t nofQueueFullEvents;	// alleen ter diagnose; er gaat niets meer verloren
 		uint8_t rotation;
 		uint8_t fontTouchCalibration;
 
 	public:
 		AsyncDisplay(const char* taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, 
 			IDisplay& display, uint8_t rotation, uint8_t fontTouchCalibration) :
-			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), display(display), nofPrintContexts(0), queueCommands(this), 
-			periodicTimer(this), flagTouchCalibrate(this), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
+			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), display(display), nofPrintContexts(0), queueCommands(this, true /*bWriteWaitIfQueueFull*/), 
+			periodicTimer(this), flagTouchCalibrate(this), nofQueueFullEvents(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
 		{
 			start(); // For simplicity, the task is started right away in it's constructor.
 		}
@@ -100,6 +101,8 @@ namespace crt
 			case DisplayCommandType::drawString:          return "drawString";
 			case DisplayCommandType::drawStringOpaque:    return "drawStringOpaque";
 			case DisplayCommandType::fillBeveledRect:     return "fillBeveledRect";
+			case DisplayCommandType::setClipRect:         return "setClipRect";
+			case DisplayCommandType::clearClipRect:       return "clearClipRect";
 			case DisplayCommandType::drawImage:           return "drawImage";
 			case DisplayCommandType::print:               return "print";
 			case DisplayCommandType::println:             return "println";
@@ -109,6 +112,51 @@ namespace crt
 #endif
 
 	private:
+		// Queue::write blokkeert niet als de queue vol is - hij geeft false terug
+		// en het commando is weg. Dat mag hier niet gebeuren: sneuvelt er een
+		// clearClipRect, dan blijft de clip staan en verandert er daarna niets
+		// meer op het scherm. Dat ziet eruit als vastlopen, terwijl alles nog
+		// gewoon draait. Wachten tot er plaats is, is het juiste gedrag: het
+		// remt de schrijver af tot de tekensnelheid.
+		void writeCommand(DisplayCommand& displayCommand)
+		{
+			if (xTaskGetCurrentTaskHandle() == Task::taskHandle)
+			{
+				// Wij zijn zelf de taak die de queue leegmaakt. Blokkerend
+				// schrijven zou een impasse met onszelf zijn, dus maken we eerst
+				// zelf plaats. Dit gebeurt als touch-afhandeling (pollTouch
+				// draait in deze taak) een widget laat hertekenen.
+				while (queueCommands.getNofMessagesWaiting() >= (int)CommandBufferSize)
+				{
+					nofQueueFullEvents++;
+					drainOneCommand();
+				}
+			}
+			else if (queueCommands.getNofMessagesWaiting() >= (int)CommandBufferSize)
+			{
+				nofQueueFullEvents++;
+			}
+
+			// Blokkeert tot er plaats is (bWriteWaitIfQueueFull). Dat remt de
+			// schrijver af tot de tekensnelheid, wat precies goed is - en het is
+			// veel netter dan zelf pollen met vTaskDelay: de schrijver wordt
+			// direct gewekt zodra er ruimte vrijkomt, in plaats van pas bij de
+			// volgende tick.
+			queueCommands.write(displayCommand);
+		}
+
+		// Voert precies een commando uit de queue uit. Gebruikt een eigen
+		// DisplayCommand, niet curCommand, zodat dit ook veilig is als het vanuit
+		// de hoofdlus wordt aangeroepen.
+		void drainOneCommand()
+		{
+			DisplayCommand displayCommand;
+			queueCommands.read(displayCommand);		// blokkeert alleen als leeg, en dat is hij hier niet
+			PrintContext* pPrintContext = queryPrintContext(displayCommand.getTask());
+			assert(pPrintContext != nullptr);
+			displayCommand.execute(display, *pPrintContext);
+		}
+
 		PrintContext* queryPrintContext(const Task* pTask)
 		{
 			PrintContext* pPrintContext = nullptr;
@@ -138,7 +186,16 @@ namespace crt
 			return  pPrintContext;
 		}
 
-		// The interface functions:
+		public:
+		// Hoe vaak de queue vol zat. Nul betekent dat de tekenlast binnen
+		// CommandBufferSize past; een hoog getal betekent dat de schrijvende taak
+		// wordt afgeremd door de tekensnelheid.
+		uint32_t getNofQueueFullEvents()
+		{
+			return nofQueueFullEvents;
+		}
+
+	// The interface functions:
 	public:
 		/*override*/ void pollTouch(void* pCallingTask)
 		{
@@ -186,74 +243,88 @@ namespace crt
 		//	display.setFontScale(fontScale);
 		//}
 
+		/* override */ void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix)
+		{
+			DisplayCommand displayCommand;
+			displayCommand.setClipRect(topLeftPix, sizePix);
+			writeCommand(displayCommand);
+		}
+
+		/* override */ void clearClipRect()
+		{
+			DisplayCommand displayCommand;
+			displayCommand.clearClipRect();
+			writeCommand(displayCommand);
+		}
+
 		/* override */ void fillScreen(uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillScreen(color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void drawRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawRect(topLeftPix, sizePix, color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void fillRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillRect(topLeftPix, sizePix, color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void drawRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawRoundRect(topLeftPix, sizePix, radius, color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void fillRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillRoundRect(topLeftPix, sizePix, radius, color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void fillSmoothRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t colFg, uint32_t colBg)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillSmoothRoundRect(topLeftPix, sizePix, radius, colFg, colBg);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/* override */ void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.fillBeveledRect(topLeftPix, sizePix, colFg, colHighlight, colShadow, style);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/*override*/ void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t color)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawString(str, bottomLeftPix, alignment, font, scale, color);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/*override*/ void drawStringOpaque(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t colFg, uint32_t colBg, const Vec2& paddingSizePix)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawStringOpaque(str, bottomLeftPix, alignment, font, scale, colFg, colBg, paddingSizePix);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawImage(topLeftPix, sizePix, image, alignment);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/*override*/ void setPrintColor(void* pTask, uint32_t color)
@@ -296,7 +367,7 @@ namespace crt
 			Task* pTask2 = (Task*)pTask;
 			DisplayCommand displayCommand;
 			displayCommand.print(pTask2, str);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 		/*override*/ void println(void* pTask, const char* str)
@@ -304,7 +375,7 @@ namespace crt
 			Task* pTask2 = (Task*)pTask;
 			DisplayCommand displayCommand;
 			displayCommand.println(pTask2, str);
-			queueCommands.write(displayCommand);
+			writeCommand(displayCommand);
 		}
 
 	}; // end class AsyncDisplay

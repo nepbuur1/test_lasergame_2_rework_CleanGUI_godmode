@@ -21,6 +21,8 @@ namespace crt
 		virtual const char* getName() = 0;
 		virtual IDisplay* getDisplay() = 0;
 		virtual void setDisplay (IDisplay& display) = 0;
+		virtual IWidget* getParent() = 0;
+		virtual void setParent(IWidget* pParent) = 0;
 		virtual Vec2 getGlobPosOfParent() = 0;					  // always in pixels. always in abs
 		virtual void setGlobPosOfParent(const Vec2& locPos) = 0;  // coordinates with origin top left.
 		virtual Vec2 getSizeOfParent() = 0;					      // always in pixels. always in abs
@@ -31,10 +33,24 @@ namespace crt
 		virtual void setLocPos(const Vec2& locPos, CoordType coordTypeLocPos, Alignment alignment) = 0; // CoordType can be Pixels or Promillage
 		virtual CoordType getCoordTypeLocPos() = 0;
 		virtual Vec2 getSizePix() = 0;
+		virtual Vec2 getGlobPosPix() = 0;
 		virtual Vec2 getSize() = 0;
 		virtual void setSize(const Vec2& size, CoordType coordTypeSize) = 0;
 		virtual CoordType getCoordTypeSize() = 0;
 		virtual Alignment getAlignment() = 0;
+
+	// drawing
+		// Draws just this widget, nothing else, and without touching its
+		// visibility or enable state. That last part is what separates it from
+		// show(): a widget that is being moved must not toggle its touch
+		// handling on every step.
+		virtual void paint() = 0;
+
+		// Redraws this widget and its children, but only those that overlap the
+		// given region. Combine with IDisplayDraw::setClipRect to repaint just a
+		// part of the screen - for instance the strip a widget vacated when it
+		// moved, which is how whatever was underneath comes back.
+		virtual void redrawRegion(const Vec2& topLeftPix, const Vec2& sizePix) = 0;
 
 	// enabling, disabling
 		virtual void show(bool bIncludeChildren) = 0;		  // show/hide is about the visual aspect of a widget.
