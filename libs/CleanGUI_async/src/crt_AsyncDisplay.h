@@ -195,6 +195,14 @@ namespace crt
 		// Hoe vaak de queue vol zat. Nul betekent dat de tekenlast binnen
 		// CommandBufferSize past; een hoog getal betekent dat de schrijvende taak
 		// wordt afgeremd door de tekensnelheid.
+		// Hoeveel commando's nog op uitvoering wachten. Handig om te meten hoe lang
+		// een hertekening werkelijk duurt: zonder dit meet je alleen hoe snel de
+		// commando's in de queue zijn gezet.
+		int getNofQueuedCommands()
+		{
+			return queueCommands.getNofMessagesWaiting();
+		}
+
 		uint32_t getNofQueueFullEvents()
 		{
 			return nofQueueFullEvents;
