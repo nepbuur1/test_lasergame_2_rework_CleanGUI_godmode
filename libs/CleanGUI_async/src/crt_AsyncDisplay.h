@@ -34,6 +34,11 @@ namespace crt
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), display(display), nofPrintContexts(0), queueCommands(this, true /*bWriteWaitIfQueueFull*/), 
 			periodicTimer(this), flagTouchCalibrate(this), nofQueueFullEvents(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
 		{
+			// Meteen doorgeven, niet pas in main(): PageRoot vraagt de schermmaat
+			// op vanuit een andere taak en zou anders de portretmaat krijgen.
+			// Dat was precies de race waar de layout op leunde.
+			display.setRotation(rotation);
+
 			start(); // For simplicity, the task is started right away in it's constructor.
 		}
 
@@ -213,6 +218,11 @@ namespace crt
 		/*override*/ void addTouchListener(ITouchListener* pTouchListener)
 		{
 			display.addTouchListener(pTouchListener);
+		}
+
+		/*override*/ void setRotation(uint8_t rotation)
+		{
+			display.setRotation(rotation);
 		}
 
 		/* override */ Vec2 getScreenSize()

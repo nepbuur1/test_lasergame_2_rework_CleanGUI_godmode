@@ -13,6 +13,10 @@ namespace crt
 	class IDisplaySynchrone
 	{
 	public:
+		// Moet bekend zijn voordat iemand getScreenSize() aanroept, anders is het
+		// antwoord de portretmaat van het paneel in plaats van wat er straks op
+		// het scherm staat.
+		virtual void	setRotation(uint8_t rotation) = 0;
 		virtual Vec2	getScreenSize() = 0;
 		virtual int16_t getTextWidth(const char* str, uint8_t font) = 0;
 		virtual int16_t getFontHeight(uint8_t font) = 0;

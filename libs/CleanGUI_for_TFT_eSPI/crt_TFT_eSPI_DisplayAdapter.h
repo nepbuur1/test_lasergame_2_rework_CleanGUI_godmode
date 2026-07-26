@@ -44,6 +44,7 @@ namespace crt
         // The clip set through setClipRect. Everything that draws within a
         // viewport of its own has to intersect with this instead of overwriting
         // it - see applyViewport/restoreViewport.
+        bool _bBegun;
         bool _bClipActive;
         Vec2 _clipTopLeftPix, _clipSizePix;
         
@@ -54,6 +55,7 @@ namespace crt
             _freeFonts(freeFonts), _filenameCalibration(filenameCalibration),
             _bRepeatCalibration(bRepeatCalibration),
             _rotation(0),
+            _bBegun(false),
             _bClipActive(false)
         {}
 
@@ -76,6 +78,7 @@ namespace crt
         {
             _rotation = rotation;
             _tft.begin();
+            _bBegun = true;
             _tft.setRotation(rotation);
             _tft.fillScreen(TFT_BLACK);
         }
@@ -104,12 +107,34 @@ namespace crt
             _touchDetector.addTouchListener(pTouchListener);
         }
 
+        // Onthoudt de rotatie, en past hem toe zodra de TFT draait. Zo klopt
+        // getScreenSize() ook als hij wordt aangeroepen voordat begin() of
+        // touchCalibrate() is uitgevoerd.
+        /*override*/ void setRotation(uint8_t rotation)
+        {
+            _rotation = rotation;
+            if (_bBegun)
+            {
+                _tft.setRotation(rotation);
+            }
+        }
+
         /*override*/ Vec2 getScreenSize()
         {
-            if(_rotation == 1 || _rotation == 3)
-                return Vec2(_tft.height(),_tft.width());
-            else
-                return Vec2(_tft.width(),_tft.height());
+            // Afgeleid van de natuurlijke paneelmaat plus de rotatie, en NIET van
+            // _tft.width()/height(). Die geven de gedraaide maat pas nadat
+            // setRotation is uitgevoerd; ervoor melden ze portret. Hier stond
+            // daarom een omwisseling voor rotatie 1 en 3 - maar TFT_eSPI doet die
+            // omwisseling na setRotation zelf al, dus dat was er een te veel.
+            // Gemeten gevolg: getScreenSize() gaf (240,320) waar de layout op
+            // (320,240) was gebaseerd, en er werd een kwart van de breedte
+            // weggeknipt. Dat het daarvoor goed leek te gaan, berustte op een
+            // race tussen PageRoot en touchCalibrate.
+            if ((_rotation == 1) || (_rotation == 3))
+            {
+                return Vec2(TFT_HEIGHT, TFT_WIDTH);		// TFT_WIDTH/HEIGHT zijn in portret gedefinieerd
+            }
+            return Vec2(TFT_WIDTH, TFT_HEIGHT);
         }
 
         /*override*/ int16_t getTextWidth(const char* str, uint8_t font)
@@ -437,6 +462,7 @@ namespace crt
             _rotation = rotation; // store to allow width-height swap in getScreenSize
 
             _tft.begin();
+            _bBegun = true;
             _tft.setRotation(rotation);
             _tft.fillScreen(TFT_BLACK);
             _tft.setTextFont(font);  //tft.setFreeFont(FF18);

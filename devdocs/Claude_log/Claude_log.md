@@ -1,5 +1,50 @@
 # Claude log
 
+## 2026-07-26 — getScreenSize klopte niet, en de layout leunde op een race
+
+### Wat er mis was
+`crt_TFT_eSPI_DisplayAdapter::getScreenSize()` wisselde breedte en hoogte om bij
+rotatie 1 en 3. Maar TFT_eSPI's `width()`/`height()` zijn na `setRotation()` zelf
+al gedraaid, dus dat was een omwisseling te veel. Gemeten tijdens het schuiven van
+het toetsenbord:
+
+```
+getScreenSize=(240,320)   root=(320,240)
+```
+
+Precies verwisseld, en daardoor knipte de nieuwe regio-clipping een kwart van de
+schermbreedte weg.
+
+### Waarom het jarenlang goed leek te gaan
+De adapter kende zijn rotatie pas in `begin()` of `touchCalibrate()`. In de
+demo's met `AsyncDisplay` draait `touchCalibrate()` in de AsyncDisplay-taak,
+terwijl `PageRoot` de schermmaat opvraagt vanuit de andere taak - en beide taken
+worden na hun `vTaskDelay(1000)` op hetzelfde moment wakker. `PageRoot` trof
+daardoor het venster waarin `_rotation` al 3 was maar `_tft.setRotation()` nog
+niet was uitgevoerd. In dat venster meldt `_tft` nog portret, en dan levert de
+dubbele omwisseling toevallig het juiste getal op. **De schermafmeting berustte
+dus op een race die telkens dezelfde kant op viel.**
+
+### De reparatie
+- `setRotation()` toegevoegd aan `IDisplaySynchrone`, waar `getScreenSize()` ook
+  woont. `AsyncDisplay` geeft de rotatie door in zijn **constructor**, dus voordat
+  er een taak draait. De adapter onthoudt hem en past hem toe zodra de TFT
+  daadwerkelijk is gestart (`_bBegun`).
+- `getScreenSize()` leidt de maat af van `TFT_WIDTH`/`TFT_HEIGHT` (in portret
+  gedefinieerd) plus de rotatie, en niet meer van `_tft.width()/height()`. Het
+  antwoord is daarmee hetzelfde, ongeacht wanneer je het vraagt.
+
+Na de fix: `getScreenSize=(320,240)` en `root=(320,240)`.
+
+### Waarom dit geen enkele demo omgooit
+De nieuwe waarde is precies de waarde die de demo's via de gewonnen race al
+kregen. Was de race andersom uitgevallen, dan hadden ze (240,320) gekregen en er
+zichtbaar verkeerd uitgezien. De fix maakt het deterministisch, niet anders.
+
+`Widget::clipToRoot()` blijft op de rect van de root clippen: de layout is op de
+root gebaseerd, dus dat is per definitie consistent - ook als de root ooit kleiner
+dan het scherm zou zijn.
+
 ## 2026-07-26 — Widgets verplaatsen, en een queue die stilzwijgend werk weggooide
 
 ### Vraag

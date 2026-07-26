@@ -438,10 +438,10 @@ namespace crt
 		//
 		// Bewust de root en niet IDisplay::getScreenSize(). De hele layout is op
 		// de root gebaseerd, dus dit is per definitie consistent met waar de
-		// widgets staan. getScreenSize() gaf hier (240,320) terwijl de root
-		// (320,240) is - precies verwisseld - waardoor een kwart van de breedte
-		// werd weggeknipt. Zie het logboek: de adapter wisselt breedte en hoogte
-		// om bij rotatie 1 en 3, terwijl TFT_eSPI dat na setRotation zelf al doet.
+		// widgets staan - ook als de root ooit kleiner dan het scherm zou zijn.
+		// (getScreenSize() gaf hier ooit de verwisselde maat, waardoor een kwart
+		// van de breedte werd weggeknipt; dat is inmiddels in de adapter
+		// opgelost, maar de root blijft de juiste bron.)
 		bool clipToRoot(Vec2& topLeftPix, Vec2& sizePix)
 		{
 			if ((sizePix.x <= 0) || (sizePix.y <= 0))
