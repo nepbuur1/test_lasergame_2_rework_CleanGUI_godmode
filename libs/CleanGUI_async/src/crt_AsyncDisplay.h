@@ -24,6 +24,13 @@ namespace crt
 		Timer periodicTimer;
 		Flag flagTouchCalibrate;
 		DisplayCommand curCommand;
+
+		// Hoeveel tekencommando's per waitAny-ronde worden afgehandeld. Een op
+		// een is verspilling zodra er een reeks klaarstaat: de waitAny-cyclus
+		// kost dan meer dan het commando zelf. Gemeten op een volledige
+		// keyboard-hertekening: 95 -> 85 ms, dus ruim 10%. Begrensd, zodat
+		// pollTouch niet te lang moet wachten.
+		static const int MaxNofCommandsPerCycle = 10;
 		uint32_t nofQueueFullEvents;	// alleen ter diagnose; er gaat niets meer verloren
 		uint8_t rotation;
 		uint8_t fontTouchCalibration;
@@ -60,6 +67,8 @@ namespace crt
 				
 				if (hasFired(queueCommands))
 				{
+				  for (int nofHandled = 0; nofHandled < MaxNofCommandsPerCycle; nofHandled++)
+				  {
 					queueCommands.read(curCommand);
 
 					// curCommand.dumpWithESP_LOGI(); vTaskDelay(1); // for debugging purposes.
@@ -82,8 +91,13 @@ namespace crt
 #else
 					curCommand.execute(display, *pPrintContext);
 #endif
+					if (queueCommands.getNofMessagesWaiting() == 0)
+					{
+						break;		// niets meer klaar; terug naar waitAny.
+					}
+				  }
 				}
-				
+
 				if (hasFired(periodicTimer))
 				{
 					display.pollTouch(this);
