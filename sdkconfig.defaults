@@ -1,0 +1,23 @@
+# Waarden die af moeten wijken van de ESP-IDF-defaults, anders werkt dit project
+# niet. sdkconfig zelf staat in .gitignore en wordt opnieuw gegenereerd zodra hij
+# ontbreekt; dit bestand zorgt dat die verse sdkconfig meteen klopt.
+#
+# Zonder dit bestand kost dat achtereenvolgens: een build die al op cmake
+# afketst, daarna een bord zonder opslag voor zijn touchkalibratie, en daarna
+# elke boot opnieuw kalibreren. Zie het logboek van 2026-07-26.
+
+# arduino-esp32 eist 1000 Hz en laat cmake anders meteen falen met
+# "esp32-arduino requires CONFIG_FREERTOS_HZ=1000 (currently 100)".
+CONFIG_FREERTOS_HZ=1000
+
+# Eigen partitietabel. Die bevat de spiffs-partitie op 0x290000 waarin de
+# touchkalibratie (/TouchCalData1) wordt bewaard; LITTLEFS.begin() zoekt
+# standaard naar precies het partitielabel "spiffs". Met de ingebouwde
+# partitions_singleapp.csv bestaat die partitie niet en gaat de kalibratie bij
+# elke herstart verloren.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# partitions.csv loopt tot precies 0x400000, dus de flash moet als 4MB bekend
+# staan. Op 2MB valt de spiffs-partitie er stilzwijgend buiten.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y

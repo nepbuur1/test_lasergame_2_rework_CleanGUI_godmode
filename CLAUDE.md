@@ -19,6 +19,12 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash
 idf.py -p /dev/ttyUSB0 monitor
 ```
+`sdkconfig` staat in `.gitignore`. Wat er per se in moet, staat daarom in
+**`sdkconfig.defaults`**: `FREERTOS_HZ=1000` (arduino-esp32 eist dat, anders
+faalt cmake meteen), de eigen `partitions.csv`, en 4MB flash. Zet nieuwe
+niet-default instellingen daar bij, anders zijn ze weg zodra `sdkconfig`
+opnieuw wordt gegenereerd. De spiffs-partitie uit `partitions.csv` is waar de
+touchkalibratie in leeft; zonder die partitie vraagt het bord er elke boot om.
 
 ## Display / TFT_eSPI
 - Config staat in `libs/TFT_eSPI/User_Setup.h` (geselecteerd via `User_Setup_Select.h`).
