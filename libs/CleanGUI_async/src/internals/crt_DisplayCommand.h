@@ -14,7 +14,7 @@ namespace crt
 	 fillRoundRect=5, fillSmoothRoundRect = 6, drawString=7, setPrintColor=8, setPrintFont=9,
 		setPrintScale=10, setPrintCursor=11, setPrintWrap=12, print=13, println=14,
 		drawImage=15, drawStringOpaque=16, fillBeveledRect=17,
-		setClipRect=18, clearClipRect=19
+		setClipRect=18, clearClipRect=19, present=20
 	};
 
 	class DisplayCommand : public IDisplayDraw, public IDisplayPrint
@@ -115,6 +115,9 @@ namespace crt
 				break;
 			case DisplayCommandType::setClipRect:
 				display.setClipRect(vecA, vecB);
+				break;
+			case DisplayCommandType::present:
+				display.present();
 				break;
 			case DisplayCommandType::clearClipRect:
 				display.clearClipRect();
@@ -309,6 +312,20 @@ namespace crt
 			uintC = (uint32_t)colBg;
 			intB = (int32_t)alignment;
 			this->str = str;
+		}
+
+		// Nooit aangeroepen: isBuffered() is een vraag, geen opdracht, en gaat
+		// synchroon langs AsyncDisplay. Hij staat er alleen omdat IDisplayDraw hem
+		// voorschrijft.
+		/*override*/ bool isBuffered()
+		{
+			return false;
+		}
+
+		/*override*/ void present()
+		{
+			command = DisplayCommandType::present;
+			this->str = &nullChar;
 		}
 
 		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,

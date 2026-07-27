@@ -12,6 +12,7 @@
 #include <TFT_eSPI.h>     // Hardware-specific library
 #include <crt_TFT_eSPI_TouchDetector.h>
 #include <crt_IDisplay.h>
+#include <esp_heap_caps.h>
 #include <crt_Vec2.h>
 #include <User_Setup.h>   // In that file, LOAD_GFXFF determines availability of free fonts.
 
@@ -30,11 +31,32 @@ namespace crt
 
     //class TFT_eSPI_accessable;
 
+    // Tekent rechtstreeks op het paneel: elk commando staat er meteen op, en
+    // present() heeft niets te doen. De pixels gaan als RGB565 over de bus - 5
+    // bits rood, 6 groen, 5 blauw, want groen is waar het oog het gevoeligst
+    // voor is.
+    // De tegenhanger is TFT_eSPI_DisplayAdapter_RGB332, die in een backbuffer
+    // tekent. Die erft van deze klasse: het gedeelde deel is de vertaling van
+    // CleanGUI naar TFT_eSPI en heeft zelf geen pixelformaat.
     template <size_t MaxTouchListenerCount> 
-    class TFT_eSPI_DisplayAdapter : public IDisplay
+    class TFT_eSPI_DisplayAdapter_RGB565 : public IDisplay
     {
-    private:
+    protected:
+        // Het paneel zelf: aanzetten, roteren, touch, kalibreren, en straks het
+        // uiteindelijke uitsturen van een backbuffer. Altijd de hardware.
         TFT_eSPI _tft;
+
+        // Waar het tekenwerk heen gaat. Hier is dat het paneel zelf, zodat elk
+        // commando meteen zichtbaar is. Een afgeleide adapter kan dit naar een
+        // TFT_eSprite laten wijzen en er in present() een keer per beeld mee naar
+        // het paneel gaan; dat kan omdat TFT_eSprite van TFT_eSPI erft en dus
+        // precies dezelfde tekenmethoden heeft.
+        // Wat hier gedeeld wordt is de vertaling van CleanGUI naar TFT_eSPI - de
+        // clipping, de uitlijning, de lettertypen - en die is onafhankelijk van
+        // het aantal bits per pixel waarin het doel zijn pixels bewaart.
+        TFT_eSPI* _pTarget;
+
+    protected:
         TFT_eSPI_TouchDetector<MaxTouchListenerCount> _touchDetector;
         TFT_eSPI_IFreeFonts& _freeFonts;
         const char* _filenameCalibration;
@@ -47,17 +69,69 @@ namespace crt
         bool _bBegun;
         bool _bClipActive;
         Vec2 _clipTopLeftPix, _clipSizePix;
+
+    protected:
+        // Het palet van het scherm: 256 kleuren in RGB565, meestal het palet dat
+        // de converter naast de plaatjes heeft gezet. Nodig om paletteIndex(i) te
+        // kunnen omzetten, en om een PAL8-plaatje te kunnen uitpakken.
+        //
+        // Bewust een kopie in DRAM en niet de flash-array zelf. Het uitpakken
+        // leest de indices sequentieel uit flash en springt per pixel willekeurig
+        // in deze tabel; staat die tabel ook in flash, dan verdringen die twee
+        // elkaar in de flash-cache. Gemeten op een 64x64 plaatje: 5,45 ms met het
+        // palet in flash tegen 1,88 ms voor hetzelfde plaatje in RGB565 - en die
+        // 512 bytes DRAM halen dat verschil weg.
+        uint16_t _arPalette[256];
+        bool _bPaletteSet;
+        bool _bPaletteWarningGiven;
+        bool _bFormatWarningGiven;
+
+        // Een beeldregel werk, voor het uitpakken van PAL8 naar RGB565. Pas
+        // aangemaakt als er echt een PAL8-plaatje langskomt.
+        uint16_t* _pLineBuffer;
+        int32_t _nofLineBufferPixels;
+
+    private:
         
     public:
-        TFT_eSPI_DisplayAdapter(TFT_eSPI_IFreeFonts& freeFonts, const char* filenameCalibration, 
+        TFT_eSPI_DisplayAdapter_RGB565(TFT_eSPI_IFreeFonts& freeFonts, const char* filenameCalibration, 
                                 bool bRepeatCalibration)
-            :_touchDetector(_tft),
+            :_pTarget(&_tft), _touchDetector(_tft),
             _freeFonts(freeFonts), _filenameCalibration(filenameCalibration),
             _bRepeatCalibration(bRepeatCalibration),
             _rotation(0),
             _bBegun(false),
-            _bClipActive(false)
+            _bClipActive(false),
+            _arPalette{},
+            _bPaletteSet(false),
+            _bPaletteWarningGiven(false),
+            _bFormatWarningGiven(false),
+            _pLineBuffer(nullptr),
+            _nofLineBufferPixels(0)
         {}
+
+        // Het palet dat bij paletteIndex(...) en bij PAL8-plaatjes hoort. Wijst
+        // normaal naar de arPalette uit de gegenereerde _palette.h, die in flash
+        // staat; er wordt niets gekopieerd.
+        virtual void setPalette(const uint16_t* pPalette)
+        {
+            if (pPalette == nullptr)
+            {
+                _bPaletteSet = false;
+                return;
+            }
+
+            for (int i = 0; i < 256; i++)
+            {
+                _arPalette[i] = pPalette[i];
+            }
+            _bPaletteSet = true;
+        }
+
+        const uint16_t* getPalette()
+        {
+            return _bPaletteSet ? _arPalette : nullptr;
+        }
 
         /*override*/ void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix)
         {
@@ -73,14 +147,25 @@ namespace crt
             restoreViewport();
         }
 
+        // Er is niets te doen: alles wat getekend is, staat al op het paneel.
+        // Zie IDisplayDraw::present() voor waarom een voorbeeld hem toch aanroept.
+        /*override*/ void present()
+        {
+        }
+
+        /*override*/ bool isBuffered()
+        {
+            return false;		// alles staat meteen op het paneel
+        }
+
         // Simple initialization without calibration - useful for non-touch scenarios
-        void begin(uint8_t rotation)
+        virtual void begin(uint8_t rotation)
         {
             _rotation = rotation;
             _tft.begin();
             _bBegun = true;
             _tft.setRotation(rotation);
-            _tft.fillScreen(TFT_BLACK);
+            _pTarget->fillScreen(TFT_BLACK);
         }
 
         /*override*/ void pollTouch(void* pCallingTask)
@@ -122,7 +207,7 @@ namespace crt
         /*override*/ Vec2 getScreenSize()
         {
             // Afgeleid van de natuurlijke paneelmaat plus de rotatie, en NIET van
-            // _tft.width()/height(). Die geven de gedraaide maat pas nadat
+            // _pTarget->width()/height(). Die geven de gedraaide maat pas nadat
             // setRotation is uitgevoerd; ervoor melden ze portret. Hier stond
             // daarom een omwisseling voor rotatie 1 en 3 - maar TFT_eSPI doet die
             // omwisseling na setRotation zelf al, dus dat was er een te veel.
@@ -140,44 +225,44 @@ namespace crt
         /*override*/ int16_t getTextWidth(const char* str, uint8_t font)
         {
             uint8_t usedFont = selectFontOrFreeFont(font);
-            return _tft.textWidth(str, usedFont);
+            return _pTarget->textWidth(str, usedFont);
         }
 
         /*override*/ int16_t getFontHeight(uint8_t font)
         {
             uint8_t usedFont = selectFontOrFreeFont(font);
-            return _tft.fontHeight(usedFont);
+            return _pTarget->fontHeight(usedFont);
         }
 
         /*override*/ void setFontScale(uint8_t fontScale)
         {
-            _tft.setTextSize(fontScale);
+            _pTarget->setTextSize(fontScale);
         }
 
         /*override*/ Vec2 getPrintCursor()
         {
-            Vec2 cursor(_tft.getCursorX(), _tft.getCursorY());
+            Vec2 cursor(_pTarget->getCursorX(), _pTarget->getCursorY());
             return cursor;
         }
 
         /*override*/ void fillScreen(uint32_t color)
         {
-            _tft.fillScreen(colTo16bit(color));
+            _pTarget->fillScreen(colTo16bit(color));
         }
 
 		/*override*/ void drawRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color)
 		{
-			_tft.drawRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, colTo16bit(color));
+			_pTarget->drawRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, colTo16bit(color));
 		}
 
         /*override*/ void fillRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color)
         {
-            _tft.fillRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, colTo16bit(color));
+            _pTarget->fillRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, colTo16bit(color));
         }
 
         /*override*/ void drawRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color)
         {
-            _tft.drawRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(color));
+            _pTarget->drawRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(color));
         }
 
         /*override*/ void fillRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t color)
@@ -185,12 +270,12 @@ namespace crt
             // Note: this function draws something ugly in the current implementation of TFT_eSPI:
             // The rounded corners do not align with the sides of the button.
             // For now, it is better to use the slow and pretty fillSmoothRoundRect function below instead.
-            _tft.fillRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(color));
+            _pTarget->fillRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(color));
         }
 
         /*override*/ void fillSmoothRoundRect(const Vec2& topLeftPix, const Vec2& sizePix, int32_t radius, uint32_t colFg, uint32_t colBg)
         {
-            _tft.fillSmoothRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(colFg), colTo16bit(colBg));
+            _pTarget->fillSmoothRoundRect(topLeftPix.x, topLeftPix.y, sizePix.x, sizePix.y, radius, colTo16bit(colFg), colTo16bit(colBg));
         }
 
         /*override*/ void fillBeveledRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t colFg, uint32_t colHighlight, uint32_t colShadow, BevelStyle style)
@@ -205,13 +290,13 @@ namespace crt
             uint16_t col16Highlight = colTo16bit(colHighlight);
             uint16_t col16Shadow = colTo16bit(colShadow);
 
-            _tft.fillRect(x, y, w, h, col16Fg);
+            _pTarget->fillRect(x, y, w, h, col16Fg);
 
             // The gap around the key.
-            _tft.fillRect(x, y, w, 1, col16Shadow);         // top
-            _tft.fillRect(x, y, 1, h, col16Shadow);         // left
-            _tft.fillRect(x, y + h - 1, w, 1, col16Shadow); // bottom
-            _tft.fillRect(x + w - 1, y, 1, h, col16Shadow); // right
+            _pTarget->fillRect(x, y, w, 1, col16Shadow);         // top
+            _pTarget->fillRect(x, y, 1, h, col16Shadow);         // left
+            _pTarget->fillRect(x, y + h - 1, w, 1, col16Shadow); // bottom
+            _pTarget->fillRect(x + w - 1, y, 1, h, col16Shadow); // right
 
             // The gloss, just inside the gap. Raised: on the top and left, as if
             // lit from above. Sunken: on the bottom and right, because there the
@@ -220,25 +305,25 @@ namespace crt
             {
                 if (style == BevelStyle::Sunken)
                 {
-                    _tft.fillRect(x + 1, y + h - 2, w - 2, 1, col16Highlight); // bottom
-                    _tft.fillRect(x + w - 2, y + 1, 1, h - 2, col16Highlight); // right
+                    _pTarget->fillRect(x + 1, y + h - 2, w - 2, 1, col16Highlight); // bottom
+                    _pTarget->fillRect(x + w - 2, y + 1, 1, h - 2, col16Highlight); // right
                 }
                 else
                 {
-                    _tft.fillRect(x + 1, y + 1, w - 2, 1, col16Highlight);     // top
-                    _tft.fillRect(x + 1, y + 1, 1, h - 2, col16Highlight);     // left
+                    _pTarget->fillRect(x + 1, y + 1, w - 2, 1, col16Highlight);     // top
+                    _pTarget->fillRect(x + 1, y + 1, 1, h - 2, col16Highlight);     // left
                 }
             }
         }
 
         /*override*/ void drawString(const char* str, const Vec2& bottomLeftPix, Alignment alignment, uint8_t font, uint8_t scale, uint32_t color)
         {
-            _tft.setTextDatum(textDatumFromAlignment(alignment));
-            _tft.setTextColor(colTo16bit(color));    // one argument: transparent background
-            _tft.setTextSize(scale);
+            _pTarget->setTextDatum(textDatumFromAlignment(alignment));
+            _pTarget->setTextColor(colTo16bit(color));    // one argument: transparent background
+            _pTarget->setTextSize(scale);
             uint8_t usedFont = selectFontOrFreeFont(font);
-            _tft.drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
-            _tft.setTextSize(1);
+            _pTarget->drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
+            _pTarget->setTextSize(1);
         }
 
         // Flicker-free label replacement. Two steps, in this order:
@@ -285,17 +370,17 @@ namespace crt
                 applyViewport(padTopLeft, paddingSizePix);
             }
 
-            _tft.setTextDatum(textDatumFromAlignment(alignment));
-            _tft.setTextColor(colTo16bit(colFg), colTo16bit(colBg));  // two arguments: opaque
-            _tft.setTextSize(scale);
+            _pTarget->setTextDatum(textDatumFromAlignment(alignment));
+            _pTarget->setTextColor(colTo16bit(colFg), colTo16bit(colBg));  // two arguments: opaque
+            _pTarget->setTextSize(scale);
             uint8_t usedFont = selectFontOrFreeFont(font);
-            _tft.drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
+            _pTarget->drawString(str, bottomLeftPix.x, bottomLeftPix.y, usedFont);
 
             // Measure while textsize is still `scale` - both textWidth and
             // fontHeight include it (TFT_eSPI.cpp:2973 and :3001).
-            int32_t textWidthPix = _tft.textWidth(str, usedFont);
-            int32_t textHeightPix = _tft.fontHeight(usedFont);
-            _tft.setTextSize(1);
+            int32_t textWidthPix = _pTarget->textWidth(str, usedFont);
+            int32_t textHeightPix = _pTarget->fontHeight(usedFont);
+            _pTarget->setTextSize(1);
 
             if (bHasPadding && (paddingSizePix.x > textWidthPix))
             {
@@ -309,14 +394,14 @@ namespace crt
                 int32_t widthLeftStrip = textTopLeft.x - padTopLeft.x;
                 if (widthLeftStrip > 0)
                 {
-                    _tft.fillRect(padTopLeft.x, padTopLeft.y, widthLeftStrip, paddingSizePix.y, col16Bg);
+                    _pTarget->fillRect(padTopLeft.x, padTopLeft.y, widthLeftStrip, paddingSizePix.y, col16Bg);
                 }
 
                 int32_t xRightStrip = textTopLeft.x + textWidthPix;
                 int32_t widthRightStrip = (padTopLeft.x + paddingSizePix.x) - xRightStrip;
                 if (widthRightStrip > 0)
                 {
-                    _tft.fillRect(xRightStrip, padTopLeft.y, widthRightStrip, paddingSizePix.y, col16Bg);
+                    _pTarget->fillRect(xRightStrip, padTopLeft.y, widthRightStrip, paddingSizePix.y, col16Bg);
                 }
             }
 
@@ -340,9 +425,16 @@ namespace crt
             {
                 return;
             }
-            if (image.format != PixelFormat::RGB565)
+            if ((image.format != PixelFormat::RGB565) && (image.format != PixelFormat::PAL8))
             {
-                ESP_LOGI("TFT_eSPI_DisplayAdapter", "Unsupported PixelFormat: %d", (int)image.format);
+                // Een keer klagen en niet per beeld: op 115200 baud kost een
+                // logregel ~4 ms, en dan meet je de klacht in plaats van het
+                // tekenwerk.
+                if (!_bFormatWarningGiven)
+                {
+                    _bFormatWarningGiven = true;
+                    ESP_LOGE("TFT_eSPI_DisplayAdapter", "Unsupported PixelFormat: %d", (int)image.format);
+                }
                 return;
             }
 
@@ -372,8 +464,8 @@ namespace crt
             // The image data is in host (little endian) byte order, the panel
             // wants big endian. The swap is free: pushSwapBytePixels swaps the
             // next chunk while the previous SPI transfer is still running.
-            bool bSwapBytesBefore = _tft.getSwapBytes();
-            _tft.setSwapBytes(true);
+            bool bSwapBytesBefore = _pTarget->getSwapBytes();
+            _pTarget->setSwapBytes(true);
 
             // const_cast is deliberate and safe here. TFT_eSPI has a separate
             // "const" overload only because on AVR, PROGMEM is a distinct
@@ -382,6 +474,14 @@ namespace crt
             // and it is the faster path: it pushes the whole unclipped image in
             // one pushPixels call instead of copying it line by line into a
             // stack buffer first. pushImage only ever reads the data.
+            if (image.format == PixelFormat::PAL8)
+            {
+                drawImagePal8(image, imagePos, drawWidth, drawHeight, frameRow, frameCol, bIsFrame);
+                _pTarget->setSwapBytes(bSwapBytesBefore);
+                restoreViewport();
+                return;
+            }
+
             uint16_t* pPixels = const_cast<uint16_t*>(static_cast<const uint16_t*>(image.pData));
 
             if (bIsFrame)
@@ -401,12 +501,12 @@ namespace crt
 
                     if (image.bHasTransparency)
                     {
-                        _tft.pushImage(imagePos.x, imagePos.y + y, drawWidth, 1,
+                        _pTarget->pushImage(imagePos.x, imagePos.y + y, drawWidth, 1,
                                        pLine, colTo16bit(image.colTransparent));
                     }
                     else
                     {
-                        _tft.pushImage(imagePos.x, imagePos.y + y, drawWidth, 1, pLine);
+                        _pTarget->pushImage(imagePos.x, imagePos.y + y, drawWidth, 1, pLine);
                     }
                 }
             }
@@ -415,21 +515,21 @@ namespace crt
                 // This overload collects runs of non-transparent pixels per
                 // scan line and writes each run as one block: exactly the
                 // per-pixel/per-block split we want, without a framebuffer.
-                _tft.pushImage(imagePos.x, imagePos.y, image.width, image.height,
+                _pTarget->pushImage(imagePos.x, imagePos.y, image.width, image.height,
                                pPixels, colTo16bit(image.colTransparent));
             }
             else
             {
-                _tft.pushImage(imagePos.x, imagePos.y, image.width, image.height, pPixels);
+                _pTarget->pushImage(imagePos.x, imagePos.y, image.width, image.height, pPixels);
             }
 
-            _tft.setSwapBytes(bSwapBytesBefore);
+            _pTarget->setSwapBytes(bSwapBytesBefore);
             restoreViewport();
         }
 
         /*override*/ void setPrintColor(void* pTask, uint32_t color)
         {
-            _tft.setTextColor(colTo16bit(color));
+            _pTarget->setTextColor(colTo16bit(color));
         }
 
         /*override*/ void setPrintFont(void* pTask, uint8_t font)
@@ -439,31 +539,168 @@ namespace crt
 
         /*override*/ void setPrintScale(void* pTask, uint8_t fontScale)
         {
-            _tft.setTextSize(fontScale);
+            _pTarget->setTextSize(fontScale);
         }
 
         /*override*/ void setPrintCursor(void* pTask, const Vec2& cursorPos)
         {
-            _tft.setCursor(cursorPos.x, cursorPos.y);
+            _pTarget->setCursor(cursorPos.x, cursorPos.y);
         }
 
         /*override*/ void setPrintWrap(void* pTask, bool bWrapX)
         {
-            _tft.setTextWrap(bWrapX);
+            _pTarget->setTextWrap(bWrapX);
         }
 
         /*override*/ void print(void* pTask, const char* str)
         {
-            _tft.print(str);
+            _pTarget->print(str);
         }
 
         /*override*/ void println(void* pTask, const char* str)
         {
-            _tft.println(str);
+            _pTarget->println(str);
         }
 
-        uint16_t colTo16bit(uint32_t color) // ARGB
+        // Een PAL8-plaatje uitpakken naar RGB565, regel voor regel, en pushen.
+        // Deze adapter tekent rechtstreeks op het paneel, dus het palet moet er
+        // hier alsnog doorheen; een PAL8-adapter kopieert de indices juist zoals
+        // ze zijn. Zelfde plaatje in flash, twee manieren om het te tonen.
+        void drawImagePal8(const Image& image, const Vec2& imagePos,
+                           int32_t drawWidth, int32_t drawHeight,
+                           int32_t frameRow, int32_t frameCol, bool bIsFrame)
         {
+            if (!_bPaletteSet)
+            {
+                if (!_bPaletteWarningGiven)
+                {
+                    _bPaletteWarningGiven = true;
+                    ESP_LOGE("DisplayAdapter", "PAL8-plaatje zonder palet: roep setPalette() aan "
+                        "met de arPalette uit de gegenereerde _palette.h.");
+                }
+                return;
+            }
+
+            // Uitpakken in stroken en niet per beeldregel: elke pushImage kost
+            // ~23 us aan vaste opzet, en bij een sprite van 64 breed is dat meer
+            // dan de pixels zelf. Met 16 regels per keer blijven er vier aanroepen
+            // over in plaats van vierenzestig. Gemeten verschil: 5,5 -> ~2 ms.
+            const int32_t nofRowsPerStrip = 16;
+            if (!ensureLineBuffer(drawWidth * nofRowsPerStrip))
+            {
+                return;
+            }
+
+            const uint8_t* pIndices = static_cast<const uint8_t*>(image.pData);
+            if (bIsFrame)
+            {
+                pIndices += (int32_t)(frameRow * drawHeight) * image.width + (int32_t)(frameCol * drawWidth);
+            }
+
+            const uint8_t indexTransparent = toPaletteIndex(image.colTransparent);
+
+            if (!image.bHasTransparency)
+            {
+                for (int32_t yStrip = 0; yStrip < drawHeight; yStrip += nofRowsPerStrip)
+                {
+                    int32_t nofRows = drawHeight - yStrip;
+                    if (nofRows > nofRowsPerStrip)
+                    {
+                        nofRows = nofRowsPerStrip;
+                    }
+
+                    uint16_t* pDst = _pLineBuffer;
+                    for (int32_t y = 0; y < nofRows; y++)
+                    {
+                        const uint8_t* pLine = pIndices + (yStrip + y) * image.width;
+                        for (int32_t x = 0; x < drawWidth; x++)
+                        {
+                            *pDst++ = _arPalette[pLine[x]];
+                        }
+                    }
+
+                    _pTarget->pushImage(imagePos.x, imagePos.y + yStrip, drawWidth, nofRows, _pLineBuffer);
+                }
+                return;
+            }
+
+            for (int32_t y = 0; y < drawHeight; y++)
+            {
+                const uint8_t* pLine = pIndices + y * image.width;
+
+                // Transparant: per aaneengesloten stuk zichtbare pixels een push.
+                // Het aantal stukken telt, niet het aantal pixels - een setWindow
+                // kost ~12 us, een pixel 0,4.
+                int32_t xRunStart = -1;
+                for (int32_t x = 0; x <= drawWidth; x++)
+                {
+                    bool bVisible = (x < drawWidth) && (pLine[x] != indexTransparent);
+
+                    if (bVisible)
+                    {
+                        if (xRunStart < 0)
+                        {
+                            xRunStart = x;
+                        }
+                        _pLineBuffer[x] = _arPalette[pLine[x]];
+                    }
+                    else if (xRunStart >= 0)
+                    {
+                        _pTarget->pushImage(imagePos.x + xRunStart, imagePos.y + y,
+                                            x - xRunStart, 1, _pLineBuffer + xRunStart);
+                        xRunStart = -1;
+                    }
+                }
+            }
+        }
+
+        bool ensureLineBuffer(int32_t nofPixels)
+        {
+            if (_nofLineBufferPixels >= nofPixels)
+            {
+                return true;
+            }
+
+            if (_pLineBuffer != nullptr)
+            {
+                heap_caps_free(_pLineBuffer);
+            }
+
+            _pLineBuffer = (uint16_t*)heap_caps_malloc(nofPixels * sizeof(uint16_t), MALLOC_CAP_8BIT);
+            _nofLineBufferPixels = (_pLineBuffer != nullptr) ? nofPixels : 0;
+
+            if (_pLineBuffer == nullptr)
+            {
+                ESP_LOGE("DisplayAdapter", "geen %d bytes voor de regelbuffer van een PAL8-plaatje.",
+                    (int)(nofPixels * sizeof(uint16_t)));
+                return false;
+            }
+            return true;
+        }
+
+        // De enige plek waar een CleanGUI-kleur hardware-kleur wordt - en daarom
+        // ook de plek waar een palet-index wordt herkend. Zie paletteIndex() in
+        // crt_typesAndConstants.h: dezelfde fillRect() kan daardoor zowel "maak dit
+        // lichtblauw" als "maak dit kleur 7" betekenen.
+        virtual uint16_t colTo16bit(uint32_t color) // ARGB, of paletteIndex(...)
+        {
+            if (isPaletteIndex(color))
+            {
+                if (!_bPaletteSet)
+                {
+                    // Niet stilzwijgend iets willekeurigs tekenen: magenta valt op,
+                    // en de melding zegt wat er ontbreekt.
+                    if (!_bPaletteWarningGiven)
+                    {
+                        _bPaletteWarningGiven = true;
+                        ESP_LOGE("DisplayAdapter", "er wordt een palet-index gebruikt zonder dat "
+                            "setPalette() is aangeroepen; alles wordt magenta.");
+                    }
+                    return 0xF81F;
+                }
+                return _arPalette[toPaletteIndex(color)];
+            }
+
             uint16_t color16 = ( (((color & 0x00FF0000) >> 19 ) << 11) |   // Take the 5 MSB bits of red.
                                  (((color & 0x0000FF00) >> 10 ) << 5 ) |   // Take the 6 MSB bits of green.
                                   ((color & 0x000000FF) >> 3  )         ); // Take the 5 MSB bits of blue.
@@ -472,12 +709,12 @@ namespace crt
 
         bool queryDoYouWantToRecalibrate()
         {
-            _tft.setCursor(20, 0);
-            _tft.setTextFont(2);
-            _tft.setTextSize(1);
-            _tft.setTextColor(TFT_WHITE, TFT_BLACK);
+            _pTarget->setCursor(20, 0);
+            _pTarget->setTextFont(2);
+            _pTarget->setTextSize(1);
+            _pTarget->setTextColor(TFT_WHITE, TFT_BLACK);
 
-            _tft.println("Touch now to recalibrate");
+            _pTarget->println("Touch now to recalibrate");
             
             int64_t endTime = esp_timer_get_time()+2000000;     // time in micro seconds. wait 2s.
 
@@ -506,8 +743,8 @@ namespace crt
             _tft.begin();
             _bBegun = true;
             _tft.setRotation(rotation);
-            _tft.fillScreen(TFT_BLACK);
-            _tft.setTextFont(font);  //tft.setFreeFont(FF18);
+            _pTarget->fillScreen(TFT_BLACK);
+            _pTarget->setTextFont(font);  //tft.setFreeFont(FF18);
 
 #ifdef TOUCH_SKIP_CALIBRATION
             // Skip interactive calibration (prevents blocking if touch is not yet working)
@@ -525,14 +762,14 @@ namespace crt
                         storedRotation == rotation) {
                         _tft.setTouch(calData);
                         f.close();
-                        _tft.fillScreen(TFT_BLACK);
+                        _pTarget->fillScreen(TFT_BLACK);
                         return;
                     }
                     f.close();
                 }
             }
             _tft.setTouch(calData);
-            _tft.fillScreen(TFT_BLACK);
+            _pTarget->fillScreen(TFT_BLACK);
             return;
 #else
 
@@ -643,32 +880,32 @@ namespace crt
             if (calDataOK && !_bRepeatCalibration) {
                 // User did not request recalibration, we're done
                 ESP_LOGI("DisplayAdapter", "Calibration complete - using stored data");
-                _tft.fillScreen(TFT_BLACK);
+                _pTarget->fillScreen(TFT_BLACK);
             }
             else
             {
                 // data not valid, rotation mismatch, or recalibration requested so recalibrate
                 ESP_LOGI("DisplayAdapter", "PERFORMING CALIBRATION (calDataOK=%d, _bRepeatCalibration=%d)",
                          calDataOK, _bRepeatCalibration);
-                _tft.fillScreen(TFT_BLACK);
-                _tft.setCursor(20, 0);
-                _tft.setTextFont(2);
-                _tft.setTextSize(1);
-                _tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                _pTarget->fillScreen(TFT_BLACK);
+                _pTarget->setCursor(20, 0);
+                _pTarget->setTextFont(2);
+                _pTarget->setTextSize(1);
+                _pTarget->setTextColor(TFT_WHITE, TFT_BLACK);
 
-                _tft.println("Touch corners as indicated");
+                _pTarget->println("Touch corners as indicated");
 
-                _tft.setTextFont(1);
-                _tft.println();
+                _pTarget->setTextFont(1);
+                _pTarget->println();
 
                 if (_bRepeatCalibration && bAskedForRecalibration) {
-                    _tft.setTextColor(TFT_RED, TFT_BLACK);
+                    _pTarget->setTextColor(TFT_RED, TFT_BLACK);
                 }
 
                 _tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
 
-                _tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                _tft.println("Calibration complete!");
+                _pTarget->setTextColor(TFT_GREEN, TFT_BLACK);
+                _pTarget->println("Calibration complete!");
 
                 // store data with rotation
                 ESP_LOGI("DisplayAdapter", "Saving calibration to file: %s", _filenameCalibration);
@@ -709,11 +946,12 @@ namespace crt
                 }
             }
 
-            _tft.fillScreen(TFT_BLACK);
+            _pTarget->fillScreen(TFT_BLACK);
 #endif
         }
 
     private:
+    protected:
         // Sets the viewport to the given rectangle, intersected with the clip
         // that setClipRect established. Without the intersection a widget that
         // clips internally - drawImage, drawStringOpaque - would silently draw
@@ -735,7 +973,7 @@ namespace crt
                 if (_clipTopLeftPix.y + _clipSizePix.y < y1) { y1 = _clipTopLeftPix.y + _clipSizePix.y; }
             }
 
-            _tft.setViewport(x0, y0, x1 - x0, y1 - y0, false /*vpDatum*/);
+            _pTarget->setViewport(x0, y0, x1 - x0, y1 - y0, false /*vpDatum*/);
         }
 
         // Back to the active clip, or to the whole screen if there is none.
@@ -744,11 +982,11 @@ namespace crt
         {
             if (_bClipActive)
             {
-                _tft.setViewport(_clipTopLeftPix.x, _clipTopLeftPix.y, _clipSizePix.x, _clipSizePix.y, false /*vpDatum*/);
+                _pTarget->setViewport(_clipTopLeftPix.x, _clipTopLeftPix.y, _clipSizePix.x, _clipSizePix.y, false /*vpDatum*/);
             }
             else
             {
-                _tft.resetViewport();
+                _pTarget->resetViewport();
             }
         }
 
@@ -778,18 +1016,23 @@ namespace crt
             const GFXfont* freeFont = _freeFonts.getFreeFont(font);
             if (freeFont != nullptr)
             {
-                _tft.setFreeFont(freeFont);
+                _pTarget->setFreeFont(freeFont);
                 return GFXFF; // Meaning: use the currently set free font.
             }
             else // no free font available
             {
-                _tft.setTextFont(font);
+                _pTarget->setTextFont(font);
                 return font;
             }
 #else
-            _tft.setTextFont(font);
+            _pTarget->setTextFont(font);
             return font;
 #endif
         }
 	};
+
+    // De naam van voor de splitsing. Hij houdt bestaande code (apps/pong_cleangui,
+    // CleanCore/examples/StdQueue) draaiend zonder aanpassing.
+    template <size_t MaxTouchListenerCount>
+    using TFT_eSPI_DisplayAdapter = TFT_eSPI_DisplayAdapter_RGB565<MaxTouchListenerCount>;
 };

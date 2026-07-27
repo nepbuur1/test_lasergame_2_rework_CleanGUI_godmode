@@ -1,5 +1,292 @@
 # Claude log
 
+## 2026-07-27 — De PAL8-backbuffer werkt
+
+`TFT_eSPI_DisplayAdapter_PAL8`: een schermvullende 8bpp-sprite waarvan wij de
+bytes als palet-indices lezen. Tekenen gaat via TFT_eSPI zelf - inclusief tekst
+met free fonts, wat de reden was om op een `TFT_eSprite` te blijven in plaats van
+een eigen `uint8_t`-buffer.
+
+### De dragerkleur
+Elke 8bpp-schrijfactie in TFT_eSPI reduceert de kleur met
+`(c & 0xE000)>>8 | (c & 0x0700)>>6 | (c & 0x0018)>>3`. Die is exact omkeerbaar,
+dus voor elke index bestaat er een kleur die naar precies die index reduceert.
+`colTo16bit()` - nu virtueel - geeft die dragerkleur terug in plaats van een echte
+kleur, en TFT_eSPI schrijft daarmee onze index.
+
+Bij het opstarten worden alle 256 indices erin geschreven en met
+`readPixelValue()` teruggelezen. Lukt dat niet, dan valt de adapter terug op het
+paneel en zegt waarom. De aanname over TFT_eSPI's binnenwerk is daarmee een
+gecontroleerd feit; zonder die controle zou een toekomstige versie van de
+bibliotheek dit stilzwijgend kunnen breken.
+
+Vijf primitieven (`fillScreen`, `drawRect` en de drie rounded rects) heeft een
+sprite niet zelf en zijn niet virtueel, dus die zijn hier opgebouwd uit
+`fillRect`. Afgeronde hoeken zijn voorlopig vierkant.
+
+### Gemeten, met de auto-spawn van eerder
+
+| sprites | RGB565 | PAL8-backbuffer |
+|---|---|---|
+| 0 | 100 (de klokcap) | 24 |
+| 10 dekkend | 39 | 20 |
+| 20 dekkend | 16 | 14 |
+| 20 transparant | 3 | 4 |
+
+Wat hier staat is precies wat een backbuffer doet: **de beeldsnelheid wordt
+vlak.** Van 0 naar 20 sprites zakt hij van 24 naar 14 fps, waar de directe
+adapter van 100 naar 16 duikelt. Bij weinig op het scherm is de backbuffer dus
+duurder en bij veel goedkoper - het omslagpunt ligt rond de 20 dekkende sprites.
+En het flikkeren en de wisselende volgorde zijn weg, want er komt pas iets op het
+scherm als het beeld af is.
+
+### Index 0 is magenta, en dat is met opzet
+In het palet dat de converter schrijft is index 0 gereserveerd voor transparant.
+Die index wordt bij het blitten overgeslagen, dus je hoort hem nooit op het scherm
+te zien - en juist daarom staat er magenta (0xF81F) in plaats van zwart.
+
+Dat betaalde zich meteen terug. Bij de eerste PAL8-run was de strook rond de
+knoppen in MultiPanel paars. Geen fout in de adapter: die pixels werden door geen
+enkele widget getekend. De map loopt tot y=192, de knoppen beginnen op 196, en
+daartussen was het scherm van niemand. Op het paneel viel dat nooit op, omdat
+`begin()` het scherm een keer zwart maakt en dat zwart daar toevallig goed
+uitzag. Een backbuffer die met index 0 begint, maakt zo'n gat zichtbaar.
+
+Was de buffer met "zwart" geinitialiseerd, dan had het gat er nog steeds gezeten
+en had niemand het gezien - tot het moment dat de achtergrondkleur verandert.
+MultiPanel heeft nu een schermvullend `backgroundPanel` onderop, zoals ImageViewer
+al had.
+
+Dezelfde regel geldt breder: **magenta in beeld betekent dat er iets niet is
+getekend.** Niet dat de kleur mis is.
+
+### Waar de rest van de tijd zit
+Van de ~71 ms bij 20 dekkende sprites is ~40 ms de uitzending en ~31 ms het
+tekenen in de buffer.
+
+De transparante blit is apart gemeten, in de adapter zelf:
+
+```
+transp 64x64: 599 us per blit, 173 stukken, 3463 ns per stuk
+```
+
+Van die 599 us gaat vrijwel alles op aan de 173 aanroepen van
+`TFT_eSprite::pushImage` (3,5 us elk). Het verplaatsen van de pixels zelf stelt
+niets voor: 1.945 zichtbare bytes is bij DRAM-tempo een paar microseconden.
+Anders gezegd: **99% van een transparante blit is opzet, 1% is werk.**
+
+Die 3,5 us zit in de aanroep zelf, de `PI_CLIP`-macro die per aanroep opnieuw
+tegen de viewport klipt, de keten van `_bpp`/`sbpp`-tests, en een `memcpy` van
+gemiddeld elf bytes - die op zijn beurt ook aanroepkosten heeft.
+
+Eerder stond hier 45 us per stuk. Dat was afgeleid uit de beeldsnelheid en dus
+uit alles wat er verder in een beeld gebeurt; de directe meting zegt 3,5.
+
+### En toen bleek het ergens anders te zitten
+De rekensom klopte nog steeds niet: 40 ms uitzending plus ~15 ms blits is 55, en
+er ging 105 ms in een beeld. Dus per commandotype opgeteld aan de tekenkant, met
+een samenvatting per seconde in plaats van een logregel per commando:
+
+```
+per seconde: tekenen 923 ms, wachten 29 ms, overig 51 ms
+   drawImage    n= 797    509 ms  (638 us elk)
+   present      n=  10    384 ms  (38417 us elk)
+   fillRect     n= 560     17 ms  (31 us elk)
+```
+
+**797 blits per seconde bij tien sprites en tien beelden per seconde: 75 blits
+per beeld.** Niet tien. Elke transparante sprite laat via `repaintRegion` zijn
+hele 64x64 opnieuw opbouwen, inclusief elke buur die daar overheen valt, plus de
+vrijgekomen randstroken. Dat is de O(N^2) uit het z-verhaal van eerder, nu met
+een getal erbij.
+
+### De les: met een backbuffer is slim hertekenen dom
+De hele `moveTo`-machinerie bestaat om buspixels te sparen. In een buffer is er
+geen bus, en betaal je alleen de nadelen: buren die onnodig meegetekend worden.
+Gewoon per beeld de hele tree opnieuw opbouwen kost tien blits in plaats van
+vijfenzeventig.
+
+`IDisplay::isBuffered()` erbij, zodat een voorbeeld eenmalig kan vragen wat voor
+display het heeft en zijn aanpak daarop kiest. MultiPanel doet nu:
+
+```cpp
+if (_bDisplayIsBuffered) { setLocPos(...); }  // en daarna page1.show(true)
+else                     { moveTo(...); }     // alleen de vrijgekomen strook
+```
+
+De adapter moest daarvoor het aanmaken van de buffer scheiden van het omleiden
+van het tekenwerk: het antwoord op `isBuffered()` mag niet afhangen van wie er
+toevallig het eerst wakker is, maar de kalibratie moet wel op het paneel blijven
+tekenen omdat ze om aanrakingen vraagt.
+
+### Eindresultaat
+
+| sprites | RGB565, moveTo | PAL8-backbuffer, alles per beeld |
+|---|---|---|
+| 0 | 100 (de klokcap) | 24 |
+| 5 | - | 21 |
+| 10 dekkend | 39 | 21 |
+| 20 dekkend | 16 | 20 |
+| 20 transparant | 3 | **16** |
+
+Van 3 naar 16 beelden per seconde, en de curve is bijna vlak: 24 -> 16 over nul
+tot twintig sprites, waar de directe adapter van 100 naar 3 duikelt. De
+commandowachtrij zakte van ~500 naar ~31, want de tekentaak loopt niet meer
+achter de feiten aan.
+
+Wat nu de rem is, is `present()` met 38,4 ms - het plafond ligt dus op 26 fps.
+Daar komt de eerder besproken eigen-memcpy-blit weer in beeld: die zou de
+resterende ~7 ms tekenwerk per beeld naar ~1 ms brengen, goed voor de laatste
+paar beelden per seconde. Pas daarna is DMA aan de beurt.
+
+## 2026-07-27 — PAL8: gedeeld palet, indices in flash
+
+Eerste twee stappen van de paletted weg. De keuze voor een palet in plaats van
+RGB332 volgde uit de meting van hiervoor: de winst zat in de opzoektabel, en die
+tabel heeft dezelfde vorm of je hem nu met het 3-3-2 raster vult of met
+zelfgekozen kleuren. Een palet is dus gratis.
+
+### Kleur of index, via één trechter
+`paletteIndex(i)` in `crt_typesAndConstants.h` markeert de bovenste byte van een
+ARGB-woord (die overal nul is) als "dit is een index". Daarmee betekent dezelfde
+`fillRect()` zowel "maak dit lichtblauw" als "maak dit kleur 7", zonder de
+interface te verdubbelen. Het landt allemaal in `colTo16bit()` van de adapter -
+de enige plek waar een CleanGUI-kleur hardware-kleur wordt.
+
+### De converter
+`img2rgb565.py --pal8` leidt één palet af uit **alle** plaatjes van een
+images-boom samen, en zet ze allemaal om naar indices daarin. Dat is met opzet
+een operatie over de hele boom: alleen als plaatje en scherm hetzelfde palet
+delen zijn de bytes van een plaatje al schermindices, en dat is wat blitten tot
+kopieren terugbrengt. Index 0 is transparant, altijd - dat vervangt een
+kleurvergelijking door een vergelijking met nul. Uitvoer in `images/_pal8/`,
+naast de bestaande `_rgb565/`.
+
+Voor de twee barbaren van MultiPanel: 156 kleuren uit 6.041 zichtbare pixels, en
+8.192 bytes flash in plaats van 16.384.
+
+### De les van vandaag: meet niet je eigen foutmelding
+De eerste metingen zeiden dat een PAL8-plaatje 5,45 ms kostte tegen 1,88 ms voor
+hetzelfde plaatje in RGB565. Bijna drie keer zo traag, en geen enkele verklaring
+klopte: stroken pushen in plaats van regels hielp niet, het palet naar DRAM
+verhuizen hielp niet, en de rekensom kwam op ~1,9 ms uit.
+
+De oorzaak was dat er **helemaal niets werd getekend**. Bovenin `drawImage` stond:
+
+```cpp
+if (image.format != PixelFormat::RGB565)
+{
+    ESP_LOGI(..., "Unsupported PixelFormat: %d", ...);
+    return;
+}
+```
+
+PAL8 viel daar bij binnenkomst uit, en die 5,45 ms was de logregel zelf: op
+115200 baud kost een regel van vijftig tekens ruim 4 ms. De meting was dus
+volstrekt consistent (p90 lag 8 us van de mediaan) en volstrekt betekenisloos.
+
+Die melding is nu eenmalig in plaats van per beeld, en de bewaking laat PAL8 door.
+Wat de meting bruikbaar had gemaakt: de sprites waren onzichtbaar - dat was met
+één blik op het scherm te zien geweest, en ik zat naar getallen te kijken.
+
+### Wat het daarna wél doet
+| | RGB565 | PAL8 op dezelfde adapter |
+|---|---|---|
+| 5 sprites | - | 40-60 fps |
+| 20 dekkend | 16 fps | 8 fps |
+| 20 transparant | 3 fps | 1 fps |
+
+Ongeveer half zo snel, en dat hoort zo: het scherm is 16 bits, dus elk plaatje
+moet alsnog per pixel door het palet, en transparant blitten kost een push per
+aaneengesloten stuk. **PAL8 op een 16-bits doel is een compatibiliteitspad, geen
+snelheidspad.** De winst komt pas als het doel zelf paletted is - dan is blitten
+een `memcpy` per beeldrij. Dat is de volgende stap.
+
+## 2026-07-27 — Aanzet tot een 8bpp backbuffer, en waarom hij (nog) niet werkt
+
+### Wat er staat en werkt
+- `IDisplayDraw::present()` door de hele keten: `AsyncDisplay` zet hem in de
+  wachtrij, `DisplayCommand` voert hem uit, de directe adapter doet niets.
+- De adapter is gesplitst in **het paneel** (`_tft`: begin, rotatie, touch,
+  kalibratie) en **het tekendoel** (`_pTarget`). Hij heet nu
+  `TFT_eSPI_DisplayAdapter_RGB565`, met een alias-template op de oude naam zodat
+  `apps/pong_cleangui` en `CleanCore/examples/StdQueue` niets merken.
+- Elk voorbeeld kiest met één regel:
+  `using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<...>;`
+- `AsyncDisplay::waitUntilDrawn()`: wacht tot alles wat is ingestuurd ook is
+  uitgevoerd. Nodig zodra present() duur wordt - zonder rem groeide de
+  commandobuffer van 110 naar 843 in tien seconden (100 beelden per seconde
+  insturen, 21 kunnen tonen) en sloeg de task watchdog aan. De **queue-diepte
+  deugt niet als maat**: het commando dat op dat moment wordt uitgevoerd staat
+  niet meer in de rij. Vandaar twee tellers.
+- Alles geverifieerd: MultiPanel haalt met 20 dekkende sprites nog steeds 16-17
+  fps, dus deze omweg kost in RGB565 niets.
+
+### Waarom de RGB332-variant niet werkt
+Aanname was: een `TFT_eSPI*` die naar een `TFT_eSprite` wijst tekent in die
+sprite, want `TFT_eSprite` erft van `TFT_eSPI`. **Fout.** Van alle tekenmethoden
+in TFT_eSPI zijn er precies acht virtueel - `drawPixel`, `drawChar`, `readPixel`,
+`setWindow`, `pushColor` en drie hulpjes - met erboven: *"These are virtual so the
+TFT_eSprite class can override them"*. De rest wordt door de sprite *verborgen*,
+niet overschreven, dus via een basisklasse-pointer draait de paneelversie.
+
+Van de 26 methoden die de adapter gebruikt: 16 zijn puur toestand (goed), 3 heeft
+de sprite zelf (`fillRect`, `pushImage`, `width`), 2 lopen via de virtuele
+`drawChar` (goed), en **5 landen op het paneel in plaats van in de buffer**:
+`fillScreen`, `drawRect`, `drawRoundRect`, `fillRoundRect`,
+`fillSmoothRoundRect`. Plus: `drawString` vult bij free fonts de glyph-cel met
+`fillRect` (TFT_eSPI.cpp:5039) - ook niet-virtueel.
+
+Vervolg zou zijn: de adapter templaten op het doeltype in plaats van een pointer,
+plus eigen implementaties van die vijf, opgebouwd uit `fillRect`/`drawFastHLine`/
+`drawPixel` die de sprite wel heeft.
+
+### En het plafond ligt lager dan gedacht: gemeten uitsplitsing
+Een schermvullende 8bpp-sprite uitsturen kost **46 ms, niet 31**. Dat is 21 fps,
+geen 32. Waar die 14,6 ms extra in gaan (elk 76.800 pixels, gemiddelde van 5):
+
+| meting | tijd | wat het toevoegt |
+|---|---|---|
+| `fillScreen`, egaal, geen brondata | 31.602 us | de busvloer |
+| `pushImage` 16bpp, stroken van 8 regels (30 aanroepen) | 34.957 us | +3,4 ms: brondata ophalen |
+| `pushImage` 16bpp, per regel (240 aanroepen) | 39.754 us | +4,8 ms: 210 extra aanroepen, ~23 us elk |
+| `pushSprite` 8bpp, egale buffer | 46.209 us | +6,5 ms: de per-pixel lus |
+| `pushSprite` 8bpp, ruis | 47.960 us | +1,75 ms: het schuifwerk zelf |
+
+**De omzetting is niet de boosdoener.** Het rekenwerk (3-3-2 uitpakken naar
+5-6-5) is met 1,75 ms het goedkoopste onderdeel; TFT_eSPI slaat het bovendien
+over zolang de kleur niet verandert. Het geld zit in de per-pixel lus die twee
+losse bytes in een regelbuffer schrijft (6,5 ms = 85 ns/pixel, zo'n 20 klokken
+voor laden, vergelijken en twee byte-stores - `_lastColor` is een lid, dus geen
+register) en in het per beeldregel pushen (4,8 ms).
+
+Wat daaraan te doen zou zijn: een tabel van 256 `uint16_t` in plaats van
+schuiven en vergelijken (één load, één 16-bits store, geen sprong), en pushen per
+strook van 16 regels in plaats van per regel. Dat is vervolgens gebouwd en
+gemeten, op dezelfde buffer vol ruis:
+
+| | tijd |
+|---|---|
+| `pushSprite` van TFT_eSPI | 48.005 us |
+| eigen lus: opzoektabel, stroken van 16 regels | **37.977 us** |
+| alleen de expansie, zonder de bus | 3.421 us |
+
+Tien milliseconden sneller, ofwel **26 fps in plaats van 21**. De optelsom klopt:
+37,98 = 34,56 (bus met stroken) + 3,42 (expansie). Van de winst komt ongeveer de
+helft uit de vorm van de lus (8,25 -> 3,42 ms) en de helft uit stroken in plaats
+van losse regels.
+
+**En daarmee wordt een palet gratis.** De expansie is bij een tabel niet meer dan
+`*pDst++ = arLut[*pSrc++]`, en die tabel kan net zo goed 256 zelfgekozen kleuren
+bevatten als het 3-3-2 raster. Precies dezelfde kosten per pixel. De reden om
+voor RGB332 te kiezen was dat TFT_eSPI het kant en klaar had - maar dat kant en
+klare is nu juist wat vervangen wordt. Paletted 8bpp, het oorspronkelijke idee,
+is dus zowel mooier als even snel.
+
+De busvloer van 31,6 ms (32 fps) haal je alleen met DMA, die de expansie van de
+volgende strook laat overlappen met het uitzenden van de vorige. Dat scheelt nog
+~6 ms.
+
 ## 2026-07-27 — MultiPanel: wat een bewegende sprite echt kost
 
 Nieuw voorbeeld `CleanGUI_for_TFT_eSPI/examples/MultiPanel`: barbaren lopen over

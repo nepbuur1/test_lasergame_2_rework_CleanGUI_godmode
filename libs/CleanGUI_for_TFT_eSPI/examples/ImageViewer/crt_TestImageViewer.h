@@ -18,6 +18,7 @@
 #include <crt_AsyncDisplay.h>
 #include <crt_TouchscreenButton.h>
 #include <crt_TFT_eSPI_DisplayAdapter.h>
+#include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_TFT_eSPI_FreeFonts.h>
 
 #include "images/_rgb565/_allImages.h"
@@ -34,9 +35,16 @@ namespace crt
 		static const int MaxNofClientTasks = 10;
 		static const int MaxNofTouchListeners = 20;
 
+		// Kies hier de display-adapter. RGB565 tekent rechtstreeks op het paneel:
+		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
+		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
+		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+
 	private:
 		TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
-		TFT_eSPI_DisplayAdapter<MaxNofTouchListeners> tft_eSPI_DisplayAdapter;
+		DISPLAYADAPTER tft_eSPI_DisplayAdapter;
 		AsyncDisplay<CommandBufferSize, MaxNofClientTasks> asyncDisplay;
 
 		// The background owns the whole screen; the image panel is its child.
@@ -291,6 +299,7 @@ namespace crt
 			// Zonder de kinderen schildert het panel over het label heen en tekent
 			// niemand het terug - dan verdwijnt de tekst bij de eerste aanraking.
 			button.show(true);
+			asyncDisplay.present();
 		}
 
 		static bool isSpritesheet(const Image* pImage)
@@ -487,6 +496,10 @@ namespace crt
 				(int)pImage->nofRows, (int)pImage->nofCols,
 				bFrameSelected ? "selected" : "whole sheet",
 				(int)(esp_timer_get_time() - timeStartUs));
+
+			// Het beeld is af. Leeg bij RGB565; bij RGB332 gaat de backbuffer hier
+			// naar het paneel.
+			asyncDisplay.present();
 		}
 
 		// Moves to another image: the frame selection belongs to the sheet that
@@ -541,6 +554,7 @@ namespace crt
 			setFrameButtonsPresent(bFrameButtonsDrawn);
 			applyCurrentImage();
 			page1.show(true);
+			asyncDisplay.present();
 
 			while (true)
 			{

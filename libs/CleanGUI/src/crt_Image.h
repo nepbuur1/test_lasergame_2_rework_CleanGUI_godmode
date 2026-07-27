@@ -12,7 +12,15 @@ namespace crt
 	// or refuse it.
 	enum class PixelFormat : uint8_t
 	{
-		RGB565 = 0		// 16 bpp, one uint16_t per pixel, in host byte order.
+		RGB565 = 0,		// 16 bpp, one uint16_t per pixel, in host byte order.
+
+		// 8 bpp: one byte per pixel, and that byte is an index into pPalette.
+		// Half the flash of RGB565, and - as long as the image and the target
+		// share a palette - blitting degenerates to copying bytes: no conversion
+		// per pixel at all. That, rather than the colour depth, is what makes
+		// paletted graphics fast.
+		// Index 0 is the transparent one, by agreement with the converter.
+		PAL8 = 1
 	};
 
 	// An Image is an opaque handle to pixel data that is owned elsewhere -
@@ -43,28 +51,32 @@ namespace crt
 		int32_t     height;
 		PixelFormat format;
 		bool        bHasTransparency;
-		uint32_t    colTransparent;		// ARGB
+		uint32_t    colTransparent;		// ARGB, or paletteIndex(...) for PAL8
 		int32_t     nofRows;			// spritesheet rows,    1 if not a sheet
 		int32_t     nofCols;			// spritesheet columns, 1 if not a sheet
+
+		// PAL8 only: the 256 colours the indices refer to, as RGB565. Lives in
+		// flash next to the pixels; nullptr for RGB565 images.
+		const uint16_t* pPalette;
 
 	public:
 		constexpr Image()
 			: pData(nullptr), width(0), height(0), format(PixelFormat::RGB565),
-			  bHasTransparency(false), colTransparent(0), nofRows(1), nofCols(1)
+			  bHasTransparency(false), colTransparent(0), nofRows(1), nofCols(1), pPalette(nullptr)
 		{
 		}
 
 		// Opaque RGB565 image.
 		constexpr Image(const uint16_t* pPixels, int32_t widthPix, int32_t heightPix)
 			: pData(pPixels), width(widthPix), height(heightPix), format(PixelFormat::RGB565),
-			  bHasTransparency(false), colTransparent(0), nofRows(1), nofCols(1)
+			  bHasTransparency(false), colTransparent(0), nofRows(1), nofCols(1), pPalette(nullptr)
 		{
 		}
 
 		// RGB565 image with one colour (given in ARGB) acting as transparent.
 		constexpr Image(const uint16_t* pPixels, int32_t widthPix, int32_t heightPix, uint32_t colTransparentARGB)
 			: pData(pPixels), width(widthPix), height(heightPix), format(PixelFormat::RGB565),
-			  bHasTransparency(true), colTransparent(colTransparentARGB), nofRows(1), nofCols(1)
+			  bHasTransparency(true), colTransparent(colTransparentARGB), nofRows(1), nofCols(1), pPalette(nullptr)
 		{
 		}
 
@@ -77,7 +89,7 @@ namespace crt
 		constexpr Image(const uint16_t* pPixels, int32_t widthPix, int32_t heightPix,
 		                int32_t nofRowsSheet, int32_t nofColsSheet)
 			: pData(pPixels), width(widthPix), height(heightPix), format(PixelFormat::RGB565),
-			  bHasTransparency(false), colTransparent(0), nofRows(nofRowsSheet), nofCols(nofColsSheet)
+			  bHasTransparency(false), colTransparent(0), nofRows(nofRowsSheet), nofCols(nofColsSheet), pPalette(nullptr)
 		{
 		}
 
@@ -85,7 +97,38 @@ namespace crt
 		constexpr Image(const uint16_t* pPixels, int32_t widthPix, int32_t heightPix, uint32_t colTransparentARGB,
 		                int32_t nofRowsSheet, int32_t nofColsSheet)
 			: pData(pPixels), width(widthPix), height(heightPix), format(PixelFormat::RGB565),
-			  bHasTransparency(true), colTransparent(colTransparentARGB), nofRows(nofRowsSheet), nofCols(nofColsSheet)
+			  bHasTransparency(true), colTransparent(colTransparentARGB), nofRows(nofRowsSheet), nofCols(nofColsSheet), pPalette(nullptr)
+		{
+		}
+
+		// --- PAL8 ----------------------------------------------------------
+		// The first parameter is a uint8_t*, so these can never be confused with
+		// the RGB565 constructors above.
+		// bTransparent says whether index 0 means "leave what is underneath";
+		// which index that is, is fixed by agreement with the converter, so it
+		// needs no parameter of its own.
+
+		constexpr Image(const uint8_t* pIndices, int32_t widthPix, int32_t heightPix,
+		                const uint16_t* pPaletteRGB565)
+			: pData(pIndices), width(widthPix), height(heightPix), format(PixelFormat::PAL8),
+			  bHasTransparency(false), colTransparent(0), nofRows(1), nofCols(1), pPalette(pPaletteRGB565)
+		{
+		}
+
+		constexpr Image(const uint8_t* pIndices, int32_t widthPix, int32_t heightPix,
+		                const uint16_t* pPaletteRGB565, bool bTransparent)
+			: pData(pIndices), width(widthPix), height(heightPix), format(PixelFormat::PAL8),
+			  bHasTransparency(bTransparent), colTransparent(paletteIndex(0)), nofRows(1), nofCols(1),
+			  pPalette(pPaletteRGB565)
+		{
+		}
+
+		constexpr Image(const uint8_t* pIndices, int32_t widthPix, int32_t heightPix,
+		                const uint16_t* pPaletteRGB565, bool bTransparent,
+		                int32_t nofRowsSheet, int32_t nofColsSheet)
+			: pData(pIndices), width(widthPix), height(heightPix), format(PixelFormat::PAL8),
+			  bHasTransparency(bTransparent), colTransparent(paletteIndex(0)),
+			  nofRows(nofRowsSheet), nofCols(nofColsSheet), pPalette(pPaletteRGB565)
 		{
 		}
 	};

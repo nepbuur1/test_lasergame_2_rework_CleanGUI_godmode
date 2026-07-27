@@ -26,9 +26,13 @@
 #include <crt_AsyncDisplay.h>
 #include <crt_TouchscreenButton.h>
 #include <crt_TFT_eSPI_DisplayAdapter.h>
+#include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_TFT_eSPI_FreeFonts.h>
 
-#include "images/_rgb565/_allImages.h"
+// PAL8: een byte per pixel, index in het gedeelde palet van _palette.h.
+// Dezelfde bronplaatjes, half zoveel flash. Zet de regel hieronder om naar
+// _rgb565 als je de 16-bits variant wilt vergelijken.
+#include "images/_pal8/_allImages.h"
 
 #ifdef LOAD_GFXFF
 #include <Free_Fonts.h>
@@ -41,6 +45,13 @@ namespace crt
 		static const int CommandBufferSize = 1000;
 		static const int MaxNofClientTasks = 10;
 		static const int MaxNofTouchListeners = 20;
+
+		// Kies hier de display-adapter. RGB565 tekent rechtstreeks op het paneel:
+		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
+		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
+		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
 
 		// Twenty of each kind. The panels for all of them exist from the start;
 		// spawning only makes one drawable and puts it somewhere.
@@ -62,12 +73,19 @@ namespace crt
 
 	private:
 		TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
-		TFT_eSPI_DisplayAdapter<MaxNofTouchListeners> tft_eSPI_DisplayAdapter;
+		DISPLAYADAPTER tft_eSPI_DisplayAdapter;
 		AsyncDisplay<CommandBufferSize, MaxNofClientTasks> asyncDisplay;
 
 		// The header has a panel of its own so that the opaque fps text derives
 		// the box it blanks from one line, not from the whole page - see
 		// Text::calcPaddingSizePix.
+		// Bezit het hele scherm. Zonder dit is de strook rond de knoppen van
+		// niemand: geen widget tekent daar, en wat je ziet is wat er toevallig
+		// stond. Op het paneel was dat het zwart van begin(); in een backbuffer is
+		// het index 0, en die staat met opzet op magenta - juist om zulke gaten te
+		// laten opvallen.
+		Panel<0> backgroundPanel;
+
 		Panel<1> headerPanel;
 		Text<0> fpsText;
 
@@ -102,6 +120,10 @@ namespace crt
 		};
 		SpriteState arSpriteStates[MaxNofSprites];
 
+		// Gezet zodra de display bekend is; bepaalt hoe er bewogen wordt.
+		bool _bDisplayIsBuffered;
+		PageRoot<10>* _pPage;
+
 		int nofActiveTransparent;
 		int nofActiveOpaque;
 		int nofFpsShown;
@@ -131,6 +153,10 @@ namespace crt
 			// niet op deze stack, en de PrintContexts zijn leden van AsyncDisplay.
 			asyncDisplay("AsyncDisplay", 2 /*priority*/, 8000 /*stackBytes*/, ARDUINO_RUNNING_CORE,
 				            tft_eSPI_DisplayAdapter, 3/*rotation*/, 2/*fontTouchCalibration*/),
+
+			backgroundPanel("background", /*locPos*/Vec2(0, 0), CoordType::Promillage,
+				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
+				/*colFg*/(uint32_t)colBackground, /*colBg*/0x00000000),
 
 			headerPanel("header", /*locPos*/Vec2(0, 0), CoordType::Pixels,
 				/*size*/Vec2(320, HeaderHeightPix), /*cornerRadius*/0, CoordType::Pixels, Alignment::TopLeft,
@@ -167,6 +193,8 @@ namespace crt
 			flagClear(this),
 			flagButtonReleased(this),
 			pButtonPressed(nullptr),
+			_bDisplayIsBuffered(false),
+			_pPage(nullptr),
 			nofActiveTransparent(0),
 			nofActiveOpaque(0),
 			nofFpsShown(0)
@@ -319,8 +347,20 @@ namespace crt
 			updateFpsText(-1);
 		}
 
-		// Moves every sprite that is out, one step. This is the whole cost of a
-		// frame: nothing else on the screen changes.
+		// Verplaatst elke sprite die uit is, een stap.
+		//
+		// Hoe dat op het scherm belandt hangt af van de display, en dat scheelt
+		// meer dan je zou denken:
+		//
+		// - **Zonder buffer** verplaatst moveTo() elke sprite afzonderlijk en
+		//   herstelt alleen de strook die vrijkomt. Elke pixel gaat over de bus,
+		//   dus zo min mogelijk pixels aanraken is precies goed.
+		// - **Met een buffer** is dat juist averechts. Een gedeeltelijke
+		//   hertekening laat via de tree ook alle buren die in dat gebied liggen
+		//   opnieuw tekenen. Gemeten met tien overlappende sprites: 75 blits per
+		//   beeld, tegen 10 als je gewoon de hele tree opnieuw opbouwt. Tekenen in
+		//   geheugen is goedkoop; het uitsturen kost toch altijd hetzelfde.
+		//   Resultaat: 10 -> 19 fps.
 		void moveSprites()
 		{
 			int32_t maxXPix, maxYPix;
@@ -350,7 +390,15 @@ namespace crt
 					randomVelocity(state.dxPix, state.dyPix);
 				}
 
-				arSpritePanels[i].moveTo(state.posPix, CoordType::Pixels);
+				if (_bDisplayIsBuffered)
+				{
+					// Alleen verplaatsen; het tekenen doet showAll() straks in een keer.
+					arSpritePanels[i].setLocPos(state.posPix, CoordType::Pixels, Alignment::TopLeft);
+				}
+				else
+				{
+					arSpritePanels[i].moveTo(state.posPix, CoordType::Pixels);
+				}
 			}
 		}
 
@@ -382,6 +430,15 @@ namespace crt
 			                                      // display independent.
 			PageRoot<10> page1("root", display);
 
+			// Eenmalig vragen wat voor display dit is - zie moveSprites().
+			_pPage = &page1;
+			_bDisplayIsBuffered = display.isBuffered();
+			ESP_LOGI(taskName, "display %s een backbuffer; %s",
+				_bDisplayIsBuffered ? "heeft" : "heeft geen",
+				_bDisplayIsBuffered ? "alles wordt per beeld opnieuw getekend"
+				                    : "sprites bewegen met moveTo");
+
+			page1.addChildWidget(backgroundPanel);
 			page1.addChildWidget(headerPanel);
 			headerPanel.addChildWidget(fpsText);
 			page1.addChildWidget(mapPanel);
@@ -405,6 +462,11 @@ namespace crt
 				panel.setDrawable(false, true);
 			}
 
+			// Het palet van de plaatjes is ook het palet van het scherm. Nodig om
+			// PAL8-plaatjes te kunnen tonen, en om paletteIndex(i) als kleur te
+			// mogen opgeven.
+			tft_eSPI_DisplayAdapter.setPalette(arPalette);
+
 			BUTTON* arButtons[] = { &buttonSpawnTransparent, &buttonSpawnOpaque, &buttonClear };
 			for (BUTTON* pButton : arButtons)
 			{
@@ -417,6 +479,7 @@ namespace crt
 			// The one moment the whole screen is painted. After this only the
 			// sprites move, and each of those repaints its own rectangle.
 			page1.show(true);
+			display.present();
 
 			int nofFrames = 0;
 			int64_t timeLastReportUs = esp_timer_get_time();
@@ -436,11 +499,16 @@ namespace crt
 				if (hasFired(timerFrame))
 				{
 					moveSprites();
+					if (_bDisplayIsBuffered)
+					{
+						_pPage->show(true);		// alles opnieuw; goedkoper dan het slim doen
+					}
 					nofFrames++;
 
 					int64_t timeNowUs = esp_timer_get_time();
 					if ((timeNowUs - timeLastReportUs) >= 1000000)
 					{
+
 						// Counted over the interval that really elapsed, not over an
 						// assumed second: with forty sprites out, one round can
 						// overshoot by a lot.
@@ -478,6 +546,26 @@ namespace crt
 				{
 					showButton(*pButtonPressed, false);
 				}
+
+				// Het beeld is af. Bij de RGB565-adapter is dit een lege aanroep,
+				// bij RGB332 gaat de backbuffer hier naar het paneel. Elke ronde
+				// van deze lus heeft iets getekend - sprites verplaatst of een
+				// knop afgehandeld - dus er is altijd wat te tonen.
+				display.present();
+
+				// En wachten tot dat beeld er ook echt staat. Zonder deze rem
+				// blijft deze taak beelden insturen die het scherm niet kan
+				// bijbenen: de commandobuffer loopt vol, wat je ziet raakt
+				// seconden achter, en de tekentaak komt niet meer aan blokkeren
+				// toe - waarop de task watchdog aanslaat. Bij RGB565 keert hij
+				// vrijwel meteen terug, want daar tekent alles rechtstreeks.
+				asyncDisplay.waitUntilDrawn();
+
+				// Even plaats maken. Met een backbuffer is de tekentaak vrijwel
+				// onafgebroken bezig, en zonder dit ene tikje komt de idle-taak op
+				// deze kern niet meer aan de beurt - waarop de task watchdog
+				// terecht aan de bel trekt. Kost 1 ms op een beeld van ~47.
+				vTaskDelay(1);
 			}
 		}
 	}; // end class TestMultiPanel

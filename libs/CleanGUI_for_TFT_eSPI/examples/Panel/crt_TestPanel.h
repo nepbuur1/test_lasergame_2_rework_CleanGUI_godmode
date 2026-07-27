@@ -6,6 +6,7 @@
 #include <crt_CleanRTOS.h>
 #include <TFT_eSPI.h>              // Hardware-specific library
 #include <crt_TFT_eSPI_DisplayAdapter.h>
+#include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_Panel.h>
 #include <crt_PageRoot.h>
 #include "images/_allImages.h"   // imageGradient and imageRing, both in flash.
@@ -31,6 +32,13 @@ namespace crt
 	private:
 		static const int MaxNofTouchListeners = 20;
 
+		// Kies hier de display-adapter. RGB565 tekent rechtstreeks op het paneel:
+		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
+		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
+		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+
 		// Exponential moving average, integer style:
 		//     ema += (measured - ema) / EmaDivisor
 		// which is  ema = alpha*measured + (1-alpha)*ema  with alpha = 1/EmaDivisor.
@@ -55,7 +63,7 @@ namespace crt
 		void main()
 		{
 			TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
-			TFT_eSPI_DisplayAdapter<MaxNofTouchListeners> tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);
+			DISPLAYADAPTER tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);
 
 			// Initialize the display without calibration (since we don't need touch for this example)
 			tft_eSPI_DisplayAdapter.begin(3/*rotation*/);
@@ -140,6 +148,7 @@ namespace crt
 				panelBackdrop.show(false);				// parent first,
 				int64_t t5 = esp_timer_get_time();
 				panelImageTransparent.show(false);		// then its child on top.
+				display.present();						// leeg bij RGB565; bij RGB332 het beeld tonen
 				int64_t t6 = esp_timer_get_time();
 
 				updateEma(emaClearUs,    t1 - t0);

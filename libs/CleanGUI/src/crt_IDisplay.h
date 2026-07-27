@@ -39,6 +39,32 @@ namespace crt
 		virtual void setClipRect(const Vec2& topLeftPix, const Vec2& sizePix) = 0;
 		virtual void clearClipRect() = 0;
 
+		// Says that the picture is complete and may be shown.
+		//
+		// An adapter that draws straight to the panel has nothing to do here:
+		// every command was already on the screen the moment it was issued. One
+		// that draws into a backbuffer sends that buffer to the panel now, and
+		// until this call nothing of what was drawn is visible.
+		//
+		// Call it wherever a frame is finished, whichever adapter is in use - it
+		// costs nothing in the direct case and it is what keeps both variants on
+		// one and the same code path.
+		// Note that it travels through the command queue like any other command,
+		// so it flushes what was queued before it, not what is queued after.
+		virtual void present() = 0;
+
+		// Verzamelt deze display het tekenwerk in een buffer die pas bij present()
+		// het scherm bereikt?
+		//
+		// Dat verandert wat verstandig tekenen is, en niet zo'n beetje. Zonder
+		// buffer loont het om alleen te hertekenen wat verandert - elke pixel gaat
+		// immers over de bus. Met een buffer is dat juist averechts: een gedeeltelijke
+		// hertekening laat via de tree ook alle buren opnieuw tekenen die toevallig
+		// in dat gebied liggen. Gemeten met tien overlappende sprites: 75 blits per
+		// beeld met moveTo, tegen 10 als je gewoon de hele tree opnieuw opbouwt.
+		// Tekenen in geheugen is goedkoop; het uitsturen kost altijd hetzelfde.
+		virtual bool isBuffered() = 0;
+
 		virtual void fillScreen(uint32_t color) = 0;
 		virtual void drawRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color) = 0;
 		virtual void fillRect(const Vec2& topLeftPix, const Vec2& sizePix, uint32_t color) = 0;

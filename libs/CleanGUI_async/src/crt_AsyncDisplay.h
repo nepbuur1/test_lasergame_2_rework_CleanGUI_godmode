@@ -32,6 +32,12 @@ namespace crt
 		// pollTouch niet te lang moet wachten.
 		static const int MaxNofCommandsPerCycle = 10;
 		uint32_t nofQueueFullEvents;	// alleen ter diagnose; er gaat niets meer verloren
+
+		// Tellers om op te kunnen wachten tot het tekenwerk echt gedaan is.
+		// Zie waitUntilDrawn(): de queue-diepte alleen zegt dat niet, want een
+		// commando dat op dit moment wordt uitgevoerd staat er niet meer in.
+		volatile uint32_t nofCommandsWritten;
+		volatile uint32_t nofCommandsExecuted;
 		uint8_t rotation;
 		uint8_t fontTouchCalibration;
 
@@ -39,7 +45,8 @@ namespace crt
 		AsyncDisplay(const char* taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, 
 			IDisplay& display, uint8_t rotation, uint8_t fontTouchCalibration) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), display(display), nofPrintContexts(0), queueCommands(this, true /*bWriteWaitIfQueueFull*/), 
-			periodicTimer(this), flagTouchCalibrate(this), nofQueueFullEvents(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
+			periodicTimer(this), flagTouchCalibrate(this), nofQueueFullEvents(0),
+			nofCommandsWritten(0), nofCommandsExecuted(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
 		{
 			// Meteen doorgeven, niet pas in main(): PageRoot vraagt de schermmaat
 			// op vanuit een andere taak en zou anders de portretmaat krijgen.
@@ -84,12 +91,14 @@ namespace crt
 					// commands come in fast.
 					int64_t timeBeforeUs = esp_timer_get_time();
 					curCommand.execute(display, *pPrintContext);
+					nofCommandsExecuted++;
 					int64_t timeAfterUs = esp_timer_get_time();
 					ESP_LOGI("cmd", "%-20s %6d us  (t=%d)",
 						commandTypeName(curCommand.getCommandType()),
 						(int)(timeAfterUs - timeBeforeUs), (int)(timeAfterUs / 1000));
 #else
 					curCommand.execute(display, *pPrintContext);
+					nofCommandsExecuted++;
 #endif
 					if (queueCommands.getNofMessagesWaiting() == 0)
 					{
@@ -122,6 +131,7 @@ namespace crt
 			case DisplayCommandType::fillBeveledRect:     return "fillBeveledRect";
 			case DisplayCommandType::setClipRect:         return "setClipRect";
 			case DisplayCommandType::clearClipRect:       return "clearClipRect";
+			case DisplayCommandType::present:             return "present";
 			case DisplayCommandType::drawImage:           return "drawImage";
 			case DisplayCommandType::print:               return "print";
 			case DisplayCommandType::println:             return "println";
@@ -161,6 +171,7 @@ namespace crt
 			// veel netter dan zelf pollen met vTaskDelay: de schrijver wordt
 			// direct gewekt zodra er ruimte vrijkomt, in plaats van pas bij de
 			// volgende tick.
+			nofCommandsWritten++;
 			queueCommands.write(displayCommand);
 		}
 
@@ -174,6 +185,7 @@ namespace crt
 			PrintContext* pPrintContext = queryPrintContext(displayCommand.getTask());
 			assert(pPrintContext != nullptr);
 			displayCommand.execute(display, *pPrintContext);
+			nofCommandsExecuted++;
 		}
 
 		PrintContext* queryPrintContext(const Task* pTask)
@@ -212,6 +224,26 @@ namespace crt
 		// Hoeveel commando's nog op uitvoering wachten. Handig om te meten hoe lang
 		// een hertekening werkelijk duurt: zonder dit meet je alleen hoe snel de
 		// commando's in de queue zijn gezet.
+		// Wacht tot alles wat tot nu toe is ingestuurd ook is uitgevoerd.
+		//
+		// Nodig zodra er een backbuffer in het spel is: present() kost daar een
+		// volledige uitzending (~31 ms), en een taak die ondertussen vrolijk het
+		// volgende beeld blijft insturen laat de commandobuffer vollopen. Die
+		// wordt dan een vertragingsbuffer - je ziet iets van seconden geleden -
+		// en de tekentaak komt nooit meer aan blokkeren toe, waarop de
+		// task watchdog terecht aan de bel trekt.
+		//
+		// De queue-diepte is hier geen goede maat: het commando dat op dit moment
+		// wordt uitgevoerd staat niet meer in de rij. Vandaar twee tellers.
+		void waitUntilDrawn()
+		{
+			uint32_t nofToWaitFor = nofCommandsWritten;
+			while ((int32_t)(nofToWaitFor - nofCommandsExecuted) > 0)
+			{
+				vTaskDelay(1);
+			}
+		}
+
 		int getNofQueuedCommands()
 		{
 			return queueCommands.getNofMessagesWaiting();
@@ -349,6 +381,18 @@ namespace crt
 		{
 			DisplayCommand displayCommand;
 			displayCommand.drawStringOpaque(str, bottomLeftPix, alignment, font, scale, colFg, colBg, paddingSizePix);
+			writeCommand(displayCommand);
+		}
+
+		/*override*/ bool isBuffered()
+		{
+			return display.isBuffered();		// synchroon: geen commando nodig
+		}
+
+		/*override*/ void present()
+		{
+			DisplayCommand displayCommand;
+			displayCommand.present();
 			writeCommand(displayCommand);
 		}
 

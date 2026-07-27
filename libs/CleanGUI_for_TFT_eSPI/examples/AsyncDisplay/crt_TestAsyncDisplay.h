@@ -6,6 +6,7 @@
 #include <crt_CleanGUI.h>
 #include <crt_AsyncDisplay.h>
 #include <crt_TFT_eSPI_DisplayAdapter.h>
+#include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_TFT_eSPI_FreeFonts.h>
 
 #ifdef LOAD_GFXFF
@@ -22,9 +23,16 @@ namespace crt
 		static const int MaxNofClientTasks = 10;
 		static const int MaxNofTouchListeners = 20;
 
+		// Kies hier de display-adapter. RGB565 tekent rechtstreeks op het paneel:
+		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
+		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
+		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+
 	private:
 		TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
-		TFT_eSPI_DisplayAdapter<MaxNofTouchListeners> tft_eSPI_DisplayAdapter;
+		DISPLAYADAPTER tft_eSPI_DisplayAdapter;
 		AsyncDisplay<CommandBufferSize, MaxNofClientTasks> displayControl;
 
 	public:
