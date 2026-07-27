@@ -32,6 +32,12 @@ namespace crt
 		// Otherwise it blits this image instead. The Image is NOT copied - the
 		// caller guarantees its lifetime (trivially so for const data in flash).
 		const Image* _pImage;
+
+		// Which frame of a spritesheet is on show; -1 for "the whole image".
+		// This is per panel and not part of the Image on purpose: an Image is
+		// shared, constexpr and lives in flash, so it cannot hold a selection
+		// that changes - and two panels showing the same sheet want their own.
+		int32_t _frameRow, _frameCol;
 	public:
 		using WBase = Widget<MaxNofChildren>;
 
@@ -43,7 +49,7 @@ namespace crt
 			  _cornerRadiusPix(-1),
 			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
 			  _bBeveled(false), _colHighlight(0), _colShadow(0), _bevelStyle(BevelStyle::Raised),
-			  _pImage(nullptr)
+			  _pImage(nullptr), _frameRow(-1), _frameCol(-1)
 		{
 		}
 
@@ -58,7 +64,7 @@ namespace crt
 			  _cornerRadiusPix(-1),
 			  _cornerRadiusWhenCornerRadiusPixWasCalculated(-1),
 			  _bBeveled(false), _colHighlight(0), _colShadow(0), _bevelStyle(BevelStyle::Raised),
-			  _pImage(&image)
+			  _pImage(&image), _frameRow(-1), _frameCol(-1)
 		{
 		}
 
@@ -110,14 +116,54 @@ namespace crt
 		}
 
 		// Pass nullptr to turn the panel back into a plain coloured rectangle.
+		// Any frame selection is dropped: it belonged to the previous image, and
+		// silently keeping it would show a different picture than asked for.
 		void setImage(const Image* pImage)
 		{
 			_pImage = pImage;
+			_frameRow = -1;
+			_frameCol = -1;
 		}
 
 		const Image* getImage()
 		{
 			return _pImage;
+		}
+
+		// Shows one frame of a spritesheet instead of the whole sheet. Rows and
+		// columns are those of Image::nofRows / Image::nofCols, counted from 0;
+		// out of range wraps around, so stepping through frames needs no bounds
+		// checking at the call site.
+		void setImageFrame(int32_t row, int32_t col)
+		{
+			if ((_pImage == nullptr) || (_pImage->nofRows < 1) || (_pImage->nofCols < 1))
+			{
+				return;
+			}
+			_frameRow = ((row % _pImage->nofRows) + _pImage->nofRows) % _pImage->nofRows;
+			_frameCol = ((col % _pImage->nofCols) + _pImage->nofCols) % _pImage->nofCols;
+		}
+
+		// Back to showing the image as a whole.
+		void clearImageFrame()
+		{
+			_frameRow = -1;
+			_frameCol = -1;
+		}
+
+		bool hasImageFrame()
+		{
+			return (_frameRow >= 0) && (_frameCol >= 0);
+		}
+
+		int32_t getImageFrameRow()
+		{
+			return _frameRow;
+		}
+
+		int32_t getImageFrameCol()
+		{
+			return _frameCol;
 		}
 
 		/* override */ WidgetType getWidgetType()
@@ -187,8 +233,16 @@ namespace crt
 				return false;
 			}
 			// Opaque image: only paint the background if the image leaves part
-			// of the panel uncovered.
-			return (_pImage->width < sizePix.x) || (_pImage->height < sizePix.y);
+			// of the panel uncovered. With a frame selected it is that frame
+			// which does the covering, so its size is what counts.
+			int32_t widthPix  = _pImage->width;
+			int32_t heightPix = _pImage->height;
+			if (hasImageFrame())
+			{
+				widthPix  /= _pImage->nofCols;
+				heightPix /= _pImage->nofRows;
+			}
+			return (widthPix < sizePix.x) || (heightPix < sizePix.y);
 		}
 
 		void showPanel()
@@ -223,7 +277,7 @@ namespace crt
 
 			if (_pImage != nullptr)
 			{
-				WBase::getDisplay()->drawImage(pos, size, *_pImage, WBase::getAlignment());
+				WBase::getDisplay()->drawImage(pos, size, *_pImage, WBase::getAlignment(), _frameRow, _frameCol);
 			}
 			//ESP_LOGI("Panel shown", "globparent Y = %d", _widgetProps.getGlobPosOfParent().y);
 			//ESP_LOGI("Panel shown", "locpospix Y = %d", _widgetProps.getLocPosPix().y);

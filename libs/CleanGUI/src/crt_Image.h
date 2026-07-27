@@ -31,8 +31,10 @@ namespace crt
 	//
 	// Spritesheets: nofRows and nofCols say into how many equally sized frames
 	// the image is divided; 1 x 1 (the default) means "just one picture".
-	// CleanGUI does not act on them yet - they are carried along so that an
-	// animating widget can pick its frame later on.
+	// Which frame is on show is NOT stored here: an Image describes the bitmap,
+	// not an appearance on screen - it has no position either, and for the same
+	// reason. It is shared, constexpr and lives in flash, so it could not hold a
+	// changing selection anyway. Panel::setImageFrame() is where that lives.
 	class Image
 	{
 	public:

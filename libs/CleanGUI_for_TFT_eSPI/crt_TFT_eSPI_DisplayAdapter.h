@@ -329,7 +329,8 @@ namespace crt
         // Blits an image straight from wherever its pixels live - typically a
         // const array in flash. No sprite, no line buffer, no extra DRAM: the
         // data goes from .rodata into the SPI FIFO.
-        /*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+        /*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
+                                    int32_t frameRow, int32_t frameCol)
         {
             if ((image.pData == nullptr) || (image.width <= 0) || (image.height <= 0))
             {
@@ -345,7 +346,22 @@ namespace crt
                 return;
             }
 
-            Vec2 imagePos = calcAlignedTopLeftPix(topLeftPix, sizePix, Vec2(image.width, image.height), alignment);
+            // A frame of a spritesheet is a rectangle inside the pixel array, so
+            // its rows are not adjacent: every next row starts image.width pixels
+            // further on. That is the only difference with a whole image.
+            bool bIsFrame = (frameRow >= 0) && (frameCol >= 0) &&
+                            (image.nofRows > 0) && (image.nofCols > 0) &&
+                            ((image.nofRows > 1) || (image.nofCols > 1));
+
+            int32_t drawWidth  = bIsFrame ? (image.width / image.nofCols)  : image.width;
+            int32_t drawHeight = bIsFrame ? (image.height / image.nofRows) : image.height;
+
+            if ((drawWidth <= 0) || (drawHeight <= 0))
+            {
+                return;
+            }
+
+            Vec2 imagePos = calcAlignedTopLeftPix(topLeftPix, sizePix, Vec2(drawWidth, drawHeight), alignment);
 
             // Clipping to the panel rectangle is done by TFT_eSPI's viewport:
             // the PI_CLIP macro inside every pushImage crops against it.
@@ -368,7 +384,33 @@ namespace crt
             // stack buffer first. pushImage only ever reads the data.
             uint16_t* pPixels = const_cast<uint16_t*>(static_cast<const uint16_t*>(image.pData));
 
-            if (image.bHasTransparency)
+            if (bIsFrame)
+            {
+                // One pushImage per scan line, because pushImage has no notion
+                // of a source stride. That costs a setWindow (~34 us) per line
+                // instead of one for the whole blit: a 32x32 frame lands at
+                // ~1,4 ms where the bus alone needs 0,4 ms. Acceptable for a
+                // sprite, and it keeps the viewport clipping of pushImage - which
+                // a hand-rolled setWindow + pushPixels would bypass.
+                uint16_t* pFrame = pPixels + (int32_t)(frameRow * drawHeight) * image.width
+                                           + (int32_t)(frameCol * drawWidth);
+
+                for (int32_t y = 0; y < drawHeight; y++)
+                {
+                    uint16_t* pLine = pFrame + y * image.width;
+
+                    if (image.bHasTransparency)
+                    {
+                        _tft.pushImage(imagePos.x, imagePos.y + y, drawWidth, 1,
+                                       pLine, colTo16bit(image.colTransparent));
+                    }
+                    else
+                    {
+                        _tft.pushImage(imagePos.x, imagePos.y + y, drawWidth, 1, pLine);
+                    }
+                }
+            }
+            else if (image.bHasTransparency)
             {
                 // This overload collects runs of non-transparent pixels per
                 // scan line and writes each run as one block: exactly the

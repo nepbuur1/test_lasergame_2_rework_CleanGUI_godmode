@@ -352,10 +352,11 @@ namespace crt
 			writeCommand(displayCommand);
 		}
 
-		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
+		                            int32_t frameRow, int32_t frameCol)
 		{
 			DisplayCommand displayCommand;
-			displayCommand.drawImage(topLeftPix, sizePix, image, alignment);
+			displayCommand.drawImage(topLeftPix, sizePix, image, alignment, frameRow, frameCol);
 			writeCommand(displayCommand);
 		}
 

@@ -149,7 +149,7 @@ namespace crt
 			case DisplayCommandType::drawImage:
 				if (pImage != nullptr)
 				{
-					display.drawImage(vecA, vecB, *pImage, (Alignment)intA);
+					display.drawImage(vecA, vecB, *pImage, (Alignment)intA, intB, (int32_t)uintA);
 				}
 				break;
 			case DisplayCommandType::setPrintColor:
@@ -311,12 +311,17 @@ namespace crt
 			this->str = str;
 		}
 
-		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment)
+		/*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
+		                            int32_t frameRow, int32_t frameCol)
 		{
 			command = DisplayCommandType::drawImage;
 			vecA = topLeftPix;
 			vecB = sizePix;
 			intA = (int32_t)alignment;
+			intB = frameRow;			// spare fields of this command type; the
+			uintA = (uint32_t)frameCol;	// executor casts them back. A negative
+										// frameRow means "the whole image", and
+										// then frameCol is not looked at.
 			this->pImage = &image;
 			this->str = &nullChar;
 		}

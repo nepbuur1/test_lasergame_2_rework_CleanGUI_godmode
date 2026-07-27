@@ -1,5 +1,50 @@
 # Claude log
 
+## 2026-07-27 — Spritesheet-frames: wie bezit de actieve row/col?
+
+### De vraag
+De ImageViewer moest een kruis van vier knoppen krijgen om door de frames van een
+spritesheet te lopen. Eerste ingeving: row en col erbij in `Image`. Dat klopt
+niet, en waarom niet is het hele ontwerp:
+
+**Een `Image` beschrijft de bitmap, niet een verschijning op het scherm.** Hij
+heeft ook geen x en y, en om dezelfde reden. Bovendien is hij `constexpr` en
+leeft hij in flash: een selectie die verandert kán er niet in staan. En twee
+panels die hetzelfde sheet tonen willen elk hun eigen frame.
+
+Dus: `nofRows`/`nofCols` (de indeling van de bitmap) blijven in `Image`, en
+`_frameRow`/`_frameCol` (welk frame nú te zien is) horen in `Panel`.
+
+### Wat er is bijgekomen
+`Panel::setImageFrame(row, col)` / `clearImageFrame()` / `hasImageFrame()`.
+Buiten bereik wordt omgeslagen, zodat doorstappen aan de aanroepkant geen
+grenscontrole nodig heeft. `setImage()` laat de framekeuze vallen — die hoorde
+bij het vorige plaatje.
+
+De keuze reist mee door de tekenketen: `IDisplay::drawImage` heeft er
+`frameRow, frameCol` bij gekregen (negatief = het hele plaatje), en daarmee ook
+`AsyncDisplay` en `DisplayCommand`. Die laatste zet ze in zijn ongebruikte
+`intB`/`uintA`-velden in plaats van er nieuwe bij te krijgen: het commando-buffer
+telt 300 entries, dus elk extra veld kost hier ruim 2 KB DRAM.
+
+### De blit zelf
+Een frame is een rechthoek *binnen* de array, dus zijn rijen liggen niet naast
+elkaar: elke volgende begint `image.width` pixels verderop. `pushImage` kent geen
+source-stride, dus het gaat per scanlijn — één `pushImage` per regel. Dat kost een
+`setWindow` (~34 us) per regel in plaats van één voor de hele blit: een 32x32
+frame komt op ~1,4 ms waar de bus 0,4 ms nodig heeft.
+
+Bewust niet geoptimaliseerd met een eigen `setWindow` + `pushPixels`: dan verlies
+je de viewport-clipping die in `pushImage` zit, en 1 ms voor een sprite is geen
+probleem. Als dit ooit wel knelt (veel sprites per frame), is dát de plek.
+
+### In de viewer
+Het kruis verschijnt alleen bij een sheet, en wordt dan ook alleen dan
+*enabled* — een onzichtbare knop die nog wel luistert, slikt aanrakingen op die
+voor iets anders bedoeld waren. De eerste druk op een van de vier zet
+`row,col = 0,0` in plaats van weg te stappen van een frame dat nog niet gekozen
+was; pas daarna loopt het kruis. Bij een andere afbeelding vervalt de keuze.
+
 ## 2026-07-27 — Image-assets in flash: converter-tools en het ImageViewer-voorbeeld
 
 ### Wat er nu staat

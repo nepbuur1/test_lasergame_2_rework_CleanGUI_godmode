@@ -81,7 +81,14 @@ namespace crt
 		// rectangle is cropped, a smaller one leaves the surrounding pixels
 		// untouched.
 		// The image data is not copied - see the lifetime note in crt_Image.h.
-		virtual void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment) = 0;
+		//
+		// frameRow/frameCol select one frame of a spritesheet (see Image::nofRows
+		// and Image::nofCols); only that frame is drawn, and it is aligned within
+		// the rectangle as if it were the whole image. A negative frameRow or
+		// frameCol means "the entire image", which is what a picture that is not
+		// a spritesheet always gets.
+		virtual void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
+		                       int32_t frameRow, int32_t frameCol) = 0;
 	};
 
 	// The interface below is part of the IDisplay interface.
