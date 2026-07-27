@@ -71,6 +71,7 @@ namespace crt
         int _indexCacheNext;
 
         uint16_t* _pStripBuffer;
+        int32_t _widthPix, _heightPix;		// van de buffer; ook de stride
         bool _bRgb565WarningGiven;
 
     public:
@@ -85,6 +86,7 @@ namespace crt
               _arCacheColour{}, _arCacheIndex{},
               _nofCached(0), _indexCacheNext(0),
               _pStripBuffer(nullptr),
+              _widthPix(0), _heightPix(0),
               _bRgb565WarningGiven(false)
         {
         }
@@ -193,7 +195,7 @@ namespace crt
         }
 
         // Een PAL8-plaatje in een PAL8-buffer: de bytes zijn al schermindices, dus
-        // dit is kopieren. Precies waar de hele opzet het om te doen was.
+        // dit is kopieren. Precies waar de hele paletted opzet het om te doen was.
         /*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
                                     int32_t frameRow, int32_t frameCol)
         {
@@ -236,8 +238,50 @@ namespace crt
 
             Vec2 imagePos = calcAlignedTopLeftPix(topLeftPix, sizePix, Vec2(drawWidth, drawHeight), alignment);
 
-            // Ook hier klipt de viewport van het doel, net als bij het paneel.
-            Base::applyViewport(topLeftPix, sizePix);
+            // Klippen: een keer per plaatje in plaats van per stuk opnieuw.
+            //
+            // Dat is de hele reden dat hier niet gewoon TFT_eSprite::pushImage
+            // staat. Die klipt met PI_CLIP bij elke aanroep opnieuw, test de
+            // bpp-combinaties af en doet dan een memcpy van gemiddeld elf bytes.
+            // Gemeten: 3,5 us per aanroep, en de barbaar heeft er 173 - dus 599 us
+            // per blit, waarvan 99% opzet en 1% het verplaatsen van de 1.945
+            // zichtbare bytes.
+            //
+            // Er gelden drie begrenzingen tegelijk: de rechthoek van het panel, de
+            // clip-rect die repaintRegion heeft gezet, en de buffer zelf.
+            int32_t clipX0 = topLeftPix.x;
+            int32_t clipY0 = topLeftPix.y;
+            int32_t clipX1 = clipX0 + sizePix.x;
+            int32_t clipY1 = clipY0 + sizePix.y;
+
+            if (Base::_bClipActive)
+            {
+                if (Base::_clipTopLeftPix.x > clipX0) { clipX0 = Base::_clipTopLeftPix.x; }
+                if (Base::_clipTopLeftPix.y > clipY0) { clipY0 = Base::_clipTopLeftPix.y; }
+                if (Base::_clipTopLeftPix.x + Base::_clipSizePix.x < clipX1) { clipX1 = Base::_clipTopLeftPix.x + Base::_clipSizePix.x; }
+                if (Base::_clipTopLeftPix.y + Base::_clipSizePix.y < clipY1) { clipY1 = Base::_clipTopLeftPix.y + Base::_clipSizePix.y; }
+            }
+
+            if (clipX0 < 0) { clipX0 = 0; }
+            if (clipY0 < 0) { clipY0 = 0; }
+            if (clipX1 > _widthPix)  { clipX1 = _widthPix; }
+            if (clipY1 > _heightPix) { clipY1 = _heightPix; }
+
+            // En dan: welk deel van het plaatje valt daar nog binnen?
+            int32_t xFrom = clipX0 - imagePos.x;
+            int32_t xTo   = clipX1 - imagePos.x;
+            int32_t yFrom = clipY0 - imagePos.y;
+            int32_t yTo   = clipY1 - imagePos.y;
+
+            if (xFrom < 0) { xFrom = 0; }
+            if (yFrom < 0) { yFrom = 0; }
+            if (xTo > drawWidth)  { xTo = drawWidth; }
+            if (yTo > drawHeight) { yTo = drawHeight; }
+
+            if ((xFrom >= xTo) || (yFrom >= yTo))
+            {
+                return;		// niets van dit plaatje is zichtbaar
+            }
 
             const uint8_t* pIndices = static_cast<const uint8_t*>(image.pData);
             if (bIsFrame)
@@ -246,42 +290,41 @@ namespace crt
             }
 
             const uint8_t indexTransparent = toPaletteIndex(image.colTransparent);
+            uint8_t* pBuffer = (uint8_t*)_backBuffer.getPointer();
 
-            for (int32_t y = 0; y < drawHeight; y++)
+            for (int32_t y = yFrom; y < yTo; y++)
             {
-                const uint8_t* pLine = pIndices + y * image.width;
+                const uint8_t* pSrc = pIndices + y * image.width;
+                uint8_t* pDst = pBuffer + (imagePos.y + y) * _widthPix + imagePos.x;
 
                 if (!image.bHasTransparency)
                 {
-                    // sbpp=8 laat TFT_eSPI dit als 8-naar-8 herkennen: een memcpy
-                    // per beeldrij, met de klipping van de sprite eromheen.
-                    _backBuffer.pushImage(imagePos.x, imagePos.y + y, drawWidth, 1,
-                                          (uint16_t*)const_cast<uint8_t*>(pLine), 8 /*sbpp*/);
+                    // De bytes zijn al schermindices, dus dit is letterlijk
+                    // kopieren.
+                    memcpy(pDst + xFrom, pSrc + xFrom, (size_t)(xTo - xFrom));
                     continue;
                 }
 
                 // Transparant: per aaneengesloten stuk zichtbare pixels een kopie.
-                // In geheugen kost zo'n aanroep vrijwel niets - er komt geen bus
-                // aan te pas - dus het aantal stukken is hier geen bezwaar.
                 int32_t xRunStart = -1;
-                for (int32_t x = 0; x <= drawWidth; x++)
+                for (int32_t x = xFrom; x <= xTo; x++)
                 {
-                    bool bVisible = (x < drawWidth) && (pLine[x] != indexTransparent);
+                    bool bVisible = (x < xTo) && (pSrc[x] != indexTransparent);
 
-                    if (bVisible && (xRunStart < 0))
+                    if (bVisible)
                     {
-                        xRunStart = x;
+                        if (xRunStart < 0)
+                        {
+                            xRunStart = x;
+                        }
                     }
-                    else if (!bVisible && (xRunStart >= 0))
+                    else if (xRunStart >= 0)
                     {
-                        _backBuffer.pushImage(imagePos.x + xRunStart, imagePos.y + y, x - xRunStart, 1,
-                                              (uint16_t*)const_cast<uint8_t*>(pLine + xRunStart), 8 /*sbpp*/);
+                        memcpy(pDst + xRunStart, pSrc + xRunStart, (size_t)(x - xRunStart));
                         xRunStart = -1;
                     }
                 }
             }
-
-            Base::restoreViewport();
         }
 
         // --- wat een TFT_eSprite zelf niet heeft -----------------------------
@@ -461,6 +504,22 @@ namespace crt
                 _pStripBuffer = nullptr;
                 return;
             }
+
+            // De eigen blit schrijft rechtstreeks in de buffer en rekent met de
+            // breedte als stride. Dat klopt alleen zolang de sprite niet gedraaid
+            // is - dan wisselt TFT_eSPI _iwidth en _dwidth om.
+            if ((_backBuffer.getRotation() != 0) || (_backBuffer.getPointer() == nullptr))
+            {
+                ESP_LOGE("DisplayAdapter_PAL8", "onverwachte sprite-toestand (rotatie %d); "
+                    "terug naar het paneel.", (int)_backBuffer.getRotation());
+                _backBuffer.deleteSprite();
+                heap_caps_free(_pStripBuffer);
+                _pStripBuffer = nullptr;
+                return;
+            }
+
+            _widthPix = sizePix.x;
+            _heightPix = sizePix.y;
 
             _backBuffer.fillSprite(0);		// index 0 - wordt straks overtekend
             _bBackBufferAllocated = true;

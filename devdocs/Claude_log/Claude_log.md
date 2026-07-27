@@ -135,9 +135,41 @@ commandowachtrij zakte van ~500 naar ~31, want de tekentaak loopt niet meer
 achter de feiten aan.
 
 Wat nu de rem is, is `present()` met 38,4 ms - het plafond ligt dus op 26 fps.
-Daar komt de eerder besproken eigen-memcpy-blit weer in beeld: die zou de
-resterende ~7 ms tekenwerk per beeld naar ~1 ms brengen, goed voor de laatste
-paar beelden per seconde. Pas daarna is DMA aan de beurt.
+
+### De eigen blit, alsnog
+Daarna toch gebouwd: klippen een keer per plaatje, dan `memcpy` per aaneengesloten
+stuk rechtstreeks in de buffer, in plaats van `TFT_eSprite::pushImage` per stuk.
+
+| 20 transparante sprites | fps |
+|---|---|
+| via `pushImage` per stuk | 16 |
+| eigen klipping + `memcpy` | **18** |
+
+Van de 62,5 ms per beeld ging ~24 ms naar tekenen, nu ~17 ms. Geen factor zes
+zoals ik voorrekende: de resterende tijd zit in het aflopen van de rij op zoek
+naar stukken (4.096 vergelijkingen per sprite) en in 173 kleine `memcpy`s. De
+opzet per aanroep is weg, het scannen niet.
+
+Drie begrenzingen gelden tegelijk en worden nu zelf uitgerekend: de rechthoek van
+het panel, de clip-rect van `repaintRegion`, en de buffer. Dat is precies het soort
+code waar een fout niet lelijk oogt maar buiten de buffer schrijft, dus apart
+uitgeprobeerd met sprites die 60 pixels over alle vier de schermranden heen lopen:
+35 seconden, geen crash, geen heap-corruptie. In het voorbeeld zelf wordt die
+klipping namelijk nauwelijks geraakt - de sprites blijven binnen de map en bij een
+volledige hertekening staat er geen clip-rect.
+
+### Stand van zaken
+
+| sprites | RGB565, moveTo | PAL8-backbuffer |
+|---|---|---|
+| 0 | 100 (de klokcap) | 24 |
+| 10 transparant | - | 20 |
+| 20 dekkend | 16 | 20 |
+| 20 transparant | 3 | **18** |
+
+Het plafond is nu `present()` met 38,4 ms, ofwel 26 fps. Wie verder wil: DMA laat
+de expansie van de volgende strook overlappen met het uitzenden van de vorige, en
+brengt dat richting de busvloer van 31,6 ms.
 
 ## 2026-07-27 — PAL8: gedeeld palet, indices in flash
 

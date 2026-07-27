@@ -270,13 +270,22 @@ namespace crt
 			return (indexSprite < MaxNofSpritesPerKind);
 		}
 
-		// How far a sprite may walk: the map minus its own size, so it can touch
-		// the edge but never cross it. Beyond the map lie the header and the
-		// buttons, and a sprite that walked over those would repaint them.
-		void calcBoundsPix(int32_t& maxXPix, int32_t& maxYPix)
+		// Hoe ver een sprite mag lopen.
+		//
+		// Verticaal blijft hij helemaal binnen de map: erboven ligt de fps-regel en
+		// eronder liggen de knoppen, en CleanGUI klipt een kind niet tot zijn
+		// ouder - een sprite die daar overheen loopt, tekent er gewoon overheen.
+		//
+		// Horizontaal mag hij half het beeld uit, want daar valt de rand van de map
+		// samen met de rand van het scherm. Dat is niet alleen leuker om te zien,
+		// het houdt ook de klipping in de blit in gebruik: zonder dit wordt die
+		// code in dit voorbeeld nooit geraakt, en ongebruikte klipping is precies
+		// het soort code dat stilletjes verkeerd staat.
+		void calcBoundsPix(int32_t& minXPix, int32_t& maxXPix, int32_t& maxYPix)
 		{
 			Vec2 mapSizePix = mapPanel.getSizePix();
-			maxXPix = mapSizePix.x - SpriteSizePix;
+			minXPix = -SpriteSizePix / 2;
+			maxXPix = mapSizePix.x - SpriteSizePix / 2;
 			maxYPix = mapSizePix.y - SpriteSizePix;
 		}
 
@@ -312,11 +321,11 @@ namespace crt
 				return;
 			}
 
-			int32_t maxXPix, maxYPix;
-			calcBoundsPix(maxXPix, maxYPix);
+			int32_t minXPix, maxXPix, maxYPix;
+			calcBoundsPix(minXPix, maxXPix, maxYPix);
 
 			SpriteState& state = arSpriteStates[indexSprite];
-			state.posPix.set((int32_t)random(0, maxXPix + 1), (int32_t)random(0, maxYPix + 1));
+			state.posPix.set((int32_t)random(minXPix, maxXPix + 1), (int32_t)random(0, maxYPix + 1));
 			randomVelocity(state.dxPix, state.dyPix);
 			state.bActive = true;
 
@@ -363,8 +372,8 @@ namespace crt
 		//   Resultaat: 10 -> 19 fps.
 		void moveSprites()
 		{
-			int32_t maxXPix, maxYPix;
-			calcBoundsPix(maxXPix, maxYPix);
+			int32_t minXPix, maxXPix, maxYPix;
+			calcBoundsPix(minXPix, maxXPix, maxYPix);
 
 			for (int i = 0; i < MaxNofSprites; i++)
 			{
@@ -378,7 +387,7 @@ namespace crt
 				state.posPix.y += state.dyPix;
 
 				// Bounce off the edges of the map.
-				if (state.posPix.x < 0)        { state.posPix.x = 0;        state.dxPix = -state.dxPix; }
+				if (state.posPix.x < minXPix)  { state.posPix.x = minXPix;  state.dxPix = -state.dxPix; }
 				if (state.posPix.x > maxXPix)  { state.posPix.x = maxXPix;  state.dxPix = -state.dxPix; }
 				if (state.posPix.y < 0)        { state.posPix.y = 0;        state.dyPix = -state.dyPix; }
 				if (state.posPix.y > maxYPix)  { state.posPix.y = maxYPix;  state.dyPix = -state.dyPix; }
