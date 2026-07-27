@@ -56,6 +56,7 @@ namespace crt
 		virtual void show(bool bIncludeChildren) = 0;		  // show/hide is about the visual aspect of a widget.
 		virtual void hide(bool bIncludeChildren) = 0;        // show immediately draws it. hide immediately undraws it.
 		virtual bool isShown() = 0;
+		virtual void setDrawable(bool bDrawable, bool bIncludeChildren) = 0;	// switches the below at runtime.
 		virtual bool isDrawable() = 0;   // false: widget takes part in the tree and input handling,
 		                                 // but never sends drawing commands to the display.
 		virtual void enable(bool bIncludeChildren) = 0;	  // enable/disable is about the functional aspect of 

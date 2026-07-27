@@ -267,6 +267,9 @@ namespace crt
 		/*override*/ void setSize(const Vec2& size, const CoordType coordTypeSize)
 		{
 			_size = size;
+			_coordTypeSize = coordTypeSize;		// was silently ignored, so a widget
+												// built in promillage read pixels as
+												// promillage and came out tiny.
 			
 			Vec2 newSizePix = recalcSizePix();
 			
@@ -388,18 +391,18 @@ namespace crt
 
 			if (!rectsIntersect(oldTopLeftPix, oldSizePix, newTopLeftPix, _sizePix))
 			{
-				repaintBehind(Vec2(ox0, oy0), oldSizePix);
+				repaintRegion(Vec2(ox0, oy0), oldSizePix);
 			}
 			else
 			{
 				int32_t yTop = (ny0 < oy1) ? ny0 : oy1;			// min
 				int32_t yBottom = (ny1 > oy0) ? ny1 : oy0;		// max
-				repaintBehind(Vec2(ox0, oy0), Vec2(ox1 - ox0, yTop - oy0));			// above
-				repaintBehind(Vec2(ox0, yBottom), Vec2(ox1 - ox0, oy1 - yBottom));	// below
+				repaintRegion(Vec2(ox0, oy0), Vec2(ox1 - ox0, yTop - oy0));			// above
+				repaintRegion(Vec2(ox0, yBottom), Vec2(ox1 - ox0, oy1 - yBottom));	// below
 				int32_t xLeft = (nx0 < ox1) ? nx0 : ox1;
 				int32_t xRight = (nx1 > ox0) ? nx1 : ox0;
-				repaintBehind(Vec2(ox0, yTop), Vec2(xLeft - ox0, yBottom - yTop));		// left
-				repaintBehind(Vec2(xRight, yTop), Vec2(ox1 - xRight, yBottom - yTop));	// right
+				repaintRegion(Vec2(ox0, yTop), Vec2(xLeft - ox0, yBottom - yTop));		// left
+				repaintRegion(Vec2(xRight, yTop), Vec2(ox1 - xRight, yBottom - yTop));	// right
 			}
 
 			// And draw myself at the new position. No need to go through the root
@@ -414,10 +417,19 @@ namespace crt
 			}
 		}
 
-	private:
-		// Lets the whole tree repaint one region, so that what was underneath
-		// this widget comes back rather than being guessed at with a fill colour.
-		void repaintBehind(const Vec2& topLeftPixIn, const Vec2& sizePixIn)
+	public:
+		// Lets the whole tree repaint one region of the screen, clipped to it, so
+		// that whatever belongs there comes back rather than being guessed at with
+		// a fill colour. Widgets outside the region are skipped entirely.
+		//
+		// This is what makes a partial update honest, and it is worth reaching for
+		// whenever only part of the screen changes: a full screen redraw moves
+		// 153.600 bytes over the SPI bus and costs ~31 ms, no matter how little
+		// actually differs.
+		//
+		// The region is in absolute screen pixels. Which widget you call it on
+		// does not matter - it always redraws through the root.
+		void repaintRegion(const Vec2& topLeftPixIn, const Vec2& sizePixIn)
 		{
 			Vec2 topLeftPix = topLeftPixIn;
 			Vec2 sizePix = sizePixIn;
@@ -431,6 +443,7 @@ namespace crt
 			_display->clearClipRect();
 		}
 
+	private:
 		// Snijdt een regio af op de rect van de root, en meldt of er iets van
 		// overblijft. Wat daarbuiten valt hoeft niet getekend te worden; dat
 		// scheelt tijdens het inschuiven van een widget die nog grotendeels
@@ -482,6 +495,26 @@ namespace crt
 		/*override*/ bool isDrawable()
 		{
 			return _bDrawable;
+		}
+
+		// Switches that off and on again at runtime. Use it for a widget that is
+		// only of use part of the time: it then stays out of show(), out of
+		// repaintRegion() and out of the tree's drawing altogether, without being
+		// removed from it.
+		// Mind that this draws nothing by itself - neither the widget nor what it
+		// covered. Repaint the region it occupied afterwards.
+		// Almost always pass bIncludeChildren = true: a button whose panel is not
+		// drawable but whose label still is, would draw a floating label.
+		/*override*/ void setDrawable(bool bDrawable, bool bIncludeChildren)
+		{
+			_bDrawable = bDrawable;
+			if (bIncludeChildren)
+			{
+				for (int i = 0; i < _nofChildren; i++)
+				{
+					_arChildren[i]->setDrawable(bDrawable, true);
+				}
+			}
 		}
 
 		// enable/disable is about the functional aspect of 

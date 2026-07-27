@@ -10,6 +10,7 @@
 
 #pragma once
 #include <Arduino.h>
+#include <esp_timer.h>
 #include <stdio.h>
 #include <string.h>
 #include <crt_CleanRTOS.h>
@@ -43,9 +44,21 @@ namespace crt
 		// transparent image deliberately paints no background of its own, so
 		// without a parent to repaint first, the previous picture would stay
 		// visible around it.
+		//
+		// The image panel is kept exactly as large as the picture it shows, and
+		// is moved to the middle by position rather than by alignment within a
+		// screen-filling panel. That is what keeps a switch cheap: a panel bigger
+		// than its opaque image paints its colFg first, and if that panel is the
+		// whole screen, every switch costs an extra full screen fill (~31 ms) on
+		// top of the one the background already did.
 		Panel<1> backgroundPanel;
 		Panel<0> imagePanel;
 
+		// The caption has a panel of its own, just one line high. Not decoration:
+		// an opaque Text derives the box it blanks from its parent (see
+		// Text::calcPaddingSizePix), so with the page as its parent it would wipe
+		// a strip of the full screen height on every update.
+		Panel<1> headerPanel;
 		Text<0> captionText;
 
 		using BUTTON = TouchscreenButton<0 /*MaxNofChildren*/, 2/*MaxButtonListenerCount*/>;
@@ -80,6 +93,18 @@ namespace crt
 		int32_t stepRow, stepCol;
 		BUTTON* pButtonPressed;
 
+		// Where the picture sits on screen right now. Kept so that a switch can
+		// repaint the old spot together with the new one, and nothing else.
+		Vec2 imageTopLeftPix, imageSizePix;
+
+		// Whether the cross was drawable the last time round. Only when that
+		// changes does the area it occupies have to be repainted.
+		bool bFrameButtonsDrawn;
+
+		BUTTON* arFrameButtons[4];		// the cross, for looping over
+
+		static constexpr uint32_t colBackground   = 0x00101018;
+
 		// A raised-key profile, like the one the keyboard uses: a light gloss
 		// along the top and left, a dark border along the bottom and right. A
 		// flat rectangle in a single colour needs a lot of contrast against the
@@ -105,21 +130,23 @@ namespace crt
 
 			backgroundPanel("background", /*locPos*/Vec2(0, 0), CoordType::Promillage,
 				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
-				/*colFg*/(uint32_t)0x00101018, /*colBg*/0x00000000),
+				/*colFg*/(uint32_t)colBackground, /*colBg*/0x00000000),
 
-			// Fills the screen, so the image lands in the middle of it. Its colFg
-			// is the same as the background: an opaque image that does not cover
-			// the whole panel makes the panel paint colFg first, and that should
-			// not show as a rectangle around the picture.
-			imagePanel("image", /*locPos*/Vec2(0, 0), CoordType::Promillage,
-				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage, Alignment::MidMid,
-				/*colFg*/(uint32_t)0x00101018, /*colBg*/0x00000000, *arAllImages[0]),
+			// Position and size are set per picture by applyCurrentImage(); what
+			// stands here only has to be valid until then.
+			imagePanel("image", /*locPos*/Vec2(0, 0), CoordType::Pixels,
+				/*size*/Vec2(0, 0), /*cornerRadius*/0, CoordType::Pixels, Alignment::TopLeft,
+				/*colFg*/(uint32_t)colBackground, /*colBg*/0x00000000, *arAllImages[0]),
+
+			headerPanel("header", /*locPos*/Vec2(0, 0), CoordType::Pixels,
+				/*size*/Vec2(1000, 90), /*cornerRadius*/0, CoordType::Promillage, Alignment::TopLeft,
+				/*colFg*/(uint32_t)colBackground, /*colBg*/0x00000000),
 
 			// Left aligned, and not centered: the line is longer than the 320
 			// pixels are wide, and centering lets it run off on both sides at
 			// once. Against the left edge, only the tail can clip - which is why
 			// the name is at the end of it.
-			captionText(/*locPos*/Vec2(20, 30), CoordType::Promillage, Alignment::TopLeft,
+			captionText(/*locPos*/Vec2(20, 200), CoordType::Promillage, Alignment::TopLeft,
 				strCaption, /*font*/2, /*color*/0x00FFFFFF, /*fontScale*/1),
 
 			// fontScale=0 lets the button match the scale to its own height.
@@ -172,9 +199,20 @@ namespace crt
 			flagFrameReleased(this),
 			indexImage(0),
 			frameRow(0), frameCol(0), bFrameSelected(false),
-			stepRow(0), stepCol(0), pButtonPressed(nullptr)
+			stepRow(0), stepCol(0), pButtonPressed(nullptr),
+			imageTopLeftPix(0, 0), imageSizePix(0, 0),
+			bFrameButtonsDrawn(false)
 		{
 			strCaption[0] = 0;
+
+			arFrameButtons[0] = &buttonRowMinus;
+			arFrameButtons[1] = &buttonRowPlus;
+			arFrameButtons[2] = &buttonColMinus;
+			arFrameButtons[3] = &buttonColPlus;
+
+			// One pass over its own line instead of erase-then-draw, so a shorter
+			// caption cannot leave the tail of a longer one behind.
+			captionText.setOpaque(colBackground);
 			buttonPrev.setBevel(colKeyHighlight, colKeyShadow);
 			buttonNext.setBevel(colKeyHighlight, colKeyShadow);
 			buttonRowMinus.setBevel(colKeyHighlight, colKeyShadow);
@@ -251,32 +289,83 @@ namespace crt
 			return (pImage->nofRows > 1) || (pImage->nofCols > 1);
 		}
 
-		// The cross only has meaning for a spritesheet. Disabling as well as not
-		// drawing it: a button that is invisible but still listening would swallow
-		// touches meant for whatever is drawn there instead.
-		void enableFrameButtons(bool bEnable)
+		// The cross only has meaning for a spritesheet, so for anything else it is
+		// switched off in both respects: not drawable, so the tree skips it while
+		// painting, and not enabled, because a button that is no longer visible but
+		// still listening would swallow touches meant for whatever is there now.
+		// Draws nothing by itself - showFrameButtonsArea() repaints the spot.
+		void setFrameButtonsPresent(bool bPresent)
 		{
-			// Mind the parameter of enable/disable: it is bIncludeChildren, not
-			// the state. These buttons have no children, so it is false.
-			BUTTON* arButtons[] = { &buttonRowMinus, &buttonRowPlus, &buttonColMinus, &buttonColPlus };
-
-			for (BUTTON* pButton : arButtons)
+			for (BUTTON* pButton : arFrameButtons)
 			{
-				if (bEnable)
+				// Mind the second parameter of enable/disable/setDrawable: it is
+				// bIncludeChildren, not the state. A button does have a child - its
+				// label - and that one has to follow along.
+				pButton->setDrawable(bPresent, true);
+
+				if (bPresent)
 				{
-					pButton->enable(false);
+					pButton->enable(true);
 				}
 				else
 				{
-					pButton->disable(false);
+					pButton->disable(true);
 				}
 			}
 		}
 
-		// Draws the image that indexImage points at, and everything that belongs
-		// on top of it. The background is redrawn along with it - see the comment
-		// at backgroundPanel for why that is not optional.
-		void showCurrentImage()
+		// The rectangle the four of them occupy together, asked of the widgets
+		// themselves so that moving one does not silently invalidate this.
+		void calcFrameButtonsRect(Vec2& topLeftPix, Vec2& sizePix)
+		{
+			int32_t x0 = INT32_MAX, y0 = INT32_MAX, x1 = INT32_MIN, y1 = INT32_MIN;
+
+			for (BUTTON* pButton : arFrameButtons)
+			{
+				Vec2 pos = pButton->getGlobPosPix();
+				Vec2 size = pButton->getSizePix();
+
+				if (pos.x < x0) { x0 = pos.x; }
+				if (pos.y < y0) { y0 = pos.y; }
+				if (pos.x + size.x > x1) { x1 = pos.x + size.x; }
+				if (pos.y + size.y > y1) { y1 = pos.y + size.y; }
+			}
+
+			topLeftPix.set(x0, y0);
+			sizePix.set(x1 - x0, y1 - y0);
+		}
+
+		// Grows (topLeftPix, sizePix) so that it also covers the second rectangle.
+		// An empty rectangle contributes nothing.
+		static void addToRect(Vec2& topLeftPix, Vec2& sizePix, const Vec2& topLeftPix2, const Vec2& sizePix2)
+		{
+			if ((sizePix2.x <= 0) || (sizePix2.y <= 0))
+			{
+				return;
+			}
+			if ((sizePix.x <= 0) || (sizePix.y <= 0))
+			{
+				topLeftPix = topLeftPix2;
+				sizePix = sizePix2;
+				return;
+			}
+
+			int32_t x0 = (topLeftPix2.x < topLeftPix.x) ? topLeftPix2.x : topLeftPix.x;
+			int32_t y0 = (topLeftPix2.y < topLeftPix.y) ? topLeftPix2.y : topLeftPix.y;
+			int32_t x1 = topLeftPix.x + sizePix.x;
+			int32_t y1 = topLeftPix.y + sizePix.y;
+			if (topLeftPix2.x + sizePix2.x > x1) { x1 = topLeftPix2.x + sizePix2.x; }
+			if (topLeftPix2.y + sizePix2.y > y1) { y1 = topLeftPix2.y + sizePix2.y; }
+
+			topLeftPix.set(x0, y0);
+			sizePix.set(x1 - x0, y1 - y0);
+		}
+
+		// Puts everything in place for the image that indexImage points at -
+		// image, frame, the panel's size and position, the caption text - without
+		// drawing a single pixel. What has to be repainted is decided afterwards,
+		// by showCurrentImage().
+		void applyCurrentImage()
 		{
 			const Image* pImage = arAllImages[indexImage];
 
@@ -325,27 +414,70 @@ namespace crt
 					indexImage + 1, nofAllImages, (int)widthPix, (int)heightPix, strName);
 			}
 
-			backgroundPanel.show(true);		// background, then the image on it
+			// The picture goes in the middle. Its panel is exactly as large as the
+			// picture, so it paints no background of its own and the switch stays
+			// cheap. Positions are relative to backgroundPanel, which covers the
+			// screen from (0,0), so they are screen coordinates as well.
+			Vec2 screenSizePix = backgroundPanel.getSizePix();
 
-			// The buttons and the caption are drawn last, so they end up on top
-			// of the image no matter how large it is.
-			captionText.show(false);
-			buttonPrev.show(false);
-			buttonNext.show(false);
+			imageSizePix.set(widthPix, heightPix);
+			imageTopLeftPix.set((screenSizePix.x - widthPix) / 2, (screenSizePix.y - heightPix) / 2);
 
-			if (isSpritesheet(pImage))
+			imagePanel.setSize(imageSizePix, CoordType::Pixels);
+			imagePanel.setLocPos(imageTopLeftPix, CoordType::Pixels, Alignment::TopLeft);
+		}
+
+		// Switches to the image that indexImage points at, repainting only what
+		// actually changes: the spot the previous picture had together with the
+		// spot the new one gets, and - only when the cross appears or disappears -
+		// the strip it lives on. A full screen redraw would be 76.800 pixels and
+		// ~31 ms, where a frame step within a sheet needs about a thousandth of
+		// that.
+		void showCurrentImage()
+		{
+			int64_t timeStartUs = esp_timer_get_time();
+
+			Vec2 oldTopLeftPix = imageTopLeftPix;
+			Vec2 oldSizePix    = imageSizePix;
+
+			bool bCrossWanted  = isSpritesheet(arAllImages[indexImage]);
+			bool bCrossChanged = (bCrossWanted != bFrameButtonsDrawn);
+
+			setFrameButtonsPresent(bCrossWanted);
+			bFrameButtonsDrawn = bCrossWanted;
+
+			applyCurrentImage();
+
+			// The tree paints itself inside the region, in its usual order, so the
+			// background fills just that bit, the picture lands on it, and a button
+			// that happens to overlap comes back on top. No show() calls needed.
+			Vec2 topLeftPix = imageTopLeftPix;
+			Vec2 sizePix    = imageSizePix;
+			addToRect(topLeftPix, sizePix, oldTopLeftPix, oldSizePix);
+			backgroundPanel.repaintRegion(topLeftPix, sizePix);
+
+			if (bCrossChanged)
 			{
-				buttonRowMinus.show(false);
-				buttonRowPlus.show(false);
-				buttonColMinus.show(false);
-				buttonColPlus.show(false);
+				// A second region rather than one big rectangle around both: the
+				// cross sits well below the picture, so their bounding box would
+				// drag in a wide band that did not change at all.
+				Vec2 crossTopLeftPix, crossSizePix;
+				calcFrameButtonsRect(crossTopLeftPix, crossSizePix);
+				backgroundPanel.repaintRegion(crossTopLeftPix, crossSizePix);
 			}
 
-			ESP_LOGI(taskName, "%s (%dx%d, %s, spritesheet %dx%d, frame %s)",
+			// The caption lies outside those regions and changes every time. It is
+			// opaque, so this single call blanks the old line and writes the new
+			// one in one pass.
+			captionText.redraw();
+
+			const Image* pImage = arAllImages[indexImage];
+			ESP_LOGI(taskName, "%s (%dx%d, %s, spritesheet %dx%d, frame %s) in %d us",
 				arAllImageNames[indexImage], (int)pImage->width, (int)pImage->height,
 				pImage->bHasTransparency ? "transparent" : "opaque",
 				(int)pImage->nofRows, (int)pImage->nofCols,
-				bFrameSelected ? "selected" : "whole sheet");
+				bFrameSelected ? "selected" : "whole sheet",
+				(int)(esp_timer_get_time() - timeStartUs));
 		}
 
 		// Moves to another image: the frame selection belongs to the sheet that
@@ -357,7 +489,6 @@ namespace crt
 			frameRow = 0;
 			frameCol = 0;
 
-			enableFrameButtons(isSpritesheet(arAllImages[indexImage]));
 			showCurrentImage();
 		}
 
@@ -377,7 +508,8 @@ namespace crt
 			// caption and buttons after, so they stay on top.
 			page1.addChildWidget(backgroundPanel);
 			backgroundPanel.addChildWidget(imagePanel);
-			page1.addChildWidget(captionText);
+			page1.addChildWidget(headerPanel);
+			headerPanel.addChildWidget(captionText);
 			page1.addChildWidget(buttonPrev);
 			page1.addChildWidget(buttonNext);
 			page1.addChildWidget(buttonRowMinus);
@@ -393,8 +525,13 @@ namespace crt
 				pButton->addButtonListener(this);
 			}
 
-			enableFrameButtons(isSpritesheet(arAllImages[indexImage]));
-			showCurrentImage();
+			// The one moment the whole screen legitimately gets painted: there is
+			// nothing on it yet. Every switch after this repaints only its own
+			// rectangle.
+			bFrameButtonsDrawn = isSpritesheet(arAllImages[indexImage]);
+			setFrameButtonsPresent(bFrameButtonsDrawn);
+			applyCurrentImage();
+			page1.show(true);
 
 			while (true)
 			{

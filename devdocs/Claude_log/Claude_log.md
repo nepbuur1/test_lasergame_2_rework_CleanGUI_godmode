@@ -1,5 +1,52 @@
 # Claude log
 
+## 2026-07-27 — ImageViewer hertekent alleen nog wat verandert
+
+### Wat er mis mee was
+Elke plaatjeswissel tekende het hele scherm opnieuw: **twee** volledige
+vullingen van 76.800 pixels, ~31 ms per stuk. De eerste kwam van
+`backgroundPanel`, de tweede van `imagePanel` — dat was óók schermvullend, en een
+panel dat groter is dan zijn dekkende plaatje vult eerst zijn `colFg`. Die
+tweede overschilderde de eerste dus in dezelfde kleur. Plus caption en zes
+knoppen: ~75 ms voor een wissel die soms maar 32x32 pixels verandert.
+
+### De drie ingrepen
+1. **`imagePanel` is nu precies zo groot als het plaatje** en wordt via zijn
+   positie gecentreerd, niet via `Alignment::MidMid` binnen een schermvullend
+   panel. Daarmee is `needsBackground()` onwaar en verdwijnt de tweede vulling.
+2. **Alleen de veranderde rechthoek hertekenen.** `Widget::repaintBehind` is
+   publiek geworden als `repaintRegion(topLeftPix, sizePix)` — de machinerie was
+   er al voor het wegschuivende toetsenbord. De viewer onthoudt waar het plaatje
+   staat en hertekent bij een wissel de vereniging van oude en nieuwe rechthoek.
+   Omdat alles gecentreerd staat, is die vereniging simpelweg de grootste van de
+   twee. De tree tekent zichzelf daarbinnen in de gewone volgorde, dus knoppen
+   die eroverheen vallen komen vanzelf weer bovenop; de rij expliciete
+   `show()`-aanroepen kon weg.
+3. **De caption in een eigen regelhoog panel**, met `Text::setOpaque()`. Dat
+   wist zijn eigen vak in dezelfde pass. Het panel is nodig omdat
+   `Text::calcPaddingSizePix()` dat vak van de *ouder* afleidt: met de page als
+   ouder zou het 240 px hoog worden en een strook van bijna het hele scherm
+   blanken.
+
+Voor het kruis kwam er `Widget::setDrawable(bool, bIncludeChildren)` bij, de
+runtime-tegenhanger van het bestaande `isDrawable()`. Bij een gewoon plaatje
+staat het kruis nu niet alleen uit voor touch maar ook uit de tekening, zonder
+uit de tree te gaan. De strook waar het staat wordt alleen hertekend als die
+zichtbaarheid *verandert* — en als aparte regio, want de bounding box van
+plaatje plus kruis zou een brede band meeslepen die niets doet.
+
+### Onderweg gevonden
+`Widget::setSize()` gooide zijn `coordTypeSize`-parameter weg. Een widget die in
+promillage was aangemaakt las een maat in pixels dus als promillage en werd
+minuscuul. Nu wordt het veld gewoon toegekend. Geen bestaande aanroeper leunde
+erop: `PageRoot` en `Text` gaven allebei al `Pixels` door aan een widget die dat
+ook al was.
+
+### Meten
+`showCurrentImage()` logt nu zijn eigen duur in microseconden. De verwachting is
+~1 ms voor een frame-stap binnen een sheet en ~10 ms voor de grootste wissel,
+tegen ~75 ms daarvoor; dat moet het bord bevestigen.
+
 ## 2026-07-27 — Partitietabel zonder OTA
 
 OTA is niet nodig, dus `otadata` en de tweede app-partitie zijn eruit en de app
