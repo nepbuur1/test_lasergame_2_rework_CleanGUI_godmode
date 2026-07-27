@@ -10,11 +10,10 @@
 # "esp32-arduino requires CONFIG_FREERTOS_HZ=1000 (currently 100)".
 CONFIG_FREERTOS_HZ=1000
 
-# Eigen partitietabel. Die bevat de spiffs-partitie op 0x290000 waarin de
-# touchkalibratie (/TouchCalData1) wordt bewaard; LITTLEFS.begin() zoekt
-# standaard naar precies het partitielabel "spiffs". Met de ingebouwde
-# partitions_singleapp.csv bestaat die partitie niet en gaat de kalibratie bij
-# elke herstart verloren.
+# Eigen partitietabel. Die bevat de spiffs-partitie waarin de touchkalibratie
+# (/TouchCalData1) wordt bewaard; LITTLEFS.begin() zoekt naar precies het
+# partitielabel "spiffs". Met de ingebouwde partitions_singleapp.csv bestaat die
+# partitie niet en gaat de kalibratie bij elke herstart verloren.
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 

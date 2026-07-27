@@ -1,6 +1,15 @@
 # Name,   Type, SubType, Offset,  Size, Flags
+# Geen OTA: er is dus geen otadata en geen tweede app-partitie, en de app heet
+# "factory" in plaats van ota_0. Wat die twee samen aan ruimte kostten gaat naar
+# de app, die daarmee van 1,25 MB naar 3,84 MB groeit.
+#
+# Het gat tussen 0xe000 en 0x10000 is niet te vermijden: een app-partitie moet op
+# een veelvoud van 0x10000 beginnen, en nvs ligt er al voor.
+#
+# spiffs is 100 KB en ligt achteraan, zodat de tabel op precies 0x400000 (4 MB)
+# uitkomt. Dat is de partitie waarin de touchkalibratie (/TouchCalData1) leeft;
+# LITTLEFS.begin() zoekt naar precies het label "spiffs", dus dat moet zo blijven
+# heten.
 nvs,      data, nvs,     0x9000,  0x5000,
-otadata,  data, ota,     0xe000,  0x2000,
-app0,     app,  ota_0,   0x10000, 0x140000,
-app1,     app,  ota_1,   0x150000,0x140000,
-spiffs,   data, spiffs,  0x290000,0x170000,
+factory,  app,  factory, 0x10000, 0x3D7000,
+spiffs,   data, spiffs,  0x3E7000,0x19000,

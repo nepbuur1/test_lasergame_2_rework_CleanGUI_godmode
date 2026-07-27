@@ -1,5 +1,33 @@
 # Claude log
 
+## 2026-07-27 — Partitietabel zonder OTA
+
+OTA is niet nodig, dus `otadata` en de tweede app-partitie zijn eruit en de app
+heet weer `factory`. spiffs is teruggebracht tot 100 KB. Wat dat oplevert:
+
+| | oud | nieuw |
+|---|---|---|
+| app | 0x140000 (1,25 MB) | 0x3D7000 (3,84 MB) |
+| spiffs | 0x170000 (1,44 MB) | 0x19000 (100 KB) |
+| otadata + app1 | 0x142000 | — |
+
+De app zelf is 0x66400 (410 KB), dus daar zit nu 90% vrij. spiffs ligt achteraan
+zodat de tabel op precies 0x400000 uitkomt. Het gat tussen 0xe000 en 0x10000
+blijft: een app-partitie moet op een veelvoud van 0x10000 beginnen.
+
+**Gevolg bij het flashen:** spiffs is verhuisd van 0x290000 naar 0x3E7000, dus
+LittleFS vond daar de resten van de oude app1-partitie:
+
+```
+lfs.c:1075:error: Corrupted dir pair at {0x0, 0x1}
+E esp_littlefs: mount failed, (-84)
+I DisplayAdapter: Calibration file not found - forcing recalibration
+```
+
+Dat is precies zoals bedoeld - `LITTLEFS.begin()` formatteert dan zelf - maar de
+touchkalibratie is er wel mee weg. Eenmalig de hoeken aantikken en hij staat er
+weer, op de nieuwe plek.
+
 ## 2026-07-27 — Spritesheet-frames: wie bezit de actieve row/col?
 
 ### De vraag
