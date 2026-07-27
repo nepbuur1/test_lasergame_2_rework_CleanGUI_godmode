@@ -230,7 +230,7 @@
 #define TOUCH_SCLK 25
 #define TOUCH_IRQ  36
 // Lower pressure threshold helps some CYD panels register touches reliably
-#define TOUCH_THRESHOLD 350
+#define TOUCH_THRESHOLD 200
 // Debug: draw touch points and log coordinates when a touch is detected
 #define TOUCH_DEBUG_DRAW
 // Debug: direct touch read in display adapter

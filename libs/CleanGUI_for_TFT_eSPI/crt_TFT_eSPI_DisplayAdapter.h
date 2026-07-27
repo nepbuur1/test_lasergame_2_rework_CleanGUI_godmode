@@ -724,7 +724,17 @@ namespace crt
             while (!bValidTouch && ((esp_timer_get_time()-endTime)<0))
             {
                 //bValidTouch = _tft.validTouch(&x_tmp, &y_tmp, Z_THRESHOLD / 2));
-                bValidTouch = _tft.getTouch(&x_tmp, &y_tmp); // Perhaps improve on this, inspired by _tft.validTouch.
+                // Met de drempel uit User_Setup.h, niet met de standaardwaarde van
+                // TFT_eSPI. Die staat namelijk op 600 terwijl dit bord 350 opgeeft,
+                // en het verschil voel je: de drempel is de druk (Z) waarboven een
+                // aanraking meetelt, dus hoger betekent harder duwen.
+                // Nog gevoeliger kan door TOUCH_THRESHOLD te verlagen, maar dan
+                // gaat ruis meetellen en krijg je aanrakingen die er niet waren.
+#ifdef TOUCH_THRESHOLD
+                bValidTouch = _tft.getTouch(&x_tmp, &y_tmp, TOUCH_THRESHOLD);
+#else
+                bValidTouch = _tft.getTouch(&x_tmp, &y_tmp);
+#endif
             }
             
             if (bValidTouch)

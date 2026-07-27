@@ -70,8 +70,11 @@ namespace crt
         int _nofCached;
         int _indexCacheNext;
 
-        uint16_t* _pStripBuffer;
+        uint16_t* _arpStripBuffer[2];
+        int _indexStripBuffer;
         int32_t _widthPix, _heightPix;		// van de buffer; ook de stride
+        bool _bDmaEnabled;
+        bool _bDmaTried;
         bool _bRgb565WarningGiven;
 
     public:
@@ -85,8 +88,10 @@ namespace crt
               _arPaletteSwapped{}, _arPaletteR{}, _arPaletteG{}, _arPaletteB{},
               _arCacheColour{}, _arCacheIndex{},
               _nofCached(0), _indexCacheNext(0),
-              _pStripBuffer(nullptr),
+              _arpStripBuffer{}, _indexStripBuffer(0),
               _widthPix(0), _heightPix(0),
+              _bDmaEnabled(false),
+              _bDmaTried(false),
               _bRgb565WarningGiven(false)
         {
         }
@@ -97,10 +102,7 @@ namespace crt
             {
                 _backBuffer.deleteSprite();
             }
-            if (_pStripBuffer != nullptr)
-            {
-                heap_caps_free(_pStripBuffer);
-            }
+            freeStripBuffers();
         }
 
         /*override*/ void setPalette(const uint16_t* pPalette)
@@ -147,9 +149,17 @@ namespace crt
         // Het beeld is af: de indices gaan door het palet en de bus op. Uitpakken
         // gebeurt per strook van 16 beeldregels, want een push per losse regel
         // kost ~23 us aan vaste opzet en dat tikt over 240 regels flink aan.
+        // Het beeld is af: de indices gaan door het palet en de bus op.
+        //
+        // Met DMA pingpongt dit tussen twee stroken: terwijl strook N wordt
+        // uitgezonden pakt de CPU strook N+1 uit. De dmaWait() zit binnenin
+        // pushImageDMA en wacht op de vorige transfer, niet op de zijne - dat is
+        // precies de pijplijn die we willen. Aan het eind bewust niet wachten: de
+        // laatste strook mag onderweg zijn terwijl de tekentaak alweer aan het
+        // volgende beeld begint.
         /*override*/ void present()
         {
-            if (!_bBackBufferAllocated || (_pStripBuffer == nullptr))
+            if (!_bBackBufferAllocated)
             {
                 return;
             }
@@ -160,26 +170,36 @@ namespace crt
                 return;
             }
 
-            Vec2 sizePix = Base::getScreenSize();
-
             bool bSwapBefore = this->_tft.getSwapBytes();
             this->_tft.setSwapBytes(false);		// het palet staat al bytegewisseld klaar
 
-            for (int32_t y = 0; y < sizePix.y; y += NofRowsPerStrip)
+            for (int32_t y = 0; y < _heightPix; y += NofRowsPerStrip)
             {
-                int32_t nofRows = sizePix.y - y;
+                int32_t nofRows = _heightPix - y;
                 if (nofRows > NofRowsPerStrip)
                 {
                     nofRows = NofRowsPerStrip;
                 }
 
-                uint16_t* pDst = _pStripBuffer;
-                for (int32_t n = sizePix.x * nofRows; n > 0; n--)
+                uint16_t* pStrip = _arpStripBuffer[_indexStripBuffer];
+
+                uint16_t* pDst = pStrip;
+                for (int32_t n = _widthPix * nofRows; n > 0; n--)
                 {
                     *pDst++ = _arPaletteSwapped[*pSrc++];
                 }
 
-                this->_tft.pushImage(0, y, sizePix.x, nofRows, _pStripBuffer);
+                if (_bDmaEnabled)
+                {
+                    // De const-variant met opzet: die kopieert niet en wisselt geen
+                    // bytes om, en wacht alleen op de vorige transfer.
+                    this->_tft.pushImageDMA(0, y, _widthPix, nofRows, (const uint16_t*)pStrip);
+                    _indexStripBuffer = 1 - _indexStripBuffer;
+                }
+                else
+                {
+                    this->_tft.pushImage(0, y, _widthPix, nofRows, pStrip);
+                }
             }
 
             this->_tft.setSwapBytes(bSwapBefore);
@@ -488,20 +508,27 @@ namespace crt
                 return;
             }
 
-            _pStripBuffer = (uint16_t*)heap_caps_malloc(sizePix.x * NofRowsPerStrip * sizeof(uint16_t),
-                                                        MALLOC_CAP_8BIT);
-            if (_pStripBuffer == nullptr)
+            // Twee stroken, en uit DMA-geschikt geheugen: terwijl de ene wordt
+            // uitgezonden pakt de CPU de andere uit. Dat is de hele winst van DMA
+            // hier - het uitzenden duurt 31,6 ms en het uitpakken 3,4, en die
+            // hoeven niet op elkaar te wachten.
+            for (int i = 0; i < 2; i++)
             {
-                ESP_LOGE("DisplayAdapter_PAL8", "geen strookbuffer; terug naar het paneel.");
-                _backBuffer.deleteSprite();
-                return;
+                _arpStripBuffer[i] = (uint16_t*)heap_caps_malloc(sizePix.x * NofRowsPerStrip * sizeof(uint16_t),
+                                                                MALLOC_CAP_DMA);
+                if (_arpStripBuffer[i] == nullptr)
+                {
+                    ESP_LOGE("DisplayAdapter_PAL8", "geen strookbuffer; terug naar het paneel.");
+                    _backBuffer.deleteSprite();
+                    freeStripBuffers();
+                    return;
+                }
             }
 
             if (!checkCarrierColours())
             {
                 _backBuffer.deleteSprite();
-                heap_caps_free(_pStripBuffer);
-                _pStripBuffer = nullptr;
+                freeStripBuffers();
                 return;
             }
 
@@ -513,13 +540,13 @@ namespace crt
                 ESP_LOGE("DisplayAdapter_PAL8", "onverwachte sprite-toestand (rotatie %d); "
                     "terug naar het paneel.", (int)_backBuffer.getRotation());
                 _backBuffer.deleteSprite();
-                heap_caps_free(_pStripBuffer);
-                _pStripBuffer = nullptr;
+                freeStripBuffers();
                 return;
             }
 
             _widthPix = sizePix.x;
             _heightPix = sizePix.y;
+
 
             _backBuffer.fillSprite(0);		// index 0 - wordt straks overtekend
             _bBackBufferAllocated = true;
@@ -531,9 +558,45 @@ namespace crt
         // Vanaf hier gaat al het tekenwerk naar de buffer.
         void redirectToBackBuffer()
         {
-            if (_bBackBufferAllocated)
+            if (!_bBackBufferAllocated)
             {
-                Base::_pTarget = &_backBuffer;
+                return;
+            }
+
+            Base::_pTarget = &_backBuffer;
+
+            // Pas hier, want initDMA praat met de SPI-bus en het paneel moet dus
+            // draaien. Lukt het niet, dan pusht present() gewoon blokkerend: alles
+            // werkt dan nog, alleen zonder de overlap.
+            if (!_bDmaTried)
+            {
+                _bDmaTried = true;
+                // ctrl_cs = true: de DMA-engine beheert zelf de chip select.
+                //
+                // De eerste poging hield in plaats daarvan een startWrite() vast,
+                // zoals het DMA-voorbeeld van TFT_eSPI doet, en toen bleef het
+                // scherm zwart. Dat voorbeeld draait op de standaard VSPI-poort;
+                // wij zitten op HSPI, die door de Arduino-SPI-laag wordt bediend.
+                // Zolang die zijn transactie vasthoudt, vechten de Arduino-laag en
+                // de IDF-driver om dezelfde peripheral. Met ctrl_cs regelt de
+                // IDF-kant zowel de data als CS, en raken ze elkaar alleen nog
+                // tussen de stroken door - waar dmaWait() ze uit elkaar houdt.
+                _bDmaEnabled = this->_tft.initDMA(true);
+
+                ESP_LOGI("DisplayAdapter_PAL8", "DMA %s",
+                    _bDmaEnabled ? "aan: uitpakken en uitzenden overlappen" : "niet beschikbaar");
+            }
+        }
+
+        void freeStripBuffers()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                if (_arpStripBuffer[i] != nullptr)
+                {
+                    heap_caps_free(_arpStripBuffer[i]);
+                    _arpStripBuffer[i] = nullptr;
+                }
             }
         }
     };

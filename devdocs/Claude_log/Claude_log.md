@@ -1,5 +1,56 @@
 # Claude log
 
+## 2026-07-28 — DMA: uitpakken en uitzenden tegelijk
+
+`present()` was de rem: 38,4 ms, waarvan 31,6 ms busvloer en ~6,8 ms CPU (het
+palet toepassen, en de FIFO voeren). Met DMA hoeven die niet meer op elkaar te
+wachten - terwijl strook N over de bus gaat, pakt de CPU strook N+1 uit. Het
+logboek zei het al: *"DMA loont pas als er ook CPU-werk per frame is om mee te
+overlappen."* Dat was er nu eindelijk.
+
+### Wat het werd
+- `initDMA()` zodra het paneel draait, en `startWrite()` erachteraan om CS laag te
+  houden. Dat laatste is nodig omdat `setAddrWindow` hem anders tussen de stroken
+  door loslaat, en omdat `endWrite()` op de laatste transfer zou wachten - precies
+  de wachttijd die we willen vermijden. Buiten `present()` raakt niets anders het
+  paneel: al het tekenwerk gaat naar de buffer.
+- **Twee** strookbuffers uit `MALLOC_CAP_DMA` (20 KB), waar `present()` tussen
+  pingpongt. De `dmaWait()` zit binnenin `pushImageDMA` en wacht op de *vorige*
+  transfer, niet op de zijne; dat is precies de pijplijn.
+- De const-variant `pushImageDMA(x,y,w,h, const uint16_t*)` met opzet: die
+  kopieert niet en wisselt geen bytes om, en dat laatste hoeft niet want het palet
+  staat al omgedraaid klaar.
+- Mislukt `initDMA()`, dan pusht `present()` gewoon blokkerend verder.
+
+### Het risico dat niet uitkwam
+`initDMA()` roept `spi_bus_initialize(HSPI_HOST, ...)` aan met `ESP_ERROR_CHECK`
+eromheen: was die bus al door de Arduino-laag geclaimd via dezelfde IDF-driver,
+dan was dat geen foutcode maar een abort. Daarom eerst alleen dát aangezet en
+geflasht. Hij geeft `true` en het bord komt gewoon op - de Arduino-laag praat via
+`esp32-hal-spi` met de registers, niet via `spi_master`.
+
+De touch kan er ook niet mee in de knoop raken: met `TOUCH_SCLK` gedefinieerd
+gebruikt `Touch.cpp` zijn eigen `touch_spi_transfer()` met `digitalWrite`, op
+eigen pinnen. De `spi.transfer`-tak eronder is voor borden die de displaybus
+delen; die van ons niet.
+
+### Gemeten
+
+| sprites | zonder DMA | met DMA |
+|---|---|---|
+| 0 | 24 | **29** |
+| 5 | 21 | 27 |
+| 20 dekkend | 20 | 26 |
+| 20 transparant | 18 | 22 |
+
+Zo'n 25% erbij over de hele linie, en de curve blijft vlak: 29 -> 22 over nul tot
+twintig sprites. Ter herinnering waar dit begon: dezelfde twintig transparante
+sprites deden 3 fps op de directe adapter met `moveTo`.
+
+`present()` zit nu op ~33 ms tegen een busvloer van 31,6. Daarmee is dit het
+eindpunt van deze weg: zonder een tweede SPI-bus of een hogere klok valt er niets
+meer te halen.
+
 ## 2026-07-27 — De PAL8-backbuffer werkt
 
 `TFT_eSPI_DisplayAdapter_PAL8`: een schermvullende 8bpp-sprite waarvan wij de
@@ -152,11 +203,23 @@ opzet per aanroep is weg, het scannen niet.
 
 Drie begrenzingen gelden tegelijk en worden nu zelf uitgerekend: de rechthoek van
 het panel, de clip-rect van `repaintRegion`, en de buffer. Dat is precies het soort
-code waar een fout niet lelijk oogt maar buiten de buffer schrijft, dus apart
-uitgeprobeerd met sprites die 60 pixels over alle vier de schermranden heen lopen:
-35 seconden, geen crash, geen heap-corruptie. In het voorbeeld zelf wordt die
-klipping namelijk nauwelijks geraakt - de sprites blijven binnen de map en bij een
-volledige hertekening staat er geen clip-rect.
+code waar een fout niet lelijk oogt maar buiten de buffer schrijft.
+
+En dat pad werd door het voorbeeld nooit geraakt: de sprites ketsten netjes binnen
+de map, en bij een volledige hertekening staat er geen clip-rect. Een eerste test
+met sprites die 60 pixels over alle randen heen liepen bewees alleen dat het niet
+crasht - visueel klopte hij niet eens, want CleanGUI klipt een kind niet tot zijn
+ouder en die sprites tekenden dus over de knoppen heen.
+
+De oplossing die het wel doet: **de sprites horizontaal met hun centrum op de rand
+laten ketsen.** Daar valt de rand van de map samen met de rand van het scherm, dus
+dan is het echte klipping, in normaal gebruik, en zichtbaar te controleren. Dat
+staat nu zo in het voorbeeld - niet als test maar als gedrag, want ongebruikte
+klipping is precies het soort code dat stilletjes verkeerd staat.
+
+Verticaal blijven ze wel binnen de map: erboven ligt de fps-regel en eronder de
+knoppen. Daarmee is `xFrom`/`xTo` in gebruik en gecontroleerd, en `yFrom`/`yTo`
+niet. Zelfde code, andere as, dus het risico is klein - maar getest is het niet.
 
 ### Stand van zaken
 
