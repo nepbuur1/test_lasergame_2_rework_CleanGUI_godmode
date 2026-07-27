@@ -171,6 +171,30 @@ namespace crt
 			return WidgetType::Panel;
 		}
 
+		// See Widget::coversOwnRect(). A panel fills its whole rect unless it has
+		// rounded corners (which leave the corners alone) or shows an image that
+		// is allowed to let something through.
+		/* override */ bool coversOwnRect()
+		{
+			// _cornerRadius rather than _cornerRadiusPix: that one is only
+			// computed at draw time and is -1 until then. A bevel overrules the
+			// radius - see showPanel - and does fill everything.
+			if ((_cornerRadius > 0) && !_bBeveled)
+			{
+				return false;
+			}
+
+			// needsBackground() true means colFg goes over the full rect. False
+			// means only the image paints, so it has to be an opaque one - and an
+			// opaque image that left part of the panel uncovered would have made
+			// needsBackground() true in the first place.
+			if (needsBackground(WBase::getSizePix()))
+			{
+				return true;
+			}
+			return (_pImage != nullptr) && !_pImage->bHasTransparency;
+		}
+
 		// show immediately draws it. hide immediately undraws it.
 		// note: _widgetProps only serves as a node in the display-tree.
 		//       It conains the props and links to children.

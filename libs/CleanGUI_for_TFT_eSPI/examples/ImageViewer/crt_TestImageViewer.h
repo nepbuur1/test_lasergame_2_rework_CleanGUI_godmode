@@ -30,7 +30,7 @@ namespace crt
 {
 	class TestImageViewer : public Task, public IButtonListener
 	{
-		static const int CommandBufferSize = 300;
+		static const int CommandBufferSize = 1000;
 		static const int MaxNofClientTasks = 10;
 		static const int MaxNofTouchListeners = 20;
 
@@ -124,8 +124,13 @@ namespace crt
 
 			tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/),
 
-			asyncDisplay("AsyncDisplay", 2 /*priority*/, 20000 + CommandBufferSize*sizeof(DisplayCommand)+
-				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE,
+			// 8000 stack: gemeten met dumpStackHighWaterMarkIfIncreased onder de
+			// zwaarste belasting die de voorbeelden kennen (MultiPanel met 20
+			// sprites, Inputfield met schuivend toetsenbord en free fonts) raakt
+			// deze taak ~2,5 KB aan. Bewust geen formule met CommandBufferSize
+			// erin: de commandobuffer is een FreeRTOS-queue en staat op de heap,
+			// niet op deze stack, en de PrintContexts zijn leden van AsyncDisplay.
+			asyncDisplay("AsyncDisplay", 2 /*priority*/, 8000 /*stackBytes*/, ARDUINO_RUNNING_CORE,
 				            tft_eSPI_DisplayAdapter, 3/*rotation*/, 2/*fontTouchCalibration*/),
 
 			backgroundPanel("background", /*locPos*/Vec2(0, 0), CoordType::Promillage,
@@ -281,7 +286,11 @@ namespace crt
 			{
 				button.setBevel(colKeyHighlight, colKeyShadow);
 			}
-			button.show(false);
+			// show(true), niet show(false): het label van een TouchscreenButton is een
+			// kind-widget (zie bTextAddedToThisPanel in crt_TouchscreenButton.h).
+			// Zonder de kinderen schildert het panel over het label heen en tekent
+			// niemand het terug - dan verdwijnt de tekst bij de eerste aanraking.
+			button.show(true);
 		}
 
 		static bool isSpritesheet(const Image* pImage)

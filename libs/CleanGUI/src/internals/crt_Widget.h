@@ -32,6 +32,10 @@ namespace crt
 		bool _bDrawable;
 
 	protected: // Protected, to support easy enumeration by derived classes.
+		// Note the (MaxNofChildren > 0) in every loop over _arChildren below.
+		// It costs nothing - the template parameter makes it a compile time
+		// constant - but without it, gcc sees an index into a zero-length array in
+		// every Widget<0> instantiation and stops with -Werror=array-bounds.
 		int _nofChildren;
 		IWidget* _arChildren[MaxNofChildren];
 
@@ -180,7 +184,7 @@ namespace crt
 
 			// Do it recursively, allowing a page to be moved from
 			// one display to another.
-			for (int i = 0; i < _nofChildren; i++)
+			for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 			{
 				_arChildren[i]->setDisplay(display);
 			}
@@ -308,7 +312,7 @@ namespace crt
 			this->enable(false);	// true would cause a needless avalanche: recursively below, the show of every child already calls enable.
 			if (bIncludeChildren)
 			{
-				for (int i = 0; i < _nofChildren; i++)
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
 					_arChildren[i]->show(true);
 				}
@@ -323,7 +327,7 @@ namespace crt
 			this->disable(false);	// true would cause a needless avalanche: recursively below, the show of every child already calls disable.
 			if (bIncludeChildren)
 			{
-				for (int i = 0; i < _nofChildren; i++)
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
 					_arChildren[i]->hide(true);
 				}
@@ -333,6 +337,19 @@ namespace crt
 		// A plain Widget has nothing of its own to draw; Panel and Text override this.
 		/*override*/ virtual void paint()
 		{
+		}
+
+		// Does paint() fill every pixel of this widget's own rect?
+		// If it does, this widget can be redrawn on its own and whatever is behind
+		// it does not matter. If it does not - a transparent image, rounded
+		// corners, text - then what is behind it has to be repainted first, and
+		// that has to go through the root. See moveTo().
+		// False by default: a plain Widget draws nothing at all, and guessing
+		// "covered" wrongly leaves debris on the screen, while guessing
+		// "not covered" wrongly only costs a little time.
+		virtual bool coversOwnRect()
+		{
+			return false;
 		}
 
 		/*override*/ void redrawRegion(const Vec2& topLeftPix, const Vec2& sizePix)
@@ -354,7 +371,7 @@ namespace crt
 
 			paint();
 
-			for (int i = 0; i < _nofChildren; i++)
+			for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 			{
 				_arChildren[i]->redrawRegion(topLeftPix, sizePix);
 			}
@@ -405,15 +422,28 @@ namespace crt
 				repaintRegion(Vec2(xRight, yTop), Vec2(ox1 - xRight, yBottom - yTop));	// right
 			}
 
-			// And draw myself at the new position. No need to go through the root
-			// here - whatever this widget covers, it covers.
-			Vec2 topLeftPix = newTopLeftPix;
-			Vec2 sizePix = _sizePix;
-			if (clipToRoot(topLeftPix, sizePix))
+			// And draw myself at the new position.
+			if (coversOwnRect())
 			{
-				_display->setClipRect(topLeftPix, sizePix);
-				redrawRegion(topLeftPix, sizePix);
-				_display->clearClipRect();
+				// Whatever this widget covers, it covers: no need to go through
+				// the root, so the background is not touched at all.
+				Vec2 topLeftPix = newTopLeftPix;
+				Vec2 sizePix = _sizePix;
+				if (clipToRoot(topLeftPix, sizePix))
+				{
+					_display->setClipRect(topLeftPix, sizePix);
+					redrawRegion(topLeftPix, sizePix);
+					_display->clearClipRect();
+				}
+			}
+			else
+			{
+				// This widget leaves part of its own rect untouched - a
+				// transparent image is the obvious case. Drawing only itself
+				// would leave the previous frame showing through those pixels,
+				// which for a moving sprite means a trail of itself. So the whole
+				// tree paints this rect, bottom up.
+				repaintRegion(newTopLeftPix, _sizePix);
 			}
 		}
 
@@ -510,7 +540,7 @@ namespace crt
 			_bDrawable = bDrawable;
 			if (bIncludeChildren)
 			{
-				for (int i = 0; i < _nofChildren; i++)
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
 					_arChildren[i]->setDrawable(bDrawable, true);
 				}
@@ -528,7 +558,7 @@ namespace crt
 			_bEnabled = true;
 			if (bIncludeChildren)
 			{
-				for (int i = 0; i < _nofChildren; i++)
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
 					_arChildren[i]->enable(true);
 				}
@@ -541,7 +571,7 @@ namespace crt
 			_bEnabled = false;
 			if (bIncludeChildren)
 			{
-				for (int i = 0; i < _nofChildren; i++)
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
 					_arChildren[i]->disable(true);
 				}
@@ -607,7 +637,7 @@ namespace crt
 		{
 			//Vec2 newGlobPosPix = _globPosOfParent + _locPosPix;
 			Vec2 newGlobPosPix = getGlobPosPix();
-			for (int i = 0; i < _nofChildren; i++)
+			for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 			{
 				_arChildren[i]->setGlobPosOfParent(newGlobPosPix);
 			}
@@ -615,7 +645,7 @@ namespace crt
 
 		void updateNewSizeToChildren()
 		{
-			for (int i = 0; i < _nofChildren; i++)
+			for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 			{
 				_arChildren[i]->setSizeOfParent(_sizePix);
 			}

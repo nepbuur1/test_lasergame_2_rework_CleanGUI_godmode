@@ -17,7 +17,7 @@ namespace crt
 {
 	class TestTouchscreenButtonGroup : public Task, public IButtonListener
 	{
-		static const int CommandBufferSize = 300;
+		static const int CommandBufferSize = 1000;
 		static const int MaxNofClientTasks = 10;
 		static const int MaxNofTouchListeners = 20;
 
@@ -46,8 +46,13 @@ namespace crt
 
 			tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/),
 
-			asyncDisplay("AsyncDisplay", 2 /*priority*/, 20000 + CommandBufferSize*sizeof(DisplayCommand)+
-				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE,
+			// 8000 stack: gemeten met dumpStackHighWaterMarkIfIncreased onder de
+			// zwaarste belasting die de voorbeelden kennen (MultiPanel met 20
+			// sprites, Inputfield met schuivend toetsenbord en free fonts) raakt
+			// deze taak ~2,5 KB aan. Bewust geen formule met CommandBufferSize
+			// erin: de commandobuffer is een FreeRTOS-queue en staat op de heap,
+			// niet op deze stack, en de PrintContexts zijn leden van AsyncDisplay.
+			asyncDisplay("AsyncDisplay", 2 /*priority*/, 8000 /*stackBytes*/, ARDUINO_RUNNING_CORE,
 				            tft_eSPI_DisplayAdapter, 3/*rotation*/, 2/*fontTouchCalibration*/),
 
 			// fontScale=0 triggers automatical matching of fontscale with the button height.

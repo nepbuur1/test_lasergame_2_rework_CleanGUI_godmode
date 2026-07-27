@@ -1,5 +1,93 @@
 # Claude log
 
+## 2026-07-27 — MultiPanel: wat een bewegende sprite echt kost
+
+Nieuw voorbeeld `CleanGUI_for_TFT_eSPI/examples/MultiPanel`: barbaren lopen over
+een groene map, twee knoppen spawnen er een (transparant of dekkend), een derde
+ruimt op, en bovenin staat de fps. Tot 20 per soort, vooraf aangemaakt en met
+`setDrawable(false)` uit beeld tot ze spawnen.
+
+### Het gat in moveTo dat dit blootlegde
+`moveTo()` herstelde de vrijgekomen stroken via de root, maar tekende zichzelf op
+de nieuwe plek *zonder* de root: *"whatever this widget covers, it covers"*. Dat
+klopt niet voor een transparant plaatje — meer dan de helft van deze barbaar is
+doorzichtig — en ook niet voor een panel met afgeronde hoeken. Zonder ingreep
+laat een bewegende sprite een spoor van zichzelf achter.
+
+Daarom `Widget::coversOwnRect()`, met `false` als veilige default en een
+`Panel`-override die kijkt naar afgeronde hoeken en naar wat `needsBackground()`
+al wist. `moveTo` kiest daarop het snelle pad of een `repaintRegion` door de
+root. `TouchscreenButton` is beveld en dekkend, dus het schuivende toetsenbord
+van Inputfield houdt het snelle pad.
+
+### Gemeten (100 fps is de klokcap van de demo, geen plafond van het bord)
+
+| sprites | transparant | dekkend |
+|---|---|---|
+| 4-5 | 53 fps (4,7 ms/sprite) | 99 fps (nog op de cap) |
+| 10 | 16 fps (6,3 ms/sprite) | 39 fps (2,6 ms/sprite) |
+| 20 | 3 fps (16,6 ms/sprite) | 16 fps (3,1 ms/sprite) |
+
+Bij lage dichtheid klopt de raming van ~4 ms voor een transparante sprite. Maar
+**transparant schaalt niet lineair en dekkend wel** — en dat is de echte les van
+dit voorbeeld.
+
+De reden: een transparante sprite laat zijn eigen rechthoek door de **hele tree**
+opnieuw opbouwen. In die 64x64 zit niet alleen de map maar ook elke andere sprite
+die er toevallig overheen valt, en die betaalt dan opnieuw zijn eigen runs. Met
+20 sprites van 64x64 op een map van 320x172 beslaat het spriteoppervlak anderhalf
+maal de map, dus elke verplaatsing tekent er gemiddeld nog een paar mee: kosten
+die groeien met de *dichtheid*, niet met het aantal. Een dekkende sprite tekent
+alleen zichzelf en blijft daarom netjes lineair; alleen zijn vrijgekomen stroken
+gaan door de root, en die zijn dun.
+
+De commandobuffer van `AsyncDisplay` stond bij alles boven de vijf sprites vol
+(300). Dat is geen fout maar tegendruk: de tekentaak is de rem, de bus is de
+bodem. Een grotere buffer maakt dus niets sneller.
+
+### Waar de winst zit als dit ooit moet
+Niet in sneller tekenen maar in minder samenstellen: de sprite met zijn
+achtergrond in een klein DRAM-buffertje samenvoegen en die in één dekkende push
+versturen. Dan valt zowel het per-run-tarief als het hertekenen van de buren weg.
+Dat is een nieuw mechanisme in CleanGUI en dus een aparte ronde.
+
+### Onderweg
+`Widget<0>` liet gcc struikelen over `_arChildren[i]` op een array van lengte
+nul (`-Werror=array-bounds`), zodra een `Panel<0>` als los object werd gebruikt.
+Elke lus over de kinderen heeft nu `(MaxNofChildren > 0) &&` erbij; dat is een
+template-parameter, dus de conditie valt bij het compileren weg.
+
+### De stack van de AsyncDisplay-taak: gemeten, niet geraden
+Elk voorbeeld gaf die taak
+`20000 + CommandBufferSize*sizeof(DisplayCommand) + MaxNofClientTasks*sizeof(PrintContext)`
+= 39.440 bytes. Met `dumpStackHighWaterMarkIfIncreased()` gemeten:
+
+| example | belasting | stack over | gebruikt |
+|---|---|---|---|
+| MultiPanel | 20 sprites, transparante blits, clip-rects | 36.952 | **2.488** |
+| Inputfield | free fonts, `drawStringOpaque` per toets, schuivend toetsenbord | 36.944 | **2.496** |
+
+Twee heel verschillende commando-mengsels, 8 bytes uit elkaar. Logisch: die taak
+haalt één commando uit de queue en voert het uit — er is geen diepe keten. De
+watermark loopt vanaf taakstart, dus kalibratie en het mounten van LittleFS
+zitten erin. Inputfield kon zonder touch gemeten worden dankzij
+`CRT_INPUTFIELD_AUTOSLIDE` en `CRT_INPUTFIELD_AUTOTYPE`.
+
+Beide termen in die formule telden geheugen mee dat niet op de stack staat: de
+commandobuffer is een FreeRTOS-queue op de heap (`xQueueCreate`, `crt_Queue.h:29`)
+en de `PrintContext`s zijn leden van `AsyncDisplay` (`sizeof` = 628). Alle zeven
+voorbeelden staan nu op een kale `8000` — ruim drie keer de gemeten piek — en de
+buffer ging van 300 naar 1000 commando's.
+
+Per saldo: queue 19.200 -> 64.000 bytes heap, stack 39.440 -> 8.000. Netto ruim
+13 KB erbij, van de ~200 KB die vrij was. `apps/pong_cleangui` heeft de oude
+formule nog; dat is een app en geen voorbeeld, dus die is met rust gelaten.
+
+Wat een grotere buffer *niet* doet: de beeldsnelheid verhogen. Zolang er meer
+commando's worden geproduceerd dan de bus afvoert, loopt ook een buffer van 1000
+vol — het duurt alleen langer. Wat hij koopt is speling bij pieken (spawnen, een
+volledige paginatekening).
+
 ## 2026-07-27 — ImageViewer hertekent alleen nog wat verandert
 
 ### Wat er mis mee was
