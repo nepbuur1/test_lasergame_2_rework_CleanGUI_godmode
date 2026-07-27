@@ -29,3 +29,11 @@ compile_commands.json
 
 # pre-commit
 .pre-commit-config.yaml
+
+# python tools (tools/): de virtual environment en de bytecode-cache.
+# requirements.txt volstaat om de venv opnieuw op te bouwen: bash tools/setup_venv.sh
+tools/venv/
+*.pyc
+
+# lokale toestand van tools/allImg2rgb565.py, per images-map.
+allImg2rgb565_last_called.txt

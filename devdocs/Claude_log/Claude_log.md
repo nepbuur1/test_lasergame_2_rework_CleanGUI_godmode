@@ -1,5 +1,75 @@
 # Claude log
 
+## 2026-07-27 — Image-assets in flash: converter-tools en het ImageViewer-voorbeeld
+
+### Wat er nu staat
+Een `tools`-map in de projectwortel met Python-gereedschap dat elk door Pillow
+leesbaar beeld omzet naar een RGB565-header in flash, plus een nieuw voorbeeld
+`CleanGUI_for_TFT_eSPI/examples/ImageViewer` dat die plaatjes met twee
+touchknoppen doorbladert.
+
+```
+tools/img2rgb565.py      één plaatje omzetten
+tools/allImg2rgb565.py   alles omzetten wat veranderd is
+tools/venv_bootstrap.py  zorgt dat de venv gebruikt wordt zonder activeren
+tools/setup_venv.sh      eenmalig: venv + requirements.txt
+tools/README.md          het volledige verhaal
+```
+
+### De structuur die dit mogelijk maakt zonder CMake aan te raken
+Bronnen staan onder een map `images`; de gegenereerde headers in
+`images/_rgb565/`. Het pad onder `images` wordt platgeslagen in de outputnaam
+(`level1/characters/speler.png` -> `level1_characters_speler.h`), zodat gelijke
+bestandsnamen in verschillende submappen elkaar niet overschrijven.
+
+De example-map staat één keer in `main/CMakeLists.txt`; alles daaronder wordt
+met **relatieve** `#include`s bereikt. Er komt dus nooit een CMake-wijziging bij
+per plaatje of submap. Bewijs dat dit klopt: het Inputfield-voorbeeld hergebruikt
+de plaatjes van Panel via `#include "../Panel/images/_allImages.h"`, en die
+`images`-map staat in geen enkele include-pad-lijst.
+
+### Parameters in de bestandsnaam
+`-trcolor_RRGGBB` en `-ssh_RxC`, achteraan de naam. Ze blijven in de headernaam
+staan (uniek en zelfverklarend) maar verdwijnen uit de C++-namen; daar worden ze
+constructor-argumenten. `Image` heeft daarvoor `nofRows`/`nofCols` gekregen
+(default 1x1, voorlopig alleen opslag).
+
+**Valkuil bij die constructors:** géén default-argumenten gebruiken. Met
+defaults zou `Image(p, w, h, 0x00FF00FF)` stilzwijgend de spritesheet-overload
+kiezen in plaats van de transparantie-overload, want een hexliteraal die in een
+`int` past *is* een `int` en matcht `int32_t nofRows` exact, terwijl `uint32_t
+colTransparent` een conversie vergt. Nu onderscheidt alleen het aantal
+argumenten de overloads, en dat kan niet misgaan.
+
+### `_allImages.h` wordt herbouwd uit de headers zelf
+Elke gegenereerde header draagt een `// crt-img-meta:`-regel met naam, afmeting,
+transparante kleur en sheet-indeling. `_allImages.h` wordt daaruit opgebouwd, dus
+er is geen apart administratiebestand dat kan verouderen. Hij bevat ook
+`arAllImages[]` / `arAllImageNames[]` / `nofAllImages`, waardoor de ImageViewer
+geen enkel plaatje bij naam hoeft te kennen: `.png` erbij, tool draaien, staat
+erin.
+
+Het Panel-voorbeeld is op dezelfde leest geschoeid: `crt_TestPanelImages.h` is
+gesplitst in `images/gradient.h`, `images/ring.h` en `images/_allImages.h`.
+
+### Twee dingen die bij het testen boven kwamen
+- **`venv/bin/python` is een symlink naar de systeem-python.** De eerste
+  venv-detectie vergeleek `sys.executable` met `os.path.samefile()` en
+  concludeerde dus altijd "we zitten er al in" — waarna `import PIL` faalde.
+  `sys.prefix` is wél wat naar de venv verschuift, en is wat `site-packages`
+  volgt.
+- **De index moet altijd herbouwd worden, niet alleen na een conversie.** Een
+  met de hand verwijderde header liet anders een `#include` van een niet-bestaand
+  bestand achter in `_allImages.h`, en dat merk je pas veel later als
+  compileerfout.
+
+### Incrementeel omzetten
+`allImg2rgb565_last_called.txt` (in de images-wortel) bevat epoch-seconden van
+het moment waarop de laatste geslaagde run *begon* — niet waarop hij eindigde,
+anders valt een bewerking tijdens de run precies in het gat en wordt hij nooit
+opgepikt. Er wordt ook omgezet als de header simpelweg ontbreekt, want anders
+zou een verse checkout of een weggegooide `_rgb565`-map niets regenereren.
+
 ## 2026-07-27 — Touch-polling vrat de helft van de tekentijd
 
 ### Aanleiding

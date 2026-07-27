@@ -8,7 +8,7 @@
 #include <crt_TFT_eSPI_DisplayAdapter.h>
 #include <crt_Panel.h>
 #include <crt_PageRoot.h>
-#include "crt_TestPanelImages.h"   // imageGradient and imageRing, both in flash.
+#include "images/_allImages.h"   // imageGradient and imageRing, both in flash.
 
 #ifdef LOAD_GFXFF
 #include <Free_Fonts.h>

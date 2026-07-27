@@ -318,3 +318,43 @@ Goede richting — en het antwoord op je kernvraag is: nee, je hebt geen TFT-spr
   Twee dingen wil ik van je weten voordat ik het uitschrijf:
 
 ![](img/2026-07-26-17-28-57-image.png)
+
+Laatste test:
+ Gemeten in plaats van geschat: ik heb elke toets tijdelijk vervangen door een blit die exact dezelfde pixels beslaat.
+  Het beeld klopte dan niet, maar de tekenkosten zijn precies wat een image-per-toets kost.
+
+  ┌─────────────────────┬─────────────────────┬─────────────────────┐
+  │                     │         nu          │ met image per toets │
+  ├─────────────────────┼─────────────────────┼─────────────────────┤
+  │ omhoog (15 stappen) │ 214 ms — 14 ms/stap │ 166 ms — 11 ms/stap │
+  ├─────────────────────┼─────────────────────┼─────────────────────┤
+  │ omlaag              │ 258 ms — 17 ms/stap │ 201 ms — 13 ms/stap │
+  └─────────────────────┴─────────────────────┴─────────────────────┘
+
+  Ongeveer 22% sneller, oftewel de framerate gaat van ~71 naar ~91 beelden per seconde. Kosten: ~50 KB flash.
+
+  Waarom maar 22%, terwijl een volledige hertekening 42% zou schelen
+
+  Omdat de rug van het toetsenbord tijdens het schuiven zo'n 60% van het werk is, en blitten daar niets aan doet. Die
+  rug is een egale vulling en zit dus al op het busplafond.
+
+  De boekhouding klopt precies. Per stap wordt alleen de zichtbare band getekend, en die groeit lineair: 8, 16, 24 … 120
+  pixels hoog. Opgeteld over vijftien stappen is dat 307.200 pixels aan rug — 125,6 ms bij 409 ns/pixel — plus zo'n 83
+  ms aan toetsen en labels. Samen 209 ms, tegen 214 gemeten. Blitten haalt die 83 ms terug naar ~35 ms, wat de gemeten
+  48 ms winst verklaart.
+
+  Er ligt een grotere knop naast
+
+  Zit de rug in de image — dus het hele toetsenbord als één beeld — dan is de schuif nog slechts die 307.200 pixels
+  blitten: 125,6 ms, oftewel 8,4 ms/stap. Dat is 41% sneller dan nu, bijna het dubbele van de per-toets-variant, voor 77
+  KB in plaats van 50.
+
+  De prijs is bekend: labels liggen vast in het beeld, elke toetsenbordstand wordt een eigen image van 77 KB, en een
+  ingedrukte toets kun je niet los hertekenen. Bij per-toets-images houd je dat allemaal wél, en kunnen identieke
+  toetsen hun image delen.
+
+  Eén ding om in gedachten te houden voor de afweging: de touch-fix van zojuist leverde op ditzelfde schuiven al 33% op
+  (21 → 14 ms/stap) en kostte geen byte. De 22% hierboven komt daar bovenop, dus samen zit je op ongeveer de helft van
+  de oorspronkelijke tijd.
+
+  Het experiment is weer verwijderd; de werkkopie is schoon op temp/ na.

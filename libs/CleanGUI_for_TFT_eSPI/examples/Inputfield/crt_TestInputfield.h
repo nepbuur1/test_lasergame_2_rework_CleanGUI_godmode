@@ -23,7 +23,7 @@
 
 // Hergebruikt uit het Panel-voorbeeld: imageGradient (64x48, dekkend) staat in
 // .rodata, dus deze decoratie kost geen DRAM.
-#include <crt_TestPanelImages.h>
+#include "../Panel/images/_allImages.h"
 
 #include <crt_Logger.h>
 

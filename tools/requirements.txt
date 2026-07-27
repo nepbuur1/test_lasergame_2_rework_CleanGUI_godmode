@@ -1,0 +1,2 @@
+# The tools in this folder need nothing but an image library.
+Pillow>=10.0.0

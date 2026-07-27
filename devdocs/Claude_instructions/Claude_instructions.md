@@ -9,51 +9,44 @@ Image-assets in flash zonder CMakeLists-wijzigingen
 
  Context
 
- Marius wil image-bestanden als flash-assets gebruiken in zijn apps. Zijn workflow:
- alle apps worden gestart door in main/main.cpp de juiste #include <App.ino> te
- uncommenten; de CMakeLists blijft daarbij altijd hetzelfde. EMBED_FILES zou per
- asset een CMakeLists-regel vergen én embedt álle assets van álle apps altijd —
- past niet bij die workflow.
+ Via Panel in CleanGUI kunnen nu bitmap images direct uit flash geheugen 
+ getoond worden (zie CleanGUI_for_TFT_eSPI/examples/Panel).
 
- De oplossing: het patroon dat al bewezen is met main/flash_asset.h —
- een gegenereerde header met een const uint16_t-array. const → .rodata →
- memory-mapped uit flash via de cache (gemeten: 161 MB/s, 2–4% langzamer dan RAM,
- voorkopiëren zinloos). Voordelen boven EMBED_FILES:
- - Nul CMake-wijzigingen, nu en per toekomstige asset.
- - Alleen de assets die de actieve app #includet komen in de binary;
- assets van uitgecommentarieerde apps kosten niets.
- - Een asset reist mee met de app-directory (bijv.
- libs/CleanGUI_for_TFT_eSPI/examples/Inputfield/assets/); een quoted
- #include "assets/naam.h" in de .ino resolvet relatief aan het .ino-bestand,
- dus ook dat vergt geen include-dir-regels.
+ Ik wil nu graag een extra example toegevoegd in de examples folder, genaamd "ImageViewer".
+ Die heeft "dan een subfolder genaamd "images".
 
- Van dat plan wil ik nu graag de eerste stap uitgevoerd zien:
-  1. Converter-tool: tools/img2rgb565.py
+ In die folder en/of haar subfolders staan dan images van elk door Pillow leesbaar beeld (PNG/JPG/BMP/GIF).
+ Die kunnen met onderstaande, te ontwikkelen converter-tool omgezet worden naar RGB565 header files, zoals gebruikt in de Panel Demo. 
 
- Python-script (Pillow) dat elk door Pillow leesbaar beeld (PNG/JPG/BMP/GIF)
- omzet naar een header, in de stijl van main/flash_asset.h:
+ Voorbeeld van hoe het python script werkt:
+ In de images folder wordt aangeroepen:
+ python3 tools/img2rgb565.py level1/characters/speler.png
 
- python3 tools/img2rgb565.py speler.png            # -> speler.h naast de bron
- python3 tools/img2rgb565.py speler.png -o pad/x.h # expliciet doel
- python3 tools/img2rgb565.py speler.png --name heldSprite
- python3 tools/img2rgb565.py speler.png --transparent "#FF00FF"
+ (NB: level1 is dus een subfolder van images)
+ -> dit generereert level1_characters_speler.h met de RGB565 in de _rgb565 (output-) subfolder of images.
 
- Gegenereerde header bevat:
- - #pragma once, #include <stdint.h>
- - #define <NAAM>_W / <NAAM>_H
- - bij --transparent: #define <NAAM>_TRANSP 0x.... (kleursleutel voor de
- transp-parameter van pushImage)
- - const uint16_t <naam>[W*H] = { ... }; — RGB565, zelfde waarde-conventie als
- flashAsset (gewone uint16-waarden; tft.setSwapBytes(true) bij direct naar
- TFT pushen, sprites regelen het zelf via pushImage)
- - commentaarkop met bronbestand + aanroep waarmee hij gegenereerd is
- (reproduceerbaarheid), en de gebruiks-snippet.
+ Bij een zekere postfix van de filenaam wordt er transparency gebruikt:
+ python3 tools/img2rgb565.py level1/characters/speler-trcolor_FF00FF.png
+ -> dit genererert speler-trcolor_FF00FF.h in de output folder.
+ In dit geval: als de bron-image een plaatje zonder alpha-layer was,
+ wordt de omzetting gedaan alsof de postfix er niet zou zijn.
+ De postfix in de naam is in dat geval alleen een hint aan de engine die de image gaat blitten.
+ Als de bron-image een plaatje met alpha-layer is, wordt bij alpha kleiner 
+ dan 128 (helft van maximaal) de tranparent-color (in dit voorbeeld 0xFF00FF) ingevuld
+ voor de betreffende pixel.
+ naast -trcolor als postfix is er nog een postfix mogelijk: -ssh, die specificeert een 
+ spritesheet. bijvoorbeeld: 
+python3 tools/img2rgb565.py level1/characters/speler-trcolor_FF00FF-ssh_10x5.png geeft 
+aan dat het plaatje een spritesheet is, met 10 rijen en 5 kolommen.
+Daar hoeft nu nog niets mee gedaan te worden. Dat doen we in een volgende ronde.
 
- Details:
- - RGB888→RGB565 met afronding; alpha-kanaal: pixels met alpha < 128 krijgen de
- transparantkleur (alleen zinvol met --transparent, anders waarschuwing).
- - 12 waarden per regel, zoals flash_asset.h.
- - Faalt netjes met melding als Pillow ontbreekt (pip install Pillow).
+ Verder moet mogelijk zijn:
+ python3 tools/allImg2rgb565.py
+ die controleert welke files zijn veranderd in de image tree sinds de laatste call van allImg2rgb565.py,
+ en converteert die (opnieuw, oude output overschrijvend).
+ Daarvoor wordt gebruik gemaakt van het modified attribuut van de file in het os.
+ Verder wordt ervoor gebruik gemaakt van een allImg2rgb565_last_called.txt file, waarin de 
+ datetime na afronding van de laatste call van allImg2rgb565.py wordt opgeslagen.
 
  Verder: ik wil graag dat de tools gebruik maken van een eigen virtual environment,
  middels een venv folder die subfolder is van de tools folder. 
