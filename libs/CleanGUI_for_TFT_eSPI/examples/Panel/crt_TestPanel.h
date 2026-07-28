@@ -9,7 +9,11 @@
 #include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_Panel.h>
 #include <crt_PageRoot.h>
-#include "images/_allImages.h"   // imageGradient and imageRing, both in flash.
+// imageGradient en imageRing, allebei in flash. Twee sets, een per adapter:
+// de PAL8-adapter slaat een RGB565-plaatje over, dus verwissel deze regel
+// samen met DISPLAYADAPTER hieronder.
+//#include "images/_allImages.h"
+#include "images/_pal8/_allImages.h"
 
 #ifdef LOAD_GFXFF
 #include <Free_Fonts.h>
@@ -36,8 +40,8 @@ namespace crt
 		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
 		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
 		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
-		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
-		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
 
 		// Exponential moving average, integer style:
 		//     ema += (measured - ema) / EmaDivisor
@@ -70,6 +74,9 @@ namespace crt
 
 			IDisplay& display = tft_eSPI_DisplayAdapter; // To make it evident that the rest of the code is
 			                                      // display independent.
+			// Het palet van de plaatjes is ook het palet van het scherm.
+			tft_eSPI_DisplayAdapter.setPalette(arPalette);
+
 			PageRoot<4> page1("root",display);
 
 			Panel<0> panel("panel 1", /*locPos*/Vec2(10, 10), CoordType::Pixels,

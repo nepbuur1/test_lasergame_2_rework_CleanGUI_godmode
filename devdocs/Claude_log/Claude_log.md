@@ -1,5 +1,140 @@
 # Claude log
 
+## 2026-07-28 — Alle voorbeelden in PAL8, en een palet dat een mens kan lezen
+
+Alle acht voorbeelden zijn op de PAL8-adapter gezet en een voor een op de CYD
+gedraaid. Dat leverde vooral iets anders op dan verwacht: niet fouten in de
+adapter, maar fouten in de *voorbeelden* die de directe adapter al die tijd had
+toegedekt.
+
+### Waarom de magenta index zoveel vond
+`begin()` maakt het scherm een keer zwart, en op zwart valt een stuk scherm dat
+door niemand wordt getekend niet op. Een backbuffer die met de transparante index
+begint wel: die is magenta. Drie keer dezelfde soort vondst op een dag —
+MultiPanel had het vorige week, vier voorbeelden bleken helemaal geen
+achtergrondpaneel te hebben (AsyncDisplay, TouchscreenButton,
+TouchscreenButtonGroup, TouchscreenKeyboard), en TouchscreenKeyboard riep
+bovendien `touchscreenKeyboard.show(true)` in plaats van `page1.show(true)`,
+zodat het paneel dat er inmiddels wel was nooit aan de beurt kwam.
+
+Dat laatste was fraai zichtbaar: bij enter *werd* het gebied wel zwart, want de
+`hide()` van het toetsenbord liet de ouder herstellen. Het paneel bestond dus,
+het was alleen nooit getoond.
+
+### present() stond in maar twee van de acht
+Panel en MultiPanel riepen `present()` aan; de andere zes zijn geschreven voor de
+directe adapter, waar die leeg is. Ze tekenden keurig in de buffer en stuurden
+hem nooit uit - zwart scherm. Per voorbeeld een regel toevoegen zou zes keer
+hetzelfde zijn en de zevende keer vergeten worden, dus het zit nu in
+`AsyncDisplay::main()`: is de commandoqueue leeg, dan is het beeld af.
+
+```cpp
+if (bBufferDirty && (queueCommands.getNofMessagesWaiting() == 0) && display.isBuffered())
+```
+
+Drie voorwaarden, elk met een reden. `bBufferDirty` staat uit zodra het laatste
+uitgevoerde commando zelf een `present` was, anders stuurt MultiPanel het scherm
+twee keer per beeld uit en dat is 31 ms per keer. De queue-check voorkomt dat een
+half beeld eruit gaat als de batchlimiet van tien commando's wordt geraakt. En
+`isBuffered()` is onwaar bij RGB565, dus daar verandert er niets.
+
+### Panel had te weinig stack
+Boot loop met een `LoadProhibited` in een malloc diep in `TFT_eSPI::init()`.
+Panel is het enige voorbeeld dat zijn adapter als *lokale* variabele in `main()`
+maakt, dus die staat op de taakstack. Met de compiler nagemeten:
+`sizeof` RGB565-adapter 984 bytes, PAL8 **2744** - de drie paletkopieen erin zijn
+samen al 1280. Op 4000 bytes stack past dat niet meer; staat nu op 10000.
+
+### Het palet: transparant naar 255, en een handgeschreven _userPalette.h
+Aanleiding was dat er over het palet niets viel *af te spreken*: median-cut over
+de plaatjes bepaalde alles, dus `paletteIndex(N)` was onbruikbaar zodra er een
+plaatje bijkwam. De indeling is nu:
+
+```
+0 .. N-1       letterlijk uit _pal8/_userPalette.h   (ligt vast)
+N .. N+M-1     median-cut over de plaatjes
+N+M .. 254     opvulling: grootste kubus die past, daarna grijzen
+255            transparant (magenta)
+```
+
+Transparant is naar het *eind* verhuisd zodat `arUserPalette[i]` samenvalt met
+index `i`. Dat is de hele ergonomische winst; met transparant op 0 schoof alles
+een op.
+
+`arUserPalette` staat in ARGB (`0x00RRGGBB`), niet in RGB565 - het bestand is er
+juist om met de hand geschreven te worden, en zo kun je een kleur letterlijk uit
+een widget overnemen. De converter rekent om.
+
+De opvulling is bewust geen zwart. `indexForColour()` zoekt over alle 255
+ingangen, dus een staart vol zwart trekt elke donkere kleur naar puur zwart, ook
+als de gebruiker bewust geen zwart koos. Een kubus dekt de ruimte gelijkmatig.
+Bij MultiPanel gebeurde dat meteen: de quantizer gaf maar 156 kleuren terug op
+255 gevraagd, dus 99 ingangen kregen kubus en grijzen.
+
+Wat dit oplost: de widgets leiden **geen** kleuren af tijdens het draaien - `grep`
+op `darken|lighten|blend` over `libs/CleanGUI/src` geeft niets, de bevelkleuren
+zijn letterlijke waarden. Staan die exact in het palet, dan is de nearest-match
+voor de hele GUI exact in plaats van benaderd. Precies wat Inputfield nodig had,
+want dat voorbeeld leent zijn plaatjes van Panel en kreeg daarvoor een palet dat
+uitsluitend uit een gradient en een ring was gekwantiseerd.
+
+Magenta (`0x00FF00FF`) staat er met opzet *niet* in: het is nergens een
+tekenkleur, alleen een transparantiemarkering, en in het palet zou het de
+"magenta betekent niet-getekend"-diagnose ondermijnen.
+
+Bijbehorend: `allocateBackBufferIfNeeded()` vult de buffer nu met index 255 in
+plaats van 0, anders was die diagnose weg zodra index 0 een gewone
+gebruikerskleur werd.
+
+### De bevelkolom van het invoerveld
+Klein artefact in Inputfield: zodra je typte werd de linker bevelkolom van het
+invoerveld vanaf een bepaalde hoogte weggeveegd. Twee metingen brachten het
+thuis - eerst de geometrie van `drawStringOpaque`, daarna de pixels zelf:
+
+```
+y=24: ... 3   3   3 ...     bovenrand van het veld (index 3 = 0x303030)
+y=25: ...(x=32) 3  10 ...   alleen x=32 nog donker
+y=32: ...(x=32)10  10 ...   hier is de bevelkolom weg
+```
+
+`Text::calcPaddingSizePix()` kortte de *hoogte* aan twee kanten in (`2*m`) maar de
+*breedte* maar aan een kant (`m`), en die ene ging er rechts af. Links bleef er
+niets over, dus de gereserveerde box begon precies op de bevelkolom. Verticaal
+ging het daardoor al goed en horizontaal niet - vandaar dat alleen de linkerrand
+sneuvelde.
+
+Opgelost door het tekstdatum bij opake tekst een marge naar binnen te schuiven
+(`calcOpaqueOffsetXPix()`); de adapter leidt de box uit dat datum af, dus die
+schuift mee. De breedte gaat nu met `2*m` omlaag, want anders loopt de box aan de
+overkant weer over de bevel. Gecentreerde tekst blijft ongemoeid: die ligt al
+symmetrisch om zijn datum.
+
+Waarom pas een lege regel het herstelde: de rechterstrook begint op
+`textTopLeft.x + textWidthPix` en raakt kolom 32 nooit - behalve bij lege tekst,
+want dan begint hij op 32 zelf.
+
+### Schuifanimatie met een deadline
+Het toetsenbord van Inputfield schoof zo snel binnen dat er niets van te zien
+was. Geen vaste pauze per stap, maar een deadline per stap met `waitUntilDrawn()`
+ervoor: een `present()` kost hier al ~31 ms per stap en bijna niets bij
+rechtstreeks tekenen, dus een vaste pauze zou de duur adapterafhankelijk maken.
+Nu op 400 ms - en dat is ongeveer de vloer, want ~13 stappen x 31 ms is al 0,4 s.
+Lager zetten verandert niets meer; daarvoor moet `stepPix` omhoog.
+
+### Gemeten en afgevinkt
+`getScreenSize()` geeft inmiddels gewoon 320x240 - het openstaande punt uit de
+entry van 2026-07-26 is in de adapter rechtgezet.
+
+### Nog open
+- **ImageViewer, twee bestaande artefacten** (niet door het palet veroorzaakt):
+  een knop blijft na indrukken voorgoed verzonken staan, en de labels van `r-` en
+  `c-` ontbreken tot je ze een keer indrukt (`r+` en `c+` niet). Opvallend: `r-`
+  is de bovenste knop en `c-` de meest linkse, wat naar de regio van
+  `calcFrameButtonsRect()` wijst. **Er staat nog tijdelijke logging in
+  `crt_TestImageViewer.h`** (tags `btn` en `cross`) om dit te meten; die moet
+  eruit voordat er iets wordt gecommit.
+- **80 MHz** proberen staat nog steeds open.
+
 ## 2026-07-28 — DMA: uitpakken en uitzenden tegelijk
 
 `present()` was de rem: 38,4 ms, waarvan 31,6 ms busvloer en ~6,8 ms CPU (het

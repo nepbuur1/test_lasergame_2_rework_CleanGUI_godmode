@@ -9,7 +9,13 @@ namespace crt
 	MainInits mainInits;            // Initialize CleanRTOS.
 }
 
-crt::TestPanel testPanel("TestPanel", 2 /*priority*/, 4000 /*stackBytes*/, ARDUINO_RUNNING_CORE);
+// 10000 bytes stack, en dat is hier geen ruime marge maar een noodzaak: dit
+// voorbeeld maakt zijn display-adapter als *lokale* variabele in main(), dus
+// die staat op deze stack. De PAL8-adapter is 2744 bytes waar de RGB565-variant
+// er 984 telt - de drie paletkopieen erin zijn samen al 1280 bytes. Met de
+// oorspronkelijke 4000 liep de stack over, met een LoadProhibited in een malloc
+// diep in TFT_eSPI::init() als gevolg.
+crt::TestPanel testPanel("TestPanel", 2 /*priority*/, 10000 /*stackBytes*/, ARDUINO_RUNNING_CORE);
 
 void setup()
 {

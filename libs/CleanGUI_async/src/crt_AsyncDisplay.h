@@ -41,12 +41,17 @@ namespace crt
 		uint8_t rotation;
 		uint8_t fontTouchCalibration;
 
+		// Staat er iets in de backbuffer dat nog niet is uitgestuurd? Zie de
+		// auto-present onderaan de lus in main().
+		bool bBufferDirty;
+
 	public:
 		AsyncDisplay(const char* taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, 
 			IDisplay& display, uint8_t rotation, uint8_t fontTouchCalibration) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), display(display), nofPrintContexts(0), queueCommands(this, true /*bWriteWaitIfQueueFull*/), 
 			periodicTimer(this), flagTouchCalibrate(this), nofQueueFullEvents(0),
-			nofCommandsWritten(0), nofCommandsExecuted(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration)
+			nofCommandsWritten(0), nofCommandsExecuted(0), rotation(rotation), fontTouchCalibration(fontTouchCalibration),
+			bBufferDirty(false)
 		{
 			// Meteen doorgeven, niet pas in main(): PageRoot vraagt de schermmaat
 			// op vanuit een andere taak en zou anders de portretmaat krijgen.
@@ -100,11 +105,33 @@ namespace crt
 					curCommand.execute(display, *pPrintContext);
 					nofCommandsExecuted++;
 #endif
+					// Een present() maakt de buffer juist schoon; al het andere
+					// laat er iets in achter dat nog uitgestuurd moet worden.
+					bBufferDirty = (curCommand.getCommandType() != DisplayCommandType::present);
+
 					if (queueCommands.getNofMessagesWaiting() == 0)
 					{
 						break;		// niets meer klaar; terug naar waitAny.
 					}
 				  }
+				}
+
+				// Een backbuffer is niets waard zolang hij niet wordt uitgestuurd.
+				// Een voorbeeld met een renderlus doet dat zelf, maar een voorbeeld
+				// dat op gebeurtenissen tekent - een knop die wordt ingedrukt, een
+				// toets op het toetsenbord - heeft geen plek waar dat vanzelf past.
+				// Dus doen we het hier: de queue is leeg, dus het beeld is af.
+				//
+				// Alleen als er echt iets is getekend, en niet als het voorbeeld al
+				// zelf present() heeft ingestuurd: het hele scherm uitsturen kost
+				// ~31 ms, en dat twee keer per beeld doen halveert de beeldsnelheid.
+				//
+				// Bij de directe RGB565-adapter is present() leeg en isBuffered()
+				// onwaar, dus daar verandert er niets.
+				if (bBufferDirty && (queueCommands.getNofMessagesWaiting() == 0) && display.isBuffered())
+				{
+					display.present();
+					bBufferDirty = false;
 				}
 
 				if (hasFired(periodicTimer))

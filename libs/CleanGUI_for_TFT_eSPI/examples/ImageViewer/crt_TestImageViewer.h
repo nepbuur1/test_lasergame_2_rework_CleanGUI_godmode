@@ -21,7 +21,12 @@
 #include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 #include <crt_TFT_eSPI_FreeFonts.h>
 
-#include "images/_rgb565/_allImages.h"
+// PAL8: de bytes van een plaatje zijn meteen schermindices, want plaatje en
+// scherm delen het palet uit _pal8/_palette.h. Voor de RGB565-adapter staat
+// dezelfde set in _rgb565/; verwissel deze regel samen met DISPLAYADAPTER
+// hieronder, want de PAL8-adapter slaat een RGB565-plaatje over.
+//#include "images/_rgb565/_allImages.h"
+#include "images/_pal8/_allImages.h"
 
 #ifdef LOAD_GFXFF
 #include <Free_Fonts.h>
@@ -39,8 +44,8 @@ namespace crt
 		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
 		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
 		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
-		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
-		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
 
 	private:
 		TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
@@ -286,6 +291,8 @@ namespace crt
 		// next image takes long enough to wonder otherwise.
 		void showButton(BUTTON& button, bool bPressed)
 		{
+			ESP_LOGI("btn", "showButton %s pressed=%d", button.getName(), (int)bPressed);	// TIJDELIJK
+
 			if (bPressed)
 			{
 				button.setBevel(colKeyShadow, colKeyHighlight);		// swapped: sunken
@@ -481,6 +488,18 @@ namespace crt
 				// drag in a wide band that did not change at all.
 				Vec2 crossTopLeftPix, crossSizePix;
 				calcFrameButtonsRect(crossTopLeftPix, crossSizePix);
+
+				for (BUTTON* pButton : arFrameButtons)		// TIJDELIJK
+				{
+					ESP_LOGI("cross", "%-9s pos=(%3d,%3d) size=(%3d,%3d) drawable=%d",
+						pButton->getName(), (int)pButton->getGlobPosPix().x, (int)pButton->getGlobPosPix().y,
+						(int)pButton->getSizePix().x, (int)pButton->getSizePix().y,
+						(int)pButton->isDrawable());
+				}
+				ESP_LOGI("cross", "regio pos=(%3d,%3d) size=(%3d,%3d)",
+					(int)crossTopLeftPix.x, (int)crossTopLeftPix.y,
+					(int)crossSizePix.x, (int)crossSizePix.y);
+
 				backgroundPanel.repaintRegion(crossTopLeftPix, crossSizePix);
 			}
 
@@ -524,6 +543,9 @@ namespace crt
 #endif
 			IDisplay& display = asyncDisplay;   // To make it evident that the rest of the code is
 			                                      // display independent.
+			// Het palet van de plaatjes is ook het palet van het scherm.
+			tft_eSPI_DisplayAdapter.setPalette(arPalette);
+
 			PageRoot<10> page1("root", display);
 
 			// Added in drawing order: background (with the image inside it) first,

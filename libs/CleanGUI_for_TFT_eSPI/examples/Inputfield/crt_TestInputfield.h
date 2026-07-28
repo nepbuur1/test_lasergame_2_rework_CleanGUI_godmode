@@ -24,7 +24,8 @@
 
 // Hergebruikt uit het Panel-voorbeeld: imageGradient (64x48, dekkend) staat in
 // .rodata, dus deze decoratie kost geen DRAM.
-#include "../Panel/images/_allImages.h"
+//#include "../Panel/images/_allImages.h"
+#include "../Panel/images/_pal8/_allImages.h"
 
 #include <crt_Logger.h>
 
@@ -40,8 +41,8 @@ namespace crt
 		// elk commando staat er meteen op. RGB332 tekent in een schermvullende
 		// backbuffer van 8 bits per pixel en stuurt die bij present() in een keer
 		// uit - vaste beeldtijd, geen flikkering, 256 vaste kleuren, 76.802 bytes.
-		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
-		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
+		//using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners>;
+		using DISPLAYADAPTER = TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners>;
 
 	private:
 		TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
@@ -151,6 +152,15 @@ namespace crt
 		// _bVisible en _bEnabled blijven onaangeroerd, dus er knippert niets aan
 		// en uit. Wel de touch uitzetten tijdens de beweging: tikken op
 		// verschuivende toetsen slaat nergens op.
+		// Hoe lang de hele beweging duurt. Zonder pacing is hij voorbij voordat je
+		// hem ziet, en met een vaste pauze per stap zou de duur afhangen van de
+		// adapter - een present() van de backbuffer kost al ~31 ms per stap,
+		// tegen bijna niets bij rechtstreeks tekenen. Vandaar een deadline per
+		// stap: het tekenwerk wordt erin verrekend in plaats van erbij opgeteld.
+		// Is een stap al over tijd, dan wordt er niet gewacht en loopt de
+		// animatie gewoon zo snel als het bord kan.
+		static const int64_t SlideDurationUs = 400000;
+
 		void slideKeyboard(int32_t yFromPix, int32_t yToPix)
 		{
 			const int32_t stepPix = 8;
@@ -158,7 +168,16 @@ namespace crt
 
 			touchscreenKeyboard.disable(true);
 
+			int32_t distancePix = (yToPix > yFromPix) ? (yToPix - yFromPix) : (yFromPix - yToPix);
+			int32_t nofSteps = (distancePix + stepPix - 1) / stepPix;
+			if (nofSteps < 1)
+			{
+				nofSteps = 1;
+			}
+			int64_t timeStartUs = esp_timer_get_time();
+
 			int32_t y = yFromPix;
+			int32_t indexStep = 0;
 			while (y != yToPix)
 			{
 				y += step;
@@ -167,6 +186,18 @@ namespace crt
 					y = yToPix;
 				}
 				touchscreenKeyboard.moveTo(Vec2(0, y), CoordType::Pixels);
+
+				// Wachten tot deze stap aan de beurt zou zijn geweest. waitUntilDrawn
+				// eerst, anders meten we alleen hoe snel de commando's in de queue
+				// zijn gezet en niet hoe lang het tekenen zelf duurde.
+				indexStep++;
+				asyncDisplay.waitUntilDrawn();
+				int64_t timeTargetUs = timeStartUs + (SlideDurationUs * indexStep) / nofSteps;
+				int64_t timeLeftUs = timeTargetUs - esp_timer_get_time();
+				if (timeLeftUs > 1000)
+				{
+					vTaskDelay((timeLeftUs / 1000) / portTICK_PERIOD_MS);
+				}
 			}
 
 			if (yToPix < yFromPix)		// alleen als hij in beeld staat
@@ -185,6 +216,11 @@ namespace crt
 #endif
 			IDisplay& display = asyncDisplay;   // To make it evident that the rest of the code is
 			                                      // display independent.
+			// Het palet van de geleende Panel-plaatjes is ook het palet van het
+			// scherm. Zonder setPalette mapt de PAL8-adapter elke kleur op index 1
+			// (zwart) en blijft het scherm leeg.
+			tft_eSPI_DisplayAdapter.setPalette(arPalette);
+
 			PageRoot<10> page1("root", display);
 
 			// Eerst toegevoegd, dus eerst getekend: painter's algorithm.

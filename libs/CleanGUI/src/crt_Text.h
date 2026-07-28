@@ -232,6 +232,15 @@ namespace crt
 
 			if (_bOpaque)
 			{
+				// Het datum een marge naar binnen. De adapter leidt de
+				// gereserveerde box uit dit punt af, dus zonder deze verschuiving
+				// begint die box op de rand van de ouder - en dan veegt de
+				// glyphcel precies de bevel weg die de marge moest beschermen.
+				// Verticaal ging dat al goed: calcPaddingSizePix() kort de hoogte
+				// aan twee kanten in en de box ligt om het datum gecentreerd, dus
+				// daar ontstaat de inspringing vanzelf.
+				pos += Vec2(calcOpaqueOffsetXPix(), 0);
+
 				WBase::getDisplay()->drawStringOpaque(str, pos, WBase::getAlignment(),
 					_font, _fontScale, _color, _colBg, calcPaddingSizePix());
 			}
@@ -245,6 +254,28 @@ namespace crt
 		// parent, as high as the parent. Nothing is drawn outside it, so a widget
 		// can never smear over its neighbours - and a previous, longer text is
 		// blanked all the way to the parent's edge.
+		// Hoeveel het tekstdatum naar binnen schuift bij opake tekst. Alleen voor
+		// links- en rechtsuitgelijnde tekst: bij gecentreerde ligt de box al
+		// symmetrisch om het datum, en dan zou schuiven hem juist scheeftrekken.
+		int32_t calcOpaqueOffsetXPix()
+		{
+			switch (WBase::getAlignment())
+			{
+			case Alignment::TopLeft:
+			case Alignment::MidLeft:
+			case Alignment::BottomLeft:
+				return _opaqueMarginPix;
+
+			case Alignment::TopRight:
+			case Alignment::MidRight:
+			case Alignment::BottomRight:
+				return -_opaqueMarginPix;
+
+			default:
+				return 0;
+			}
+		}
+
 		Vec2 calcPaddingSizePix()
 		{
 			Vec2 parentSizePix = WBase::getSizeOfParent();
@@ -253,15 +284,18 @@ namespace crt
 
 			switch (WBase::getAlignment())
 			{
+			// 2*m, net als bij de hoogte: het datum is zelf al m naar binnen
+			// geschoven (zie calcOpaqueOffsetXPix), dus zonder de tweede m zou de
+			// box aan de overkant weer over de bevel heen lopen.
 			case Alignment::TopLeft:
 			case Alignment::MidLeft:
 			case Alignment::BottomLeft:
-				return Vec2(parentSizePix.x - locPosPix.x - m, parentSizePix.y - 2 * m);
+				return Vec2(parentSizePix.x - locPosPix.x - 2 * m, parentSizePix.y - 2 * m);
 
 			case Alignment::TopRight:
 			case Alignment::MidRight:
 			case Alignment::BottomRight:
-				return Vec2(parentSizePix.x + locPosPix.x - m, parentSizePix.y - 2 * m);
+				return Vec2(parentSizePix.x + locPosPix.x - 2 * m, parentSizePix.y - 2 * m);
 
 			default:	// centred: keep it symmetrical around the shifted origin.
 				return Vec2(parentSizePix.x - 2 * ((locPosPix.x < 0) ? -locPosPix.x : locPosPix.x) - 2 * m, parentSizePix.y - 2 * m);

@@ -19,7 +19,7 @@ namespace crt
 		// share a palette - blitting degenerates to copying bytes: no conversion
 		// per pixel at all. That, rather than the colour depth, is what makes
 		// paletted graphics fast.
-		// Index 0 is the transparent one, by agreement with the converter.
+		// Index 255 is the transparent one, by agreement with the converter.
 		PAL8 = 1
 	};
 
@@ -104,9 +104,14 @@ namespace crt
 		// --- PAL8 ----------------------------------------------------------
 		// The first parameter is a uint8_t*, so these can never be confused with
 		// the RGB565 constructors above.
-		// bTransparent says whether index 0 means "leave what is underneath";
+		// bTransparent says whether index 255 means "leave what is underneath";
 		// which index that is, is fixed by agreement with the converter, so it
 		// needs no parameter of its own.
+		//
+		// It is the *last* index, not the first, so that the hand-written
+		// _pal8/_userPalette.h can start at zero: arUserPalette[i] is then
+		// palette index i. Reserving index 0 would shift all of those by one and
+		// throw that away.
 
 		constexpr Image(const uint8_t* pIndices, int32_t widthPix, int32_t heightPix,
 		                const uint16_t* pPaletteRGB565)
@@ -118,7 +123,7 @@ namespace crt
 		constexpr Image(const uint8_t* pIndices, int32_t widthPix, int32_t heightPix,
 		                const uint16_t* pPaletteRGB565, bool bTransparent)
 			: pData(pIndices), width(widthPix), height(heightPix), format(PixelFormat::PAL8),
-			  bHasTransparency(bTransparent), colTransparent(paletteIndex(0)), nofRows(1), nofCols(1),
+			  bHasTransparency(bTransparent), colTransparent(paletteIndex(255)), nofRows(1), nofCols(1),
 			  pPalette(pPaletteRGB565)
 		{
 		}
@@ -127,7 +132,7 @@ namespace crt
 		                const uint16_t* pPaletteRGB565, bool bTransparent,
 		                int32_t nofRowsSheet, int32_t nofColsSheet)
 			: pData(pIndices), width(widthPix), height(heightPix), format(PixelFormat::PAL8),
-			  bHasTransparency(bTransparent), colTransparent(paletteIndex(0)),
+			  bHasTransparency(bTransparent), colTransparent(paletteIndex(255)),
 			  nofRows(nofRowsSheet), nofCols(nofColsSheet), pPalette(pPaletteRGB565)
 		{
 		}

@@ -39,25 +39,16 @@ import time
 
 from img2rgb565 import (
     ConversionError, IMAGES_ROOT_NAME, IMAGE_EXTENSIONS, INDEX_HEADER_NAME,
-    OUTPUT_DIR_NAME, convert, find_images_root, flatten, regenerate_index)
+    OUTPUT_DIR_NAME, convert, find_images_root, flatten, regenerate_index,
+    resolve_images_root)
 
 TIMESTAMP_FILE_NAME = "allImg2rgb565_last_called.txt"
 
 SKIPPED_DIR_NAMES = (OUTPUT_DIR_NAME, "venv", "__pycache__", "build")
 
 
-def resolve_images_root(folder):
-    """Accepts the images folder itself, or anything inside it."""
-
-    folder = os.path.abspath(folder)
-    if not os.path.isdir(folder):
-        raise ConversionError("'%s' is not a folder." % folder)
-
-    if os.path.basename(folder) == IMAGES_ROOT_NAME:
-        return folder
-
-    # find_images_root() works on a file path, so hand it a pretend file.
-    return find_images_root(os.path.join(folder, "x"))
+# resolve_images_root() stond hier ook, maar img2rgb565 heeft hem nu zelf nodig
+# (--pal8 accepteert een map), dus hij komt daarvandaan.
 
 
 def read_timestamp(images_root):

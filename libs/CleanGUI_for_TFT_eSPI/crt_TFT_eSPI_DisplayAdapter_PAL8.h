@@ -51,6 +51,12 @@ namespace crt
 
         static const int32_t NofRowsPerStrip = 16;
 
+        // De transparante index, in overleg vastgelegd met de converter en met
+        // crt_Image.h. Het is de laatste en niet de eerste, zodat het
+        // handgeschreven _pal8/_userPalette.h bij nul kan beginnen:
+        // arUserPalette[i] is dan palet-index i.
+        static const uint8_t IndexTransparent = 255;
+
         TFT_eSprite _backBuffer;
         bool _bBackBufferAllocated;
 
@@ -430,11 +436,11 @@ namespace crt
             uint8_t g = (uint8_t)((colour >> 8) & 0xFF);
             uint8_t b = (uint8_t)(colour & 0xFF);
 
-            // Index 0 is de transparante en hoort nooit als gewone kleur uit een
-            // zoektocht te komen; vandaar vanaf 1.
+            // Index 255 is de transparante en hoort nooit als gewone kleur uit een
+            // zoektocht te komen; vandaar tot en met 254.
             int32_t bestDistance = 0x7FFFFFFF;
-            uint8_t bestIndex = 1;
-            for (int i = 1; i < 256; i++)
+            uint8_t bestIndex = 0;
+            for (int i = 0; i < 255; i++)
             {
                 int32_t dr = (int32_t)r - _arPaletteR[i];
                 int32_t dg = (int32_t)g - _arPaletteG[i];
@@ -547,8 +553,13 @@ namespace crt
             _widthPix = sizePix.x;
             _heightPix = sizePix.y;
 
-
-            _backBuffer.fillSprite(0);		// index 0 - wordt straks overtekend
+            // Vullen met de transparante index, en niet met nul. Index 255 is
+            // magenta, dus een stuk scherm dat door geen enkele widget wordt
+            // getekend valt meteen op in plaats van stilzwijgend de kleur van
+            // index 0 aan te nemen - een kleur die de gebruiker zelf koos en die
+            // er dus geloofwaardig uitziet. Zo is het gat rond de knoppen in
+            // MultiPanel gevonden.
+            _backBuffer.fillSprite(carrierForIndex(IndexTransparent));
             _bBackBufferAllocated = true;
 
             ESP_LOGI("DisplayAdapter_PAL8", "backbuffer %d x %d, 8 bpp paletted, %d bytes; "

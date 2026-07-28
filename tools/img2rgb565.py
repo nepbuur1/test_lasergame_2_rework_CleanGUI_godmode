@@ -55,12 +55,19 @@ PAL8_DIR_NAME = "_pal8"
 INDEX_HEADER_NAME = "_allImages.h"
 PALETTE_HEADER_NAME = "_palette.h"
 PALETTE_ARRAY_NAME = "arPalette"
+USER_PALETTE_HEADER_NAME = "_userPalette.h"
+USER_PALETTE_ARRAY_NAME = "arUserPalette"
 
-# Index 0 is de transparante, altijd. Dat is een afspraak tussen deze tool en
+# Index 255 is de transparante, altijd. Dat is een afspraak tussen deze tool en
 # crt_Image.h, en het scheelt een kleurvergelijking per pixel: doorzichtig zijn
-# is nu "index is nul".
-TRANSPARENT_INDEX = 0
-NOF_PALETTE_COLOURS = 255		# 255 echte kleuren, plus index 0
+# is nu "index is 255".
+#
+# Waarom aan het eind en niet aan het begin: de eerste ingangen komen uit het
+# handgeschreven _userPalette.h, en die vallen daardoor samen met de indices
+# waar ze staan. arUserPalette[3] is palet-index 3. Zat transparant op 0, dan
+# schoof alles een op en was dat kwijt.
+TRANSPARENT_INDEX = 255
+NOF_PALETTE_COLOURS = 255		# 255 echte kleuren, plus index 255 voor transparant
 
 SKIPPED_DIR_NAMES = (OUTPUT_DIR_NAME, PAL8_DIR_NAME, "venv", "__pycache__", "build")
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".gif")
@@ -106,6 +113,20 @@ def find_images_root(path):
                 "app or example belong in such a folder; it is what the output "
                 "names are relative to." % (path, IMAGES_ROOT_NAME))
         current = parent
+
+
+def resolve_images_root(folder):
+    """Accepts the images folder itself, or anything inside it."""
+
+    folder = os.path.abspath(folder)
+    if not os.path.isdir(folder):
+        raise ConversionError("'%s' is not a folder." % folder)
+
+    if os.path.basename(folder) == IMAGES_ROOT_NAME:
+        return folder
+
+    # find_images_root() works on a file path, so hand it a pretend file.
+    return find_images_root(os.path.join(folder, "x"))
 
 
 def flatten(images_root, src_path):
@@ -430,12 +451,121 @@ def convert_and_index(src_path, verbose=True):
 # samen, en verandert het, dan moeten ze allemaal opnieuw.
 
 
-def build_palette(sources, verbose=True):
-    """Leidt een gedeeld palet af uit alle plaatjes samen.
+def read_user_palette(images_root):
+    """Leest de handgeschreven _pal8/_userPalette.h, als die er is.
 
-    Geeft (pal_img, palette565) terug. palette565 heeft 256 ingangen, waarvan
-    index 0 de transparante is.
+    Geeft een lijst (r, g, b) terug, in de volgorde waarin ze in het bestand
+    staan - want die volgorde *is* de index waarop ze in _palette.h landen.
+    Geen bestand is geen fout: het hele ding is optioneel.
     """
+
+    path = os.path.join(images_root, PAL8_DIR_NAME, USER_PALETTE_HEADER_NAME)
+    if not os.path.isfile(path):
+        return []
+
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    match = re.search(r"%s\s*\[[^\]]*\]\s*=\s*\{(.*?)\}" % USER_PALETTE_ARRAY_NAME, text, re.S)
+    if not match:
+        raise ConversionError(
+            "'%s' bevat geen '%s[...] = { ... };'." % (path, USER_PALETTE_ARRAY_NAME))
+
+    # Commentaar eruit voordat we naar getallen zoeken, anders telt een kleur die
+    # iemand heeft uitgecommentarieerd gewoon mee.
+    body = re.sub(r"/\*.*?\*/", " ", match.group(1), flags=re.S)
+    body = re.sub(r"//[^\n]*", " ", body)
+
+    colours = []
+    for value in re.findall(r"0[xX]([0-9A-Fa-f]+)", body):
+        argb = int(value, 16)
+        colours.append(((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF))
+
+    if len(colours) > NOF_PALETTE_COLOURS:
+        raise ConversionError(
+            "'%s' heeft %d kleuren; er passen er hoogstens %d (index %d is transparant)."
+            % (path, len(colours), NOF_PALETTE_COLOURS, TRANSPARENT_INDEX))
+
+    return colours
+
+
+def fill_remaining(nof_free):
+    """De ingangen die na de userPalette en de plaatjes overblijven.
+
+    Een zo groot mogelijke kubus, en wat daarna nog overblijft een grijstrap.
+    Geen zwarte opvulling: de adapter zoekt bij elke kleur die niet in het palet
+    staat de dichtstbijzijnde over *alle* ingangen, dus zou een staart vol zwart
+    elke donkere kleur naar puur zwart trekken. Een kubus dekt de ruimte
+    gelijkmatig en heeft dat bezwaar niet.
+
+    De grijstrap bovenop de kubus is er met opzet: een kubus heeft maar k grijzen
+    op zijn diagonaal, en juist de widgets leunen op grijstinten.
+    """
+
+    if nof_free <= 0:
+        return []
+
+    k = 0
+    while (k + 1) ** 3 <= nof_free:
+        k += 1
+
+    colours = []
+    if k >= 2:
+        levels = [round(i * 255 / (k - 1)) for i in range(k)]
+        for r in levels:
+            for g in levels:
+                for b in levels:
+                    colours.append((r, g, b))
+
+    nof_greys = nof_free - len(colours)
+    for i in range(nof_greys):
+        # Niet helemaal tot 0 en 255: die twee zitten al in de kubus.
+        v = round(4 + i * (251 - 4) / (nof_greys - 1)) if nof_greys > 1 else 128
+        colours.append((v, v, v))
+
+    return colours
+
+
+def build_palette(sources, user_colours, verbose=True):
+    """Stelt het gedeelde palet samen.
+
+        0 .. N-1       letterlijk uit _userPalette.h
+        N .. N+M-1     median-cut over alle plaatjes samen
+        N+M .. 254     opvulling: kubus, dan grijzen
+        255            transparant
+
+    Geeft (pal_img, palette565, nof_user, nof_quantised) terug. pal_img draagt de
+    eerste 255 ingangen als PIL-palet, zodat het omzetten van een plaatje meteen
+    de eindindex oplevert - inclusief de userkleuren, die daarmee gewoon meedoen
+    als ze toevallig het dichtst bij een pixel liggen.
+
+    Dat de quantizer niet weet welke kleuren al in de userPalette staan en er dus
+    een vlak naast kan zetten, nemen we voor lief: het kost hooguit een paar
+    ingangen, en itereren tot het niet meer botst is die complexiteit niet waard.
+    """
+
+    nof_quantised = NOF_PALETTE_COLOURS - len(user_colours)
+    quantised = quantise_sources(sources, nof_quantised, verbose) if (sources and nof_quantised > 0) else []
+
+    colours = user_colours + quantised
+    colours += fill_remaining(NOF_PALETTE_COLOURS - len(colours))
+
+    pal_img = PilImage.new("P", (1, 1))
+    pal_img.putpalette([channel for colour in colours for channel in colour])
+
+    palette565 = [to_rgb565(r, g, b) for (r, g, b) in colours]
+    palette565.append(to_rgb565(0xFF, 0x00, 0xFF))		# 255: transparant, en opvallend
+
+    if verbose:
+        print("  palet: %d uit %s, %d uit de plaatjes, %d opvulling"
+              % (len(user_colours), USER_PALETTE_HEADER_NAME, len(quantised),
+                 NOF_PALETTE_COLOURS - len(user_colours) - len(quantised)))
+
+    return pal_img, palette565, len(user_colours), len(quantised)
+
+
+def quantise_sources(sources, nof_colours, verbose=True):
+    """Median-cut over alle plaatjes samen; geeft een lijst (r, g, b)."""
 
     pixels = bytearray()
     for path in sources:
@@ -462,24 +592,17 @@ def build_palette(sources, verbose=True):
     # Geen dithering: op een sprite van 64x64 maakt dat er ruis van, en het
     # breekt juist de vlakke kleurvlakken waar deze aanpak zijn snelheid aan
     # ontleent.
-    pal_img = montage.quantize(colors=NOF_PALETTE_COLOURS, method=PilImage.Quantize.MEDIANCUT)
+    quantised = montage.quantize(colors=nof_colours, method=PilImage.Quantize.MEDIANCUT)
 
-    raw_palette = pal_img.getpalette()
-    nof_colours = min(NOF_PALETTE_COLOURS, len(raw_palette) // 3)
-
-    # Index 0 is transparant en wordt nooit getekend. Toch een opvallende kleur,
-    # zodat een fout meteen als magenta in beeld staat en niet als iets dat op
-    # echte beeldinhoud lijkt.
-    palette565 = [to_rgb565(0xFF, 0x00, 0xFF)]
-    for i in range(nof_colours):
-        palette565.append(to_rgb565(raw_palette[3 * i], raw_palette[3 * i + 1], raw_palette[3 * i + 2]))
-    palette565 += [0] * (256 - len(palette565))
+    raw_palette = quantised.getpalette()
+    nof_found = min(nof_colours, len(raw_palette) // 3)
 
     if verbose:
-        print("  palet: %d kleuren uit %d zichtbare pixels van %d plaatjes"
-              % (nof_colours, nof_pixels, len(sources)))
+        print("  gekwantiseerd: %d kleuren uit %d zichtbare pixels van %d plaatjes"
+              % (nof_found, nof_pixels, len(sources)))
 
-    return pal_img, palette565[:256]
+    return [(raw_palette[3 * i], raw_palette[3 * i + 1], raw_palette[3 * i + 2])
+            for i in range(nof_found)]
 
 
 def read_indices(src_path, pal_img, col_transparent):
@@ -524,7 +647,14 @@ def read_indices(src_path, pal_img, col_transparent):
             indices[i] = TRANSPARENT_INDEX
             nof_transparent += 1
         else:
-            indices[i] = mapped[i] + 1		# palet-index 0 is voor transparant
+            # Geen verschuiving: pal_img draagt het hele palet vanaf index 0, dus
+            # wat PIL teruggeeft is meteen de eindindex. Hij komt nooit op 255 uit
+            # - dat palet heeft er 255, dus PIL kan alleen 0..254 kiezen.
+            if mapped[i] == TRANSPARENT_INDEX:
+                raise ConversionError(
+                    "'%s': een zichtbare pixel kreeg de transparante index %d toegewezen."
+                    % (os.path.basename(src_path), TRANSPARENT_INDEX))
+            indices[i] = mapped[i]
 
     return width, height, indices, b_transparent, nof_transparent
 
@@ -560,7 +690,7 @@ def convert_pal8(src_path, pal_img, verbose=True):
 
     meta = "%s image=%s array=%s width=%d height=%d nofRows=%d nofCols=%d trcolor=%s format=PAL8" % (
         META_PREFIX, image_name, array_name, width, height, nof_rows, nof_cols,
-        "0x01000000" if b_transparent else "none")		# 0x01000000 = paletteIndex(0)
+        "0x010000FF" if b_transparent else "none")		# 0x010000FF = paletteIndex(255)
 
     header = (
         "// Generated by tools/img2rgb565.py --pal8 - do not edit.\n"
@@ -601,14 +731,32 @@ def convert_pal8(src_path, pal_img, verbose=True):
     return out_path
 
 
-def write_palette_header(images_root, palette565):
+def write_palette_header(images_root, palette565, nof_user, nof_quantised):
     out_dir = os.path.join(images_root, PAL8_DIR_NAME)
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, PALETTE_HEADER_NAME)
 
+    nof_fill = NOF_PALETTE_COLOURS - nof_user - nof_quantised
+
+    # De drie blokken, met hun begin en hun lengte. Een blok van niets valt
+    # weg - er is niets om naar te wijzen, en "20..19" leest als een fout.
+    blocks = [
+        (0, nof_user, "uit %s" % USER_PALETTE_HEADER_NAME),
+        (nof_user, nof_quantised, "uit de plaatjes (median-cut)"),
+        (nof_user + nof_quantised, nof_fill, "opvulling: kubus, daarna grijzen"),
+    ]
+    blocks = [b for b in blocks if b[1] > 0]
+
+    # Waar elk blok begint. Een grens valt zelden precies op een regel van acht,
+    # vandaar "vanaf": de markering staat boven de regel waar hij in valt.
+    boundaries = {start: label for (start, _, label) in blocks}
+
     lines = []
     for i in range(0, 256, 8):
-        lines.append("\t\t" + ", ".join("0x%04X" % c for c in palette565[i:i + 8]) + ",")
+        for start in sorted(b for b in boundaries if i <= b < i + 8):
+            lines.append("\n\t\t// vanaf %d: %s" % (start, boundaries[start]))
+        lines.append("\t\t" + ", ".join("0x%04X" % c for c in palette565[i:i + 8])
+                     + ",\t\t// %d" % i)
 
     body = (
         "// Generated by tools/img2rgb565.py --pal8 - do not edit.\n"
@@ -618,8 +766,15 @@ def write_palette_header(images_root, palette565):
         "// zijn de bytes van een plaatje meteen schermindices en hoeft er bij het\n"
         "// blitten niets omgerekend te worden.\n"
         "//\n"
-        "// Index 0 is de transparante. Hij staat hier op magenta, zodat een fout\n"
-        "// opvalt in plaats van op beeldinhoud te lijken.\n"
+        "// De indeling:\n"
+        "%s"
+        "//   255      de transparante. Magenta, zodat een fout opvalt in plaats\n"
+        "//            van op beeldinhoud te lijken.\n"
+        "//\n"
+        "// Het eerste blok is het enige dat vastligt: zolang %s\n"
+        "// niet verandert, blijft arUserPalette[i] hier index i, ook als er\n"
+        "// plaatjes bijkomen of verdwijnen. Alleen daar is paletteIndex(i) dus op\n"
+        "// te vertrouwen.\n"
         "\n"
         "#pragma once\n"
         "#include <stdint.h>\n"
@@ -631,7 +786,10 @@ def write_palette_header(images_root, palette565):
         "%s\n"
         "\t};\n"
         "};\n"
-        % (PALETTE_ARRAY_NAME, "\n".join(lines)))
+        % ("".join("//   %-8s %s\n" % ("%d..%d" % (start, start + count - 1), label)
+                   for (start, count, label) in blocks),
+           USER_PALETTE_HEADER_NAME,
+           PALETTE_ARRAY_NAME, "\n".join(lines)))
 
     with open(path, "w", newline="\n") as f:
         f.write(body)
@@ -646,8 +804,11 @@ def regenerate_index_pal8(images_root):
     if not os.path.isdir(out_dir):
         return None
 
+    # _userPalette.h is met de hand geschreven en hoort niet bij de plaatjes;
+    # hem hier meenemen zou op de meta-regel stuklopen die hij niet heeft.
+    skip = (INDEX_HEADER_NAME, PALETTE_HEADER_NAME, USER_PALETTE_HEADER_NAME)
     headers = sorted(name for name in os.listdir(out_dir)
-                     if name.endswith(".h") and (name not in (INDEX_HEADER_NAME, PALETTE_HEADER_NAME)))
+                     if name.endswith(".h") and (name not in skip))
 
     entries = [(name, read_meta(os.path.join(out_dir, name))) for name in headers]
 
@@ -714,11 +875,13 @@ def regenerate_index_pal8(images_root):
 def convert_tree_pal8(images_root, verbose=True):
     """Palet afleiden en de hele boom omzetten. Alles of niets, met opzet."""
 
+    # Geen plaatjes is geen fout. Een voorbeeld dat alleen widgets tekent heeft
+    # nog steeds een palet nodig - dat bestaat dan uit de userPalette en de
+    # opvulling.
     sources = find_sources(images_root)
-    if not sources:
-        raise ConversionError("geen plaatjes gevonden onder '%s'." % images_root)
+    user_colours = read_user_palette(images_root)
 
-    pal_img, palette565 = build_palette(sources, verbose)
+    pal_img, palette565, nof_user, nof_quantised = build_palette(sources, user_colours, verbose)
 
     for path in sources:
         convert_pal8(path, pal_img, verbose)
@@ -726,14 +889,16 @@ def convert_tree_pal8(images_root, verbose=True):
     # Weesheaders van plaatjes die er niet meer zijn, zouden met een verkeerd
     # palet blijven staan. Weg ermee: het palet is toch net opnieuw bepaald.
     out_dir = os.path.join(images_root, PAL8_DIR_NAME)
+    os.makedirs(out_dir, exist_ok=True)
+    keep = (INDEX_HEADER_NAME, PALETTE_HEADER_NAME, USER_PALETTE_HEADER_NAME)
     expected = {flatten(images_root, path) + ".h" for path in sources}
     for name in os.listdir(out_dir):
-        if name.endswith(".h") and (name not in (INDEX_HEADER_NAME, PALETTE_HEADER_NAME)) and (name not in expected):
+        if name.endswith(".h") and (name not in keep) and (name not in expected):
             os.remove(os.path.join(out_dir, name))
             if verbose:
                 print("  verwijderd (bron bestaat niet meer): %s" % name)
 
-    write_palette_header(images_root, palette565)
+    write_palette_header(images_root, palette565, nof_user, nof_quantised)
     regenerate_index_pal8(images_root)
 
     return len(sources)
@@ -748,16 +913,24 @@ def main():
     parser.add_argument("--pal8", action="store_true",
                         help="zet om naar palet-indices in plaats van RGB565. Dit geldt "
                              "altijd de hele images-boom van het genoemde bestand: het "
-                             "palet volgt uit alle plaatjes samen.")
+                             "palet volgt uit alle plaatjes samen. Hier mag ook een map "
+                             "worden opgegeven, want een boom zonder plaatjes kan nog "
+                             "steeds een palet hebben.")
     args = parser.parse_args()
 
     roots = set()
     try:
         if args.pal8:
             for path in args.images:
-                if not os.path.isfile(path):
+                if os.path.isdir(path):
+                    # Een map mag, en hoeft geen plaatjes te bevatten: een
+                    # voorbeeld dat alleen widgets tekent heeft wel een palet
+                    # nodig maar geen enkel plaatje.
+                    roots.add(resolve_images_root(path))
+                elif os.path.isfile(path):
+                    roots.add(find_images_root(path))
+                else:
                     raise ConversionError("'%s' does not exist." % path)
-                roots.add(find_images_root(path))
 
             for root in sorted(roots):
                 print("PAL8, hele boom: %s" % root)
