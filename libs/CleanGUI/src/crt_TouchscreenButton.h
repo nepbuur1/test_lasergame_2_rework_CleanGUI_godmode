@@ -268,7 +268,18 @@ namespace crt
 
 		/* override */ void enable(bool bIncludeChildren)
 		{
-			bPressed = false; // Clear any previously stored press state.
+			// Alleen bij een echte overgang van uit naar aan. De bedoeling is een
+			// verouderde druk weggooien van een knop die ondertussen uit stond -
+			// niet een druk wissen die op dit moment loopt.
+			//
+			// Dat laatste gebeurde wel, want Widget::show() roept enable(false)
+			// aan. Wie de knop ingedrukt tekent, deed dus tegelijk alsof hij nooit
+			// was ingedrukt: touchReleased() ziet bPressed == false en stuurt geen
+			// bericht meer, waarna de knop voorgoed verzonken bleef staan.
+			if (!PBase::isEnabled())
+			{
+				bPressed = false;
+			}
 			PBase::enable(bIncludeChildren);
 		}
 

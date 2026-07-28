@@ -59,8 +59,8 @@ namespace crt
 //#include <TouchscreenButtonGroup.ino>
 //#include <TouchscreenKeyboard.ino>
 //#include <Inputfield.ino>
-#include <ImageViewer.ino>
-//#include <MultiPanel.ino>
+//#include <ImageViewer.ino>
+#include <MultiPanel.ino>
 //#include <Pong2.ino>
 
 // **** TFT_eSPI DMA examples ****

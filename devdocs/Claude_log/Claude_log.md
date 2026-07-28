@@ -125,15 +125,88 @@ Lager zetten verandert niets meer; daarvoor moet `stepPix` omhoog.
 `getScreenSize()` geeft inmiddels gewoon 320x240 - het openstaande punt uit de
 entry van 2026-07-26 is in de adapter rechtgezet.
 
+### Twee bestaande fouten in ImageViewer, allebei door meten gevonden
+Geen van beide had met het palet te maken; ze zaten er al.
+
+**Een knop bleef na indrukken voorgoed verzonken.** De log gaf het meteen weg:
+alleen `pressed=1`, nooit een `pressed=0`. Het loslaten kwam dus niet aan.
+
+`TouchscreenButton::enable()` wiste `bPressed`, en `Widget::show()` roept
+`enable(false)` aan. Wie de knop ingedrukt tekende, wiste daarmee tegelijk het
+feit dat hij was ingedrukt, waarna `touchReleased()` niets meer stuurde -
+`if (bPressed)` was al onwaar. Wissen gebeurt nu alleen nog bij een echte
+overgang van uit naar aan, wat de oorspronkelijke bedoeling van die regel was.
+
+**De labels van `r-` en `c-` ontbraken tot je ze indrukte**, die van `r+` en `c+`
+niet. Die asymmetrie was de aanwijzing. Gemeten in `redrawRegion()`:
+
+```
+regio  pos=( 89,157) size=(141, 77)
+r-     pos=(136,157) size=(  0,  0)
+c-     pos=( 89,185) size=(  0,  0)
+```
+
+*Alle vier* de labels hebben maat nul, maar de cull-test
+`rectsIntersect(getGlobPosPix(), _sizePix, ...)` wordt daarmee
+`regioTop < labelY` en `regioLinks < labelX`. `r-` ligt op de bovenrand van de
+hertekende regio en `c-` op de linkerrand, dus daar staat `157 < 157` en
+`89 < 89`. De plus-knoppen liggen verderop en overleefden het toevallig. Rakende
+randen tellen met opzet niet mee (zie `crt_typesAndConstants.h`), en dat is
+precies wat een rect van niets fataal maakt.
+
+Waarom de maat nul was: `Text::updateSize()` draait alleen vanuit `setFont`,
+`setFontScale` en `setText`, en die laatste alleen als de string *verandert*. Een
+label dat zijn tekst bij constructie krijgt en nooit wijzigt, komt langs geen van
+de drie - en bij constructie is er ook nog geen display, waar `updateSize()`
+sowieso op afbreekt. `Text` haakt nu in op `setDisplay()`: het eerste moment
+waarop de tekst te meten valt.
+
+### Werkwijze die zich terugbetaalde
+Vier artefacten, vier keer eerst meten. Elke keer wees de redenering vooraf de
+verkeerde kant op:
+
+- Blauwe randjes bij groene knoppen: er bleek helemaal niets te blenden - de
+  adapter kreeg maar drie kleuren binnen en de buffer had harde overgangen. Het
+  was de magenta achtergrond ernaast, die tegen groen wel opvalt en tegen rood
+  niet.
+- Het kolommetje in het invoerveld: niet de blanking (die tekende daar nul
+  pixels) maar de gereserveerde box, die op de bevel begon.
+- Zwart scherm bij TouchscreenButtonGroup: een los stekkertje.
+- De labels: niet de regio - die klopte precies - maar een rect van niets.
+
+Instrumentatie die daarbij hielp en er weer uit is: kleur-naar-index in
+`indexForColour()`, een pixeldump uit `present()`, de geometrie van
+`drawStringOpaque()`, en de cull in `redrawRegion()`.
+
+### 80 MHz geprobeerd, en afgesloten
+Het laatste openstaande punt uit de speed-research. `SPI_FREQUENCY` op 80 MHz
+(80/1) gezet en MultiPanel gedraaid:
+
+| sprites | 40 MHz | 80 MHz |
+|---|---|---|
+| 0 | 29 | **51** |
+
+Doorvoer is dus geen probleem - het bord komt gewoon op en meldt vrolijk 51 fps.
+**Maar het beeld is stuk.** Dat is precies het falen dat we verwachtten: niet een
+crash, maar ruis en verkeerde kleuren, terwijl de seriële poort blijft doen alsof
+er niets aan de hand is. Zonder ernaar te kijken had dit als winst geteld.
+
+Iets ertussenin bestaat niet. De ESP32 deelt de 80 MHz APB-klok door een geheel
+getal, dus 80/1, 80/2 (=40), 80/3 (=26,67) en 80/4 (=20) zijn de enige echte
+waarden; voor iets tussen 40 en 80 zou de deler tussen 1 en 2 moeten liggen. Een
+`60000000` in User_Setup.h levert stilzwijgend 40 MHz op. Terug op 40 dus, met de
+reden erbij in het bestand zelf.
+
+Wel iets geleerd over waar de tijd nu zit. Bij 80 MHz halveert de busvloer van
+31,6 naar 15,8 ms, wat zuiver busgelimiteerd ~63 fps zou geven. Gemeten werd 51
+fps = 19,6 ms. Dat verschil is het uitpakken van het palet, dat bij 40 MHz
+volledig onder de transfer wegviel en er nu bovenuit steekt. **De bus is niet
+langer het enige plafond** - een aardige correctie op de vuistregel in CLAUDE.md
+dat vrijwel al het tekenwerk busgelimiteerd is. Die geldt bij 40 MHz; bij 80 niet
+meer.
+
 ### Nog open
-- **ImageViewer, twee bestaande artefacten** (niet door het palet veroorzaakt):
-  een knop blijft na indrukken voorgoed verzonken staan, en de labels van `r-` en
-  `c-` ontbreken tot je ze een keer indrukt (`r+` en `c+` niet). Opvallend: `r-`
-  is de bovenste knop en `c-` de meest linkse, wat naar de regio van
-  `calcFrameButtonsRect()` wijst. **Er staat nog tijdelijke logging in
-  `crt_TestImageViewer.h`** (tags `btn` en `cross`) om dit te meten; die moet
-  eruit voordat er iets wordt gecommit.
-- **80 MHz** proberen staat nog steeds open.
+Niets meer uit de oude lijst.
 
 ## 2026-07-28 — DMA: uitpakken en uitzenden tegelijk
 

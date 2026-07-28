@@ -155,6 +155,22 @@ namespace crt
 			}
 		}
 
+		// De maat volgt uit de tekst, en die is pas te meten zodra er een display
+		// is - updateSize() breekt daarvoor af. Een label dat zijn tekst bij
+		// constructie krijgt en daarna nooit verandert, kwam langs geen van de
+		// drie setters en bleef daardoor op maat nul staan.
+		//
+		// Dat is niet onschuldig: redrawRegion() knipt een widget weg zodra zijn
+		// rect de regio niet overlapt, en met maat nul lukt dat alleen nog als de
+		// widget er strikt binnen ligt. Een label precies op de boven- of
+		// linkerrand van de hertekende regio viel er dan buiten en werd niet
+		// getekend, terwijl datzelfde label een paar pixels verderop wel meekwam.
+		/*override*/ void setDisplay(IDisplay& display)
+		{
+			WBase::setDisplay(display);
+			updateSize();
+		}
+
 		// show immediately draws it. hide immediately undraws it.
 		// note: _widgetProps only serves as a node in the display-tree.
 		//       It conains the props and links to children.

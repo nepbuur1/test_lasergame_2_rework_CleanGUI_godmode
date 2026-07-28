@@ -291,8 +291,6 @@ namespace crt
 		// next image takes long enough to wonder otherwise.
 		void showButton(BUTTON& button, bool bPressed)
 		{
-			ESP_LOGI("btn", "showButton %s pressed=%d", button.getName(), (int)bPressed);	// TIJDELIJK
-
 			if (bPressed)
 			{
 				button.setBevel(colKeyShadow, colKeyHighlight);		// swapped: sunken
@@ -488,17 +486,6 @@ namespace crt
 				// drag in a wide band that did not change at all.
 				Vec2 crossTopLeftPix, crossSizePix;
 				calcFrameButtonsRect(crossTopLeftPix, crossSizePix);
-
-				for (BUTTON* pButton : arFrameButtons)		// TIJDELIJK
-				{
-					ESP_LOGI("cross", "%-9s pos=(%3d,%3d) size=(%3d,%3d) drawable=%d",
-						pButton->getName(), (int)pButton->getGlobPosPix().x, (int)pButton->getGlobPosPix().y,
-						(int)pButton->getSizePix().x, (int)pButton->getSizePix().y,
-						(int)pButton->isDrawable());
-				}
-				ESP_LOGI("cross", "regio pos=(%3d,%3d) size=(%3d,%3d)",
-					(int)crossTopLeftPix.x, (int)crossTopLeftPix.y,
-					(int)crossSizePix.x, (int)crossSizePix.y);
 
 				backgroundPanel.repaintRegion(crossTopLeftPix, crossSizePix);
 			}

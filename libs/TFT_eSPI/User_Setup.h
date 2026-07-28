@@ -375,7 +375,12 @@
 // #define SPI_FREQUENCY  27000000  // was 80/3 = 26.67MHz in practice (integer APB divider)
 #define SPI_FREQUENCY  40000000     // exactly 80/2, CYD handles this fine
 // #define SPI_FREQUENCY  55000000 // STM32 SPI1 only (SPI2 maximum is 27MHz)
-// #define SPI_FREQUENCY  80000000
+// #define SPI_FREQUENCY  80000000  // 80/1. Geprobeerd op 2026-07-28: haalt 51 fps
+//                                  // tegen 29 op 40 MHz, maar het beeld is stuk.
+//                                  // Zie het logboek; hier valt niets te halen.
+// Let op: hiertussen zit niets. De ESP32 deelt de 80 MHz APB-klok door een
+// geheel getal, dus 80/1, 80/2, 80/3 en 80/4 zijn de enige echte waarden.
+// Een 60000000 hier levert stilzwijgend 40 MHz op, geen 60.
 
 // Optional reduced SPI frequency for reading TFT
 #define SPI_READ_FREQUENCY  20000000
