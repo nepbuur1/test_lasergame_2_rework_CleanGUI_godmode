@@ -36,6 +36,9 @@ namespace crt
 	    State state;
 		IDisplay& display;
 		TFT_eSPI_IFreeFonts& freeFonts;
+		Panel<0> backgroundPanel;
+		Panel<1> gameOverPanel;		// het "Game Over" hoort op het scherm, niet in de seriele monitor.
+		Text<0> gameOverText;
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonStart;
         Flag flagStartPressed;
 		Flag flagBallMissedByPaddle;
@@ -49,11 +52,33 @@ namespace crt
 			state(STATE_INITIAL),
 			display(display),
 			freeFonts(freeFonts),
+			// Let op: locPos is de LINKERBOVENHOEK van de widget. De Alignment
+			// hieronder geldt alleen voor de tekst binnen de knop, niet voor de
+			// plek van de knop zelf. Een knop van 800 promille breed op x=500
+			// promille begint dus in het midden en loopt rechts het scherm af -
+			// vandaar x=100: (1000-800)/2.
+			backgroundPanel
+				("startBackground",/*locPos*/Vec2(0, 0), CoordType::Promillage,
+				/*size*/Vec2(1000, 1000), /*cornerRadius*/0, CoordType::Promillage,
+				Alignment::TopLeft,	/*colFg*/0x00000000, /*colBg*/0x00000000),
+			gameOverPanel
+				("gameOverPanel",/*locPos*/Vec2(100, 250), CoordType::Promillage,
+				/*size*/Vec2(800, 200), /*cornerRadius*/50, CoordType::Promillage,
+				Alignment::TopLeft,	/*colFg*/0x00202020, /*colBg*/0x00000000),
+			// locPos (0,0): voor een MidMid-tekst is de oorsprong al het midden van
+			// de ouder (zie Text::calcOriginPix). Er nog eens 500 promille bij
+			// optellen schoof het label een halve paneelbreedte naar rechts.
+			// fontScale is hier expliciet: het automatisch schalen op 0 zit in
+			// TouchscreenButton, niet in een kale Text.
+			gameOverText
+				(/*locPos*/Vec2(0, 0), CoordType::Promillage, Alignment::MidMid,
+				"GAME OVER", /*font*/2, /*color*/0x00FF4040, /*fontScale*/2),
 			buttonStart
-				("start",/*locPos*/Vec2(500, 500), CoordType::Promillage,
-				/*size*/Vec2(800, 40), /*cornerRadius*/50, CoordType::Promillage,
-				Alignment::MidMid,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
-				"Click here to Start", /*buttonFont*/ 1, /*colFont*/ 0x0000FFFF, /*fontScale*/ 0, Alignment::MidMid),
+				("start",/*locPos*/Vec2(100, 562), CoordType::Promillage,
+				/*size*/Vec2(800, 225), /*cornerRadius*/50, CoordType::Promillage,
+				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "Click here to Start", /*buttonFont*/ 1, /*colFont*/ 0x0000FFFF, /*fontScale*/ 0, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
 			flagStartPressed(this),
 			flagBallMissedByPaddle(this),
 			sceneDisplayControl(sceneDisplayControl),
@@ -103,10 +128,14 @@ namespace crt
 			freeFonts.setFreeFont(12, FSB12); // Free serif 12 pix font.
 #endif
 			PageRoot<20> pageStart("rootStartMenu",display);
+			pageStart.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
+			pageStart.addChildWidget(gameOverPanel);	// pas hierna heeft gameOverPanel een display,
+			gameOverPanel.addChildWidget(gameOverText);	// en daar staat addChildWidget op: van boven naar beneden.
 			pageStart.addChildWidget(buttonStart);
-			
+
 			pageStart.show(true);
 			pageStart.enable(true);
+			gameOverPanel.hide(true);	// bij het eerste opstarten is er nog niets verloren.
 
 			while (true)
 			{
@@ -118,7 +147,7 @@ namespace crt
 					case STATE_INITIAL:
 						logger.logText("STATE_INITIAL");
 						vTaskDelay(200);
-						ESP_LOGI("", "\n\n\nKlik op de linker of rechter knop om te starten.");
+						ESP_LOGI("", "\n\n\nRaak de startknop op het scherm aan om te starten.");
 						state = STATE_KLIK_OM_TE_STARTEN;
 						break;
 
@@ -126,6 +155,7 @@ namespace crt
 						logger.logText("STATE_KLIK_OM_TE_STARTEN");
 						vTaskDelay(200);
 						flagStartPressed.clear();  // clear any pending button presses still meant to controll the paddle.
+						flagBallMissedByPaddle.clear();	// en een gemiste bal van het vorige spel mag dit spel niet meteen beeindigen.
 						wait(flagStartPressed);
 						pageStart.hide(true);
 						pageStart.disable(true);
@@ -142,19 +172,18 @@ namespace crt
 						break;
 
 					case STATE_GAME_OVER:
+						paddleControl.disable();	// tegenhanger van de enable() hierboven: peddelknoppen weg.
 						sceneDisplayControl.disable();
 						vTaskDelay(200); // wacht op evt parallel afrenderen van scene.
 						logger.logText("STATE_GAME_OVER");
 
-						ESP_LOGI("Game Over", "\n"
-						"  _____                         ____                  \n"
-						" / ____|                       / __ \\                 \n"
-						"| |  __  __ _ _ __ ___   ___  | |  | |_   _____ _ __  \n"
-						"| | |_ |/ _` | '_ ` _ \\ / _ \\ | |  | \\ \\ / / _ \\ '__| \n"
-						"| |__| | (_| | | | | | |  __/ | |__| |\\ V /  __/ |    \n"
-						" \\_____|\\__,_|_| |_| |_|\\___|  \\____/  \\_/ \\___|_|    \n"
-						"\n"
-						"Klik op de linker of rechter knop om opnieuw te starten.");
+						// Het startscherm moet hier terug. Zonder dit blijft de
+						// startknop verborgen en uitgeschakeld en is er na een
+						// spel geen weg meer terug.
+						pageStart.show(true);
+						pageStart.enable(true);
+
+						ESP_LOGI("Game Over", "Game Over - raak de startknop aan om opnieuw te starten.");
 
 						state = STATE_KLIK_OM_TE_STARTEN;
 						break;

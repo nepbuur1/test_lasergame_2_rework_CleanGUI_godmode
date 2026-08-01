@@ -1,5 +1,115 @@
 # Claude log
 
+## 2026-08-01 — De ingebouwde fouten uit pong_cleangui
+
+`apps/pong_cleangui/README.txt`: *"Er zijn alleen een paar bugs gemaakt. Kun jij
+ontdekken hoe het zou moeten werken, en de bugs oplossen?"* Dat is de oefening.
+De console-variant `apps/pong/pong` heeft dezelfde README en blijft ongemoeid.
+
+### Eerst: hij compileerde niet meer
+De CleanGUI-API is doorgelopen sinds deze app is geschreven.
+`TFT_eSPI_DisplayAdapter<N>` heet nu `TFT_eSPI_DisplayAdapter_RGB565<N>`, en de
+`TouchscreenButton`-constructor heeft er drie parameters bij gekregen
+(`bInvertedArea` en de twee case-offsets). Drie knoppen aanvullen, een naam
+veranderen.
+
+Lastiger was het includepad. De twee pong-apps dragen *dezelfde* headernamen —
+`crt_BallControl.h`, `crt_GameControl.h`, `crt_PaddleControl.h`,
+`crt_SceneDisplayControl.h`, `crt_CharMatrix.h`. Alleen `apps/pong/pong` stond in
+`COMPONENT_ADD_INCLUDEDIRS`; `apps/pong_cleangui` erbij zetten zou betekenen dat
+de volgorde in het CMake-bestand stilzwijgend bepaalt welke versie er gecompileerd
+wordt. Er wordt toch maar een app tegelijk gebouwd, dus staat er nu een regel aan
+en een uit, met een opmerking waarom. De `.ino` heet daarnaast `Pong_CleanGUI.ino`
+(en de header `Pong_CleanGUI_ino.h`), zodat de twee entry points niet meer botsen.
+
+### De kern: een raster dat pixels was geworden
+`SceneDisplayControl` overschreef in zijn constructor `width`/`height` met
+`display.getScreenSize()` — 320x240 pixels — terwijl de klasse
+`SceneDisplayControl<20,10>` heet en `WIDTH`/`HEIGHT` verder nergens meer
+gebruikt werden. `BallControl` en `PaddleControl` vragen die maat op via
+`getWidth()/getHeight()` en rekenen er hun rasterlogica mee. Gevolg: de bal liep
+een pixel per 500 ms — van het midden naar de rand ruim een minuut — en de
+trefzone van de peddel was 3 pixels breed tegen een peddel van 100.
+
+Dode template-parameters naast een waarde die duidelijk van hen was: dat is de
+plek waar de fout is ingezet. `width`/`height` staan weer op `WIDTH`/`HEIGHT`, en
+`getScreenSize()` wordt nog maar voor een ding gebruikt: de celgrootte
+(320/20 = 16 bij 240/10 = 24 pixels).
+
+Daar hoorde een tweede helft bij. De y-as was nooit omgeklapt. In de
+console-versie deed `CharMatrix::setChar()` dat — `matrix[HEIGHT-1-y][x]`,
+"oorsprong is linksonder" — en CleanGUI telt van linksboven. De spellogica ging
+nog steeds uit van linksonder (peddel op y=0, bal gemist bij `posY<=0`, plafond
+bij `posY==height-2`), dus belandde de peddel *bovenaan* en viel de bal naar boven
+het veld uit. Er is nu een `cellCentreToPix(x,y)` die beide dingen tegelijk doet:
+cel naar pixel, en y omklappen. Die ene functie is de enige plek die weet dat het
+scherm van boven telt.
+
+### De kleinere
+- `BallControl::poolPaddlePosition` werd nooit geinitialiseerd, terwijl
+  `SceneDisplayControl` dat voor zijn eigen pools wel deed. BallControl dacht dus
+  dat de peddel op 0 stond tot de speler voor het eerst links of rechts aanraakte.
+  In de console-versie viel dat niet op omdat start- en peddelknop daar dezelfde
+  knop zijn; hier is de startknop apart, dus was de eerste bal gegarandeerd mis.
+- `GameControl` riep bij de start `paddleControl.enable()` aan maar bij game over
+  nooit `disable()` — de peddelknoppen bleven over het startscherm heen staan.
+- `flagStartPressed` werd voor het wachten gewist, `flagBallMissedByPaddle` niet.
+- `initialiseRandomStartPos()` meldde de nieuwe positie niet aan het scherm, dus
+  begon elk spel met de bal nog even op de plek waar de vorige verloren ging. En
+  `rand()` werd nooit geseed: elke boot dezelfde "willekeurige" richting.
+- De initialisatielijst van `ballPanel`/`paddlePanel` las `width`/`height` terwijl
+  die leden er nog niet waren. De panels krijgen hun maat nu in `main()`, zodra de
+  celgrootte bekend is.
+- Twee debug-logregels eruit: `updatePaddlePosition()` logde elke aanroep en
+  `STATE_ENABLED` elke lus-iteratie. De logger is 100 regels diep; dat duwde eruit
+  wat je met de dump-knop wilde zien.
+
+### Twee dingen die pas op het bord bleken
+Na de eerste flash: de startknop stond met zijn midden tegen de rechterrand, er
+was wel een linker- en een bovenwand maar geen rechter, en de bal bewoog niet
+terwijl het spel na een minuut wel netjes game over meldde. Allebei terug te
+voeren op een verkeerde aanname over CleanGUI.
+
+**`locPos` is de linkerbovenhoek. `Alignment` doet daar niet aan mee.**
+`getGlobPosPix()` is domweg `parentPos + locPosPix`; de alignment wordt alleen
+geraadpleegd bij het tekenen van een `Image` binnen een `Panel` en bij het
+plaatsen van een `Text`. Een knop van 800 promille breed op x=500 promille begint
+dus in het midden en loopt rechts van het scherm af. En `rightBorderPanel` met
+locPos (0,0) en `Alignment::TopRight` komt gewoon op (0,0) terecht, boven op de
+linkerwand — vandaar de verdwenen rechterwand. Alle posities worden nu expliciet
+als linkerbovenhoek uitgerekend.
+
+**`setLocPos()` verzet, `moveTo()` verzet en tekent.** Dat staat er met zoveel
+woorden bij: "Deliberately NOT hide() + setLocPos() + show()". De bal en de peddel
+gebruikten `setLocPos()`, dus stond de spellogica er goed bij terwijl er op het
+scherm niets bewoog. Dat verklaart ook waarom uitgerekend de bal bleef staan toen
+de rest verdween: bij `hide()` wist een paneel zichzelf op zijn *opgeslagen*
+positie, en die was inmiddels weggelopen van de plek waar hij getekend was.
+
+Daar hangt nog iets aan vast. `moveTo()` laat de vrijgekomen strook door de boom
+opnieuw tekenen, en een `PageRoot` tekent zelf niets. Zonder achtergrondpaneel
+blijft de oude bal dus staan — dezelfde vondst als bij de vier voorbeelden van
+28 juli. Elke pagina heeft er nu een.
+
+Twee dingen die daarbij opvielen en ook fout waren: `pageStart` werd een keer voor
+de lus getoond en bij de start verborgen én uitgeschakeld, maar in
+`STATE_GAME_OVER` nooit teruggezet — na een spel was er geen weg meer terug. En
+`addChildWidget()` eist dat de ouder al een display heeft: eerst het paneel aan de
+pagina hangen, daarna pas de tekst aan het paneel. Andersom is het een assert en
+een bootlus.
+
+Het "Game Over" staat nu op het scherm (een paneel met een `Text`), niet meer als
+ASCII-art in de seriele monitor. Het speelveld beslaat de bovenste driekwart
+(cellen van 16 bij 18 pixels), de peddelknoppen de onderste kwart, zodat ze elkaar
+niet meer overlappen.
+
+### Wat er nog opvalt
+De app vraagt rotatie 1, terwijl `/TouchCalData1` op de spiffs rotatie 3 bevatte
+van een vorige app. Dat forceert bij het eerste opstarten een hernieuwde
+touchkalibratie. Allebei zijn landschap, dus `getScreenSize()` geeft in beide
+gevallen (320,240) — het is puur de gedeelde kalibratie die erover valt. Een keer
+kalibreren en het is over, of rotatie 3 aanhouden zoals MultiPanel doet.
+
 ## 2026-07-28 — Alle voorbeelden in PAL8, en een palet dat een mens kan lezen
 
 Alle acht voorbeelden zijn op de PAL8-adapter gezet en een voor een op de CYD

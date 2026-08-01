@@ -142,22 +142,33 @@ namespace crt
 					// Automatically select a suitable font scale
 					Vec2 panelSize = this->getSizePix();
 
+					uint64_t textWidth = (uint64_t)(pDisplay->getTextWidth(text.getText(), text.getFont()));
 					if (fontHeight > 0)
 					{
 						uint64_t fontScale = 1;	// start at 1.
 						uint64_t largestApplicableFontScale = 1;	// start at 1.
 						uint64_t panelSizeY = (uint64_t)panelSize.y;
+						uint64_t panelSizeX = (uint64_t)panelSize.x;
 
 						//ESP_LOGI("panelSizeY", "%d", (uint32_t)panelSizeY);
 						//ESP_LOGI("fontHeight", "%d", (uint32_t)fontHeight);
 
+						// Twee eisen, allebei met dezelfde marge van 10%: het datum
+						// moet in de hoogte van de knop passen en in de breedte.
+						// Alleen op hoogte kijken laat een lang label gewoon links
+						// en rechts van de knop af lopen - een knop is immers vaak
+						// veel breder dan hoog, dus de hoogte laat een schaal toe
+						// die de breedte nooit haalt.
 						uint64_t factorPctY = 100000;
-						while (factorPctY > 110)
+						uint64_t factorPctX = 100000;
+						while ((factorPctY > 110) && (factorPctX > 110))
 						{
 							largestApplicableFontScale = fontScale;
 
 							fontScale++;
 							factorPctY = 100 * panelSizeY / (fontScale * fontHeight);
+							factorPctX = (textWidth > 0) ? (100 * panelSizeX / (fontScale * textWidth))
+							                             : 100000;	// leeg label: breedte legt niets op.
 							//ESP_LOGI("fontScale", "%d", (uint32_t)fontScale);
 							//ESP_LOGI("factorPctY", "%d", (uint32_t)factorPctY);
 						}
@@ -254,6 +265,21 @@ namespace crt
 		/* override */ bool isPressed()
 		{
 			return bPressed;
+		}
+
+		// Een knop die wordt uitgeschakeld terwijl er een vinger op ligt, mag niet
+		// ingedrukt blijven staan. touchReleased() keert bij een uitgeschakelde
+		// knop meteen terug, dus bPressed blijft dan hangen - en bij de volgende
+		// enable() ziet touchPressed() een knop die al ingedrukt is en meldt nooit
+		// meer een buttonPressed(). De knop is dan dood.
+		//
+		// Dat is precies wat er gebeurt bij een knop die zijn eigen pagina wegzet:
+		// druk -> listener verbergt en disabelt de pagina -> de vinger gaat los in
+		// het niets. Widget::hide() disabelt ook, dus dit dekt hide() mee.
+		/*override*/ void disable(bool bIncludeChildren)
+		{
+			bPressed = false;
+			PBase::disable(bIncludeChildren);
 		}
 
 		/*override*/ void setButtonName(const char* str)

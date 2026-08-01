@@ -1,6 +1,8 @@
 // by Marius Versteegen, 2024
 
 #pragma once
+#include <stdlib.h>
+#include <esp_timer.h>
 #include <crt_CleanRTOS.h>
 #include <crt_Button.h>
 #include "crt_SceneDisplayControl.h"
@@ -52,6 +54,13 @@ namespace crt
             vY(1),
             state(STATE_STOPPED)
 		{
+            // Zonder deze regel denkt BallControl dat de peddel op 0 staat tot de
+            // speler voor het eerst links of rechts aanraakt - en is de eerste bal
+            // dus altijd mis. De peddel begint in het midden, net als in
+            // PaddleControl en SceneDisplayControl.
+            poolPaddlePosition.write(screenWidth/2);
+
+            srand((unsigned int)esp_timer_get_time());  // anders elke boot dezelfde "willekeurige" richting.
 			start();
 		}
 
@@ -71,32 +80,73 @@ namespace crt
         }
 
 	private:
+        // posX/posY zijn het MIDDEN van de bal, in speelveldpixels met de
+        // oorsprong linksonder. Alles hieronder rekent met de straal erbij, want
+        // een bal van 12 pixels kaatst met zijn rand tegen de wand, niet met zijn
+        // middelpunt.
+        static const int ballRadius = BallSizePix/2;
+
         void initialiseRandomStartPos()
         {
             posX = screenWidth/2;
             posY = screenHeigth/2;
-            vX = (rand()%2)*2-1;
-            vY = 1;
+            vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
+            vY = BallSpeedPixPerFrame;
+
+            // Meteen doorgeven, anders staat de bal het eerste beeld van een
+            // nieuw spel nog op de plek waar het vorige spel verloren ging.
+            sceneDisplayControl.updateBallPosition(posX, posY);
         }
 
         void updateBallPosition()
         {
-            if (posX==1 || posX==screenWidth-2)
-            {
-                vX = -vX;
-            }
-            if (posY==screenHeigth-2)
-            {
-                vY = -vY;
-            }
-            int paddlePosition(0);
-            poolPaddlePosition.read(paddlePosition);
-            if(posY==1 && (posX+vX)>=paddlePosition-1 && (posX+vX)<=paddlePosition+1)
-            {
-                vY = -vY;
-            }
             posX += vX;
             posY += vY;
+
+            // Tegen een wand aan: terugzetten op de rand en de richting omkeren.
+            // Terugzetten hoort erbij - zonder dat kan de bal een stap in de wand
+            // eindigen en er bij de volgende stap nog dieper in lopen, want de
+            // snelheid is groter dan een pixel.
+            if (posX - ballRadius <= WallThicknessPix)
+            {
+                posX = WallThicknessPix + ballRadius;
+                vX = (vX < 0) ? -vX : vX;
+            }
+            else if (posX + ballRadius >= screenWidth - WallThicknessPix)
+            {
+                posX = screenWidth - WallThicknessPix - ballRadius;
+                vX = (vX > 0) ? -vX : vX;
+            }
+
+            if (posY + ballRadius >= screenHeigth - WallThicknessPix)
+            {
+                posY = screenHeigth - WallThicknessPix - ballRadius;
+                vY = (vY > 0) ? -vY : vY;
+            }
+
+            // De peddel: alleen als de bal daalt, en alleen als hij binnen de
+            // breedte van de peddel valt.
+            int paddlePosition(0);
+            poolPaddlePosition.read(paddlePosition);
+            if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
+                && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
+                && (posX <= paddlePosition + PaddleWidthPix/2 + ballRadius))
+            {
+                posY = PaddleHeightPix + ballRadius;
+                vY = -vY;
+
+                // Waar op de peddel hij landt bepaalt de hoek: bij de rand loopt
+                // hij scherper weg dan in het midden. Zonder dit blijft de bal
+                // eeuwig onder 45 graden heen en weer gaan en valt er niets te
+                // spelen.
+                int offsetFromCentre = posX - paddlePosition;
+                vX = (offsetFromCentre * 2 * BallSpeedPixPerFrame) / (PaddleWidthPix/2);
+                if (vX == 0)
+                {
+                    vX = (offsetFromCentre < 0) ? -1 : 1;	// nooit helemaal recht omhoog.
+                }
+            }
+
             sceneDisplayControl.updateBallPosition(posX, posY);
         }
 
@@ -118,7 +168,7 @@ namespace crt
                     break;
 
                 case STATE_RUNNING:
-                    if (posY<=0)
+                    if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
                     {
                         assert(pBallControlListener!=nullptr);
                         pBallControlListener->ballMissedByPaddle();
@@ -134,8 +184,8 @@ namespace crt
                     break;
                 }
 
-                vTaskDelay(500);    // Determines the speed of the ball.
-                                    // feasibility depends on the console speed of your machine.
+                vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
+                                                // een stap van BallSpeedPixPerFrame pixels.
 			}
 		}
 	}; // end class BallControl
