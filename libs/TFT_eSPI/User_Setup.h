@@ -229,7 +229,21 @@
 #define TOUCH_MISO 39
 #define TOUCH_SCLK 25
 #define TOUCH_IRQ  36
-// Lower pressure threshold helps some CYD panels register touches reliably
+// Lower pressure threshold helps some CYD panels register touches reliably.
+// Dit is de drempel voor het *aanraken*. Voor het vasthouden hanteert
+// crt_TFT_eSPI_TouchDetector.h een kwart hiervan, zodat een vinger die stil ligt
+// niet om de drempel heen wipt; die volgt dus vanzelf mee als je hier draait.
+// 200 is geen willekeurige keuze. Gemeten op dit paneel: in rust leest Z tussen
+// de 25 en 80, bij een echte aanraking 1700 tot 2500. Daar ligt 200 ruim
+// tussenin.
+//
+// Vooral niet lager dan de ruisvloer: getTouch() heeft een snelle uitstap
+// (`if (getTouchRawZ() <= threshold) return false;`) die er juist voor zorgt dat
+// een onaangeraakt scherm na een enkele meting klaar is. Zakt de drempel onder
+// de ruis, dan vuurt die uitstap nooit meer en doet elke polling vijf volledige
+// validTouch-pogingen met debounce-lussen - samen ~14 ms, twintig keer per
+// seconde. Het scherm wordt daar juist onbetrouwbaar van in plaats van
+// gevoeliger.
 #define TOUCH_THRESHOLD 200
 // Debug: draw touch points and log coordinates when a touch is detected
 #define TOUCH_DEBUG_DRAW

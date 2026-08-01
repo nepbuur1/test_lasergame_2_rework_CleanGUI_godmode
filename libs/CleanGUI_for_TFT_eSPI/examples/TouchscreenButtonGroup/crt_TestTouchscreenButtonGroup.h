@@ -81,27 +81,27 @@ namespace crt
 				            tft_eSPI_DisplayAdapter, 3/*rotation*/, 2/*fontTouchCalibration*/),
 
 			// fontScale=0 triggers automatical matching of fontscale with the button height.
-			tsButtonA(/*name*/"bn_A",/*locPos*/Vec2(100, 100), CoordType::Promillage,
-				/*size*/Vec2(500, 100), /*cornerRadius*/100, CoordType::Promillage,
+			tsButtonA(/*name*/"bn_A",/*locPos*/Vec2(100, 155), CoordType::Promillage,
+				/*size*/Vec2(500, 150), /*cornerRadius*/100, CoordType::Promillage,
 				Alignment::MidMid,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
 				/*bInvertedArea*/false, "Button A", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
 			/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
 
-			tsButtonB(/*name*/"bn_B", /*locPos*/Vec2(100, 250), CoordType::Promillage,
-				/*size*/Vec2(500, 100), /*cornerRadius*/100, CoordType::Promillage,
+			tsButtonB(/*name*/"bn_B", /*locPos*/Vec2(100, 385), CoordType::Promillage,
+				/*size*/Vec2(500, 150), /*cornerRadius*/100, CoordType::Promillage,
 				Alignment::MidMid,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
 				/*bInvertedArea*/false, "Button B", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
 			/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
 
 			// fontScale=0 triggers automatical matching of fontscale with the button height.
-			tsButtonC(/*name*/"bn_C",/*locPos*/Vec2(100, 400), CoordType::Promillage,
-				/*size*/Vec2(500, 100), /*cornerRadius*/100, CoordType::Promillage,
+			tsButtonC(/*name*/"bn_C",/*locPos*/Vec2(100, 615), CoordType::Promillage,
+				/*size*/Vec2(500, 150), /*cornerRadius*/100, CoordType::Promillage,
 				Alignment::MidMid,	/*colPanel*/0x00008800, /*colBg*/0x00000000,
 				/*bInvertedArea*/false, "Button C", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
 			/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
 
-			tsButtonD(/*name*/"bn_D",/*locPos*/Vec2(100, 550), CoordType::Promillage,
-				/*size*/Vec2(500, 100), /*cornerRadius*/100, CoordType::Promillage,
+			tsButtonD(/*name*/"bn_D",/*locPos*/Vec2(100, 845), CoordType::Promillage,
+				/*size*/Vec2(500, 150), /*cornerRadius*/100, CoordType::Promillage,
 				Alignment::MidMid,	/*colPanel*/0x00008800, /*colBg*/0x00000000,
 				/*bInvertedArea*/false, "Button D", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
 			/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),

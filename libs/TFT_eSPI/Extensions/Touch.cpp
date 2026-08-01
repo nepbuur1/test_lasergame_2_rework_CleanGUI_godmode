@@ -205,7 +205,25 @@ uint16_t TFT_eSPI::getTouchRawZ(void){
 ** Function name:           validTouch
 ** Description:             read validated position. Return false if not pressed. 
 ***************************************************************************************/
-#define _RAWERR 20 // Deadband error allowed in successive position samples
+// ---- CleanGUI-aanpassing: was 20 ----------------------------------------
+// De deadband tussen twee opeenvolgende positiemetingen. Gemeten op de CYD met
+// een vinger en met een aanwijsstokje, drie aanrakingen elk: de x-waarde is
+// rotsvast (het verschil komt nooit boven de 18), maar de y-waarde springt
+// structureel - 24, 38, 51, 53 en af en toe een uitschieter van honderden. De
+// druk was daarbij 1700 tot 2500, dus ruim boven elke drempel.
+//
+// Met 20 sneuvelde daardoor een derde tot de helft van alle metingen op de
+// y-as, terwijl er niets mis was met de aanraking. Dat is wat je merkt als
+// "met een stokje gaat het prima, met een vinger moet ik onprettig hard
+// drukken": hard drukken maakt het contactvlak stabiel genoeg voor deze test,
+// een ontspannen vinger niet.
+//
+// 60 laat de gewone y-ruis door en houdt de echte uitschieters buiten. Wat het
+// kost: de kalibratie van dit bord loopt van 249 tot 3431 over 320 pixels en
+// van 270 tot 3394 over 240, dus ongeveer 10 raw-eenheden per pixel. De
+// toegestane afwijking gaat daarmee van 2 naar 6 pixels - onzichtbaar bij
+// knoppen, en het raakt alleen de *acceptatie*, niet de gerapporteerde positie.
+#define _RAWERR 60 // Deadband error allowed in successive position samples
 uint8_t TFT_eSPI::validTouch(uint16_t *x, uint16_t *y, uint16_t threshold){
   uint16_t x_tmp, y_tmp, x_tmp2, y_tmp2;
 
