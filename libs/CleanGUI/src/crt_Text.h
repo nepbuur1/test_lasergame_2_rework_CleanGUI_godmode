@@ -189,9 +189,14 @@ namespace crt
 		}
 
 		// show immediately draws it. hide immediately undraws it.
+		// Wissen alleen als er ook echt iets stond - zie de uitleg bij
+		// Panel::hide().
 		/*override*/ void hide(bool bIncludeChildren)
 		{
-			hideText();
+			if (WBase::isShown())
+			{
+				hideText();
+			}
 			WBase::hide(bIncludeChildren); // sets the boolean bVisible to false to remember.
 		}
 

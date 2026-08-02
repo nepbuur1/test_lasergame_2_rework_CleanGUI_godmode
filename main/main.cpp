@@ -31,6 +31,10 @@ namespace crt
 //#include <esp_http_client_example.h>
 
 // Selecteer onderstaand de .ino van je applicatie
+
+// **** CleanCore Tests ****
+//#include "TestButton.ino"
+
 // **** CleanRTOS Core Tests ****
 //#include <HelloWorld.ino>    					// For initial test.
 //#include <TwoTasks.ino>
@@ -54,7 +58,6 @@ namespace crt
 //#include <Button_demo.ino>
 //#include <AsyncDisplay.ino>
 //#include <Free_Font_Demo.ino>
-//#include "TestButton.ino"
 //#include <TouchscreenButton.ino>
 //#include <TouchscreenButtonGroup.ino>
 //#include <TouchscreenKeyboard.ino>

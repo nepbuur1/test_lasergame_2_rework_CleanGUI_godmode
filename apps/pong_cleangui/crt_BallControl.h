@@ -9,6 +9,12 @@
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
+// Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
+// binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
+// honderden keren per minuut te beproeven is in plaats van twintig keer per
+// kwartier. Zie initialiseRandomStartPos().
+//#define PONG_FAST_GAME_OVER
+
 namespace crt
 {
 	extern ILogger& logger;
@@ -88,10 +94,27 @@ namespace crt
 
         void initialiseRandomStartPos()
         {
+#ifdef PONG_FAST_GAME_OVER
+            // De bal begint vlak boven de doellijn, helemaal links, en gaat
+            // meteen naar beneden. De peddel begint in het midden en
+            // haalt dat niet, dus is het na een handvol beelden game over.
+            //
+            // Bedoeld voor het beproeven van die overgang, waar drie taken
+            // tegelijk gaan tekenen en het dus stuk kan gaan.
+            //
+            // vX = 0 houdt hem bij de linkerwand vandaan: bij een botsing tegen
+            // die wand zou hij naar rechts wegdraaien en alsnog bij de peddel
+            // kunnen uitkomen.
+            posX = WallThicknessPix + ballRadius;
+            posY = PaddleHeightPix + ballRadius + 2*BallSpeedPixPerFrame;
+            vX = 0;
+            vY = -BallSpeedPixPerFrame;
+#else
             posX = screenWidth/2;
             posY = screenHeigth/2;
             vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
             vY = BallSpeedPixPerFrame;
+#endif
 
             // Meteen doorgeven, anders staat de bal het eerste beeld van een
             // nieuw spel nog op de plek waar het vorige spel verloren ging.

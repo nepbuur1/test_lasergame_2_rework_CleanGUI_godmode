@@ -81,7 +81,16 @@ namespace crt
 				{
 				  for (int nofHandled = 0; nofHandled < MaxNofCommandsPerCycle; nofHandled++)
 				  {
-					queueCommands.read(curCommand);
+					// tryRead en niet read: het event-bit van een queue is een
+					// belletje dat los van de queue wordt bijgehouden, dus het kan
+					// aan staan terwijl de queue al leeg is. Hier stond read(), en
+					// die blokkeert dan voorgoed - met deze taak ook pollTouch(),
+					// zodat het scherm bevriest en geen enkele knop nog reageert.
+					// tryRead zet dat bit meteen recht.
+					if (!queueCommands.tryRead(curCommand))
+					{
+						break;
+					}
 
 					// curCommand.dumpWithESP_LOGI(); vTaskDelay(1); // for debugging purposes.
 
@@ -208,7 +217,10 @@ namespace crt
 		void drainOneCommand()
 		{
 			DisplayCommand displayCommand;
-			queueCommands.read(displayCommand);		// blokkeert alleen als leeg, en dat is hij hier niet
+			if (!queueCommands.tryRead(displayCommand))
+			{
+				return;		// hoort niet te kunnen (we komen hier alleen als hij vol is), maar nooit blokkeren.
+			}
 			PrintContext* pPrintContext = queryPrintContext(displayCommand.getTask());
 			assert(pPrintContext != nullptr);
 			displayCommand.execute(display, *pPrintContext);

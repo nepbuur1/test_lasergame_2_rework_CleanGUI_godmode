@@ -6,6 +6,11 @@
 #pragma once
 #define CRT_DEBUG_LOGGING
 
+// Zet het venster in Queue::write expres wijd open (zie daar). Aanzetten om te
+// controleren of een taak die met waitAny op een queue wacht het stale-doorbell
+// probleem heeft; het maakt alles wel traag. Normaal uit.
+//#define CRT_QUEUE_WIDEN_DOORBELL_RACE
+
 // CRT_HIGH_WATERMARK_INCREASE_LOGGING laat elke Task per lus-iteratie
 // dumpStackHighWaterMarkIfIncreased() aanroepen. Die kost ~0,25 ms, ook als er
 // niets gelogd wordt: uxTaskGetStackHighWaterMark() scant telkens de hele stack

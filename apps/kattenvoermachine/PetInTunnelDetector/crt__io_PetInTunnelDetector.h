@@ -131,10 +131,12 @@ namespace crt
 						//logger.logText("rfid detected");
 
 						uint64_t rfid = 0;
-						queueRfIdDetections.read(rfid);
-						broadCastPetInTunnel(tunnel, rfid);
-						//state = PetInTunnelDetectorState::Pause;
-						makeCentralDecisions();
+						if (queueRfIdDetections.tryRead(rfid))	// tryRead en niet read na hasFired: zie crt_Queue.h
+						{
+							broadCastPetInTunnel(tunnel, rfid);
+							//state = PetInTunnelDetectorState::Pause;
+							makeCentralDecisions();
+						}
 					}
 					else 
 					{

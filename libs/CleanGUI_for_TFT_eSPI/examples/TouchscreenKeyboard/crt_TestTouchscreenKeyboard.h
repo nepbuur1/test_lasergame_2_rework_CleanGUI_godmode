@@ -172,7 +172,7 @@ namespace crt
 
 				if (hasFired(queueKeyPressedStrings))
 				{
-					queueKeyPressedStrings.read(strKey);
+					if (!queueKeyPressedStrings.tryRead(strKey)) { continue; }	// tryRead na hasFired: zie crt_Queue.h
 					flagTouchPressed.clear();
 
 					if(strncmp(strKey, "OutsideKeyboardPressed", 22) == 0)
@@ -197,7 +197,7 @@ namespace crt
 				}
 				else if (hasFired(queueKeyReleasedStrings))
 				{
-					queueKeyReleasedStrings.read(strKey);
+					if (!queueKeyReleasedStrings.tryRead(strKey)) { continue; }	// tryRead na hasFired: zie crt_Queue.h
 					//ESP_LOGI(Task::taskName, "Key Released:%s", str);
 				}
 				else if (hasFired(flagTouchPressed))

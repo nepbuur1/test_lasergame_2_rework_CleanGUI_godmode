@@ -32,9 +32,14 @@ namespace crt
 	const int MaxNofClientTasks = 10;		// Max aantal taken dat commando's naar het display kan sturen.	
 
 	TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
-	TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners> tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);
-	AsyncDisplay<CommandBufferSize, MaxNofClientTasks> asyncDisplay("AsyncDisplay", 2 /*priority*/, 20000 + CommandBufferSize*sizeof(DisplayCommand)+
-				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE, 
+
+	// Typedefs, puur voor de leesbaarheid hieronder.
+	typedef TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners> DisplayAdapterType;
+	typedef AsyncDisplay<CommandBufferSize, MaxNofClientTasks> AsyncDisplayType;
+
+	DisplayAdapterType tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);
+	AsyncDisplayType asyncDisplay("AsyncDisplay", 2 /*priority*/, 20000 + CommandBufferSize*sizeof(DisplayCommand)+
+				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE,
 				            tft_eSPI_DisplayAdapter, 1/*rotation*/, 2/*fontTouchCalibration*/);
 
 	SceneDisplayControl<20,10> sceneDisplayControl("SceneDisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts); 

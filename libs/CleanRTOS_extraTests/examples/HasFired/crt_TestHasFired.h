@@ -87,13 +87,18 @@ namespace crt
                 }
                 else if (hasFired(queue1))
                 {
-                    queue1.read(number);
-                    ESP_LOGI("from queue1:","%" PRIi32,number);
+                    // tryRead en niet read na hasFired: zie de uitleg bij read() in crt_Queue.h
+                    if (queue1.tryRead(number))
+                    {
+                        ESP_LOGI("from queue1:","%" PRIi32,number);
+                    }
                 }
                 else if (hasFired(queue2))
                 {
-                    queue2.read(number);
-                    ESP_LOGI("from queue2:","%" PRIi32,number);
+                    if (queue2.tryRead(number))
+                    {
+                        ESP_LOGI("from queue2:","%" PRIi32,number);
+                    }
                 }
                 else if (hasFired(flag2))
                 {

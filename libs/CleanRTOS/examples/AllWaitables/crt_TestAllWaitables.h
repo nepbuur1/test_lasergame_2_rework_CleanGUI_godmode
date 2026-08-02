@@ -117,13 +117,18 @@ namespace crt
                 }
                 else if (hasFired(queue1))
                 {
-                    queue1.read(number);
-                    logger.logInt32(number);				// Test reception of a decreasing number via a queue from one task.
+                    // tryRead en niet read na hasFired: zie de uitleg bij read() in crt_Queue.h
+                    if (queue1.tryRead(number))
+                    {
+                        logger.logInt32(number);			// Test reception of a decreasing number via a queue from one task.
+                    }
                 }
                 else if (hasFired(queue2))
                 {
-                    queue2.read(number);
-                    logger.logInt32(number);				// Test reception of a increasing number via a queue from another task.
+                    if (queue2.tryRead(number))
+                    {
+                        logger.logInt32(number);			// Test reception of a increasing number via a queue from another task.
+                    }
                 }
                 else if (hasFired(timer1))
                 {

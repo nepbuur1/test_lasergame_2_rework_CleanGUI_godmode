@@ -213,9 +213,20 @@ namespace crt
 		}
 
 		// show immediately draws it. hide immediately undraws it.
+		//
+		// Wissen doet hij alleen als er ook echt iets van hem stond. Een pagina
+		// die na het opbouwen meteen verborgen wordt - wat hier elk van de drie
+		// pagina's doet - heeft nog nooit een pixel gezet, en vulde anders bij
+		// dat verbergen alsnog zijn eigen vlak met colBg. Dat hoeft niet alleen
+		// niet, het is ook fout zodra een andere taak daar ondertussen wel iets
+		// heeft neergezet: bij het opstarten viel op die manier het wisvlak van
+		// de peddel (135,167)-(185,179) precies over de startknop.
 		/*override*/ void hide(bool bIncludeChildren)
 		{
-			hidePanel();
+			if (WBase::isShown())
+			{
+				hidePanel();
+			}
 			WBase::hide(bIncludeChildren); // sets the boolean bVisible to false to remember.
 		}
 

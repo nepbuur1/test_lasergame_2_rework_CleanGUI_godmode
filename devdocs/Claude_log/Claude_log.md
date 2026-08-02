@@ -1,5 +1,120 @@
 # Claude log
 
+## 2026-08-02 — De dode startknop: een belletje dat niets meer dekte
+
+Symptoom in pong_cleangui: bij het game-over-scherm was ongeveer een op de drie
+keer de herstartknop voorgoed dood. Het scherm klopte - "GAME OVER" en de knop
+stonden er netjes - maar er kwam geen enkele reactie meer, en alleen de
+resetknop hielp. Geen paniek, geen watchdog, geen enkele regel op de seriele
+poort. Vandaar de aanname dat er "stil iets gecrasht" was.
+
+### Waar het aan lag
+`Queue::write()` doet twee dingen na elkaar die als een geheel bedoeld zijn:
+
+```cpp
+xQueueSend(qh, &v, writeDelay);      // het item staat er nu in
+pTask->setEventBits(getBitMask());   // ... en nu pas gaat de bel
+```
+
+Wordt de schrijver daar precies tussenin weggedrukt, en leegt de lezer de queue
+intussen helemaal, dan komt die `setEventBits` alsnog - op een lege queue. Het
+event-bit is daarmee een belletje dat niets meer dekt. `Task::hasFired()` wist
+queue-bits met opzet niet (alleen een `read()` mag dat doen), dus het blijft
+staan ook.
+
+`AsyncDisplay::main()` geloofde dat bit en riep `Queue::read()` aan, en die
+blokkeert met `portMAX_DELAY` op een queue waar niets in zit. Daarmee stond de
+tekentaak stil - en `pollTouch()` draait in diezelfde taak. Dat is precies het
+beeld: het paneel houdt vast wat er stond (de directe RGB565-adapter tekent
+rechtstreeks in GRAM), en er wordt nooit meer een aanraking uitgelezen.
+
+Twee schrijvers zijn genoeg, en die zijn er bij game over: `GameControl`,
+`PaddleControl` en `SceneDisplayControl` tekenen daar alle drie binnen dezelfde
+200 ms. Tijdens het spelen tekent alleen `SceneDisplayControl`, en dan kan het
+niet gebeuren. Dat verklaart waarom het uitgerekend bij die overgang zat.
+
+### Hoe het gemeten is - en wat de eerste poging kapotmaakte
+De eerste probe zat *in* `Queue::read()`: een timeout van een seconde met een
+`ESP_LOGE` erop. Gedrag verder identiek, dacht ik. Gevolg: niet meer te
+reproduceren. Een meting midden in de code die je verdenkt, verschuift precies
+het venster dat je wilt zien.
+
+Wat wel werkte, was er van buitenaf naar kijken. Een losse taak op prioriteit 3
+die niets aanraakt en zwijgt tot er iets niet klopt, met als kenmerk: het
+event-bit van de commando-queue staat aan terwijl die queue leeg is. En
+daarnaast een schakelaar die het vermoede venster expres wijd openzet - een
+`taskYIELD()` tussen `xQueueSend` en `setEventBits`
+(`CRT_QUEUE_WIDEN_DOORBELL_RACE`, staat er nog in en is normaal uit).
+
+Met die schakelaar aan liep het bij het tweede spel vast, en de dump was
+eenduidig:
+
+```
+AsyncDisplay  blocked  bits=0x000003 (queues=0x000001 flags=0x000004 timers=0x000002)
+queuediepte=0  queueBitGezet=1
+buttonStart:  shown=1 enabled=1 pressed=0
+```
+
+Let op wat daar staat: zowel het queue-bit als het 50 ms-timerbit staat *aan*,
+en toch blijft de taak blocked. Wie op een event group wacht wordt door zo'n bit
+onmiddellijk vrijgegeven - dus die taak wacht helemaal niet op de event group,
+maar een laag dieper, in `xQueueReceive`. En de knop was kerngezond: zichtbaar,
+enabled, niet ingedrukt. Daarmee vielen alle andere verdenkingen (vastzittende
+`bPressed`, vastzittende touchdetectie, blijven staan clip-rect) af.
+
+### De oplossing
+Het event-bit is een aanwijzing, nooit een belofte; de queue zelf is de enige
+waarheid.
+
+- `crt_Queue.h`: `tryRead()` erbij (leest zonder ooit te blokkeren) en een
+  private `syncEventBit()` die het bit gelijktrekt met wat er werkelijk in de
+  queue staat. Die kijkt na het wissen nog een keer, want tussen kijken en
+  wissen kan een schrijver er alsnog iets in gezet hebben, en zijn belletje zou
+  dan weggepoetst worden.
+- `crt_AsyncDisplay.h`: de leeslus gebruikt `tryRead` en stopt als de queue toch
+  leeg blijkt. `drainOneCommand()` idem.
+- Bij `read()` staat nu met zoveel woorden dat hij niet na een `hasFired()` op
+  diezelfde queue gebruikt mag worden.
+
+Dezelfde combinatie - `waitAny` op een queue, dan `hasFired`, dan een
+blokkerende `read` - stond ook in `crt__io_PetInTunnelDetector.h` en in de
+voorbeelden TouchscreenKeyboard, AllWaitables en HasFired. Allemaal omgezet. De
+plekken met `wait(queue)` gevolgd door `read()` (TestQueue, TestQueue2,
+ServoSweeper) zijn met rust gelaten: die taken wachten op niets anders, dus een
+belletje dat niets dekt laat ze hooguit op het volgende echte item wachten.
+
+**Eerlijk over het bewijs:** natuurlijk reproduceren is met de meetopstelling
+erin nooit gelukt - honderd versnelde spellen leverden niets op. Wat er ligt is:
+het mechanisme bestaat aantoonbaar en geeft exact dit beeld, met de schakelaar
+aan liep het binnen twee spellen vast, met de fix erin overleeft het diezelfde
+schakelaar, en een lange normale sessie is schoon.
+
+### Bijvangst: het donkere blokje over de startknop
+Bij het opstarten viel er een klein donker vlak over de startknop. `Panel::hide()`
+en `Text::hide()` tekenden hun eigen vlak leeg *ook als het widget nooit getoond
+was*. Alle drie de pagina's verbergen zichzelf meteen na het opbouwen, dus alle
+drie wisten daarbij vlakken waar nog nooit iets van hen had gestaan. Het
+wisvlak van `paddlePanel` is (135,167)-(185,179) en `buttonStart` beslaat
+(32,134)-(288,188): dat past er precies in. Omdat de commando's van de drie
+taken in dezelfde queue door elkaar lopen, kon de grote achtergrondvulling van
+het speelveld nog voor de knop landen en het kleine peddelvlakje er net na.
+
+`hide()` wist nu alleen nog wat er ook echt getekend is (`isShown()`). Dat is
+sowieso wat de kop van die functies belooft: "hide immediately undraws it".
+
+### Wat er is blijven liggen
+Drie taken tekenen bij elke overgang tegelijk in dezelfde commando-queue, zonder
+enige ordening; de `vTaskDelay(200)` in `STATE_GAME_OVER` is een gok en geen
+afspraak. `AsyncDisplay::waitUntilDrawn()` bestaat daarvoor. Het donkere blokje
+was daar het zichtbare gevolg van; de tekenvolgorde blijft in principe
+onbepaald.
+
+Verder twee kleinigheden in `crt_PaddleControl.h`: `hasFired(flagLeftReleased)
+|| hasFired(flagRightReleased)` kortsluit, zodat de tweede vlag nooit
+geconsumeerd wordt, en een peddel die middenin een beweging wordt uitgezet laat
+het eventbit van `repeatTimer` aanstaan - de eerste stap van het volgende spel
+komt daardoor meteen.
+
 ## 2026-08-01 — De ingebouwde fouten uit pong_cleangui
 
 `apps/pong_cleangui/README.txt`: *"Er zijn alleen een paar bugs gemaakt. Kun jij
