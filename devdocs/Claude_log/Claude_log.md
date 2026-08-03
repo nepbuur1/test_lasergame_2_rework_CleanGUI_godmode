@@ -1,5 +1,45 @@
 # Claude log
 
+## 2026-08-03 — Code-navigatie in VS Code over WSL
+
+Geen codewijziging; alleen gereedschap. In het Remote-WSL-venster gaf
+rechtsklikken op een functie geen "Go to Declaration".
+
+### Waar het aan lag
+Bij Remote-WSL draaien taalextensies aan de Linux-kant, in
+`~/.vscode-server/extensions`. Daar stond alleen `github.copilot-chat` - geen
+enkele C/C++-taalserver. Wat er in de Windows-installatie staat telt niet mee.
+VS Code behandelde `.h`/`.cpp` dus als platte tekst.
+
+### Wat er is gedaan
+- `ms-vscode.cpptools` (1.32.2, linux-x64) en `espressif.esp-idf-extension`
+  (2.1.0) geinstalleerd aan de WSL-kant, met
+  `~/.vscode-server/bin/<hash>/bin/code-server --install-extension ...`.
+  De remote-cli wrapper werkt hier niet: die eist `VSCODE_IPC_HOOK_CLI` en
+  is dus alleen bruikbaar vanuit de integrated terminal.
+- `.vscode/c_cpp_properties.json` (gitignored) wijst naar het al bestaande
+  `build/compile_commands.json` - 1648 vertaaleenheden, ververst door
+  `idf.py build`. Standaarden afgelezen uit de build zelf: `gnu17` en
+  `gnu++2b`.
+- Daarbij `includePath`/`browse` over `apps/`, `libs/`, `main/`,
+  `components/`. Nodig omdat deze codebase grotendeels header-only is: van
+  dit project staan alleen `main/main.cpp` en een paar library-`.cpp`'s in de
+  compile database, dus `crt_*.h` is zelf geen vertaaleenheid.
+
+### Wat er anders liep dan verwacht
+ESP-IDF-extensie 2.1.0 heeft de wizard "Configure ESP-IDF Extension" met
+"Use Existing Setup" niet meer, en ook de instellingen `idf.espIdfPath` /
+`idf.toolsPath` / `idf.pythonBinPath` bestaan niet meer. In plaats daarvan
+zoekt hij installaties via de ESP-IDF Installation Manager
+(`~/.espressif/tools/eim_idf.json`). Deze IDF is klassiek geinstalleerd met
+`install.sh` en heeft dat bestand niet.
+
+De extensie kijkt daarnaast nog wel naar het oude `<toolsPath>/esp_idf.json`,
+en `$HOME/.espressif` staat vast in de zoeklijst. Daar is dat bestand met de
+hand neergezet: v5.4.3, `/home/marius/esp54/esp-idf`, python uit
+`idf5.4_py3.10_env`. Zo blijft de klassieke installatie bruikbaar zonder EIM
+erbij te halen.
+
 ## 2026-08-02 — De dode startknop: een belletje dat niets meer dekte
 
 Symptoom in pong_cleangui: bij het game-over-scherm was ongeveer een op de drie
