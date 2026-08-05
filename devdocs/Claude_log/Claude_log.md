@@ -1,5 +1,257 @@
 # Claude log
 
+## 2026-08-05 — show/hide per pagina, in beide varianten gelijk
+
+De paginafuncties heetten eerst `selectXxxPage()`, daarna kort
+`selectXxxPage()`/`deselectXxxPage()`, en nu `showXxxPage()`/`hideXxxPage()`.
+Die laatste ronde had een reden: `select` belooft exclusiviteit - het tonen van
+de ene pagina zet de andere uit - en dat maakt geen van beide varianten waar. In
+`_dg` kan het niet eens: elke DisplayControl kent alleen zijn eigen pagina. De
+exclusiviteit komt van de aanroeper, die zijn pagina toont aan het begin van zijn
+`do..()` en verbergt aan het eind, met `MainControl` die die functies strikt na
+elkaar aanroept.
+
+Wie dat paar niet netjes houdt, maakt een stille fout: een vergeten hide laat de
+pagina "aan" staan. Je ziet dat niet - het verbergen tekent toch niets - maar zijn
+knoppen blijven wel gevoelig, en dan bedien je de peddel op de game-over-pagina.
+
+Datzelfde patroon is nu ook op `_cg` toegepast, en daar was het meer dan een
+hernoeming:
+
+- `IDisplayControl` heeft zes functies in plaats van drie: een paar per pagina.
+- De oude `selectXxxPage()` wiste zelf de vlaggen van de andere twee. Dat kon weg.
+- **De `State`-enum en de hele `switch(state)` zijn verdwenen.** Die bestonden
+  alleen om bij te houden welke pagina de huidige was. Nu elke pagina zijn eigen
+  paar heeft, is de hoofdlus een platte lijst gebeurtenissen - structureel
+  hetzelfde als de drie losse DisplayControls van `_dg`. Dat maakt het vergelijken
+  van de twee varianten eerlijker: het verschil gaat nu over waar de graphics
+  wonen, niet over hoe de toestand wordt bijgehouden.
+- De private helpers heten in beide varianten `showPage()` / `hidePage()`. In
+  `_cg` nemen ze een `IWidget&`, want de drie pagina's zijn `Panel<8>`, `Panel<2>`
+  en `Panel<1>`.
+- De `setDrawable(false)`-hide uit `_dg` is overgenomen. In `_cg` is die **niet**
+  nodig om races te vermijden - er tekent maar een taak - maar hij haalt de zwarte
+  flits tussen twee pagina's weg en houdt de varianten vergelijkbaar. Wel erft
+  `_cg` daarmee dezelfde eis: elke pagina moet met een schermvullend paneel
+  beginnen.
+- `showStartPage()` in `main()` is weg; `StartPageControl` vraagt de pagina nu zelf
+  op, net als in `_dg`.
+
+Beide varianten bouwen schoon en `_cg` boot schoon op het bord. **Voorbij het
+opstartscherm is deze `_cg`-versie nog niet uitgeoefend**: een meting van drie
+minuten leverde geen enkele `pong: XX fps`-regel op, dus er is niet gespeeld. Het
+eerste wat nagelopen moet worden is of de startpagina bij het opstarten nog
+verschijnt - dat is de plek waar de weggehaalde `showStartPage()` uit `main()`
+zich moet bewijzen.
+
+## 2026-08-05 — pong_cleangui_dg: een DisplayControl en een PageRoot per pagina
+
+De `_dg`-variant is opnieuw opgezet vanaf een kopie van `_cg` (zie README.txt
+daar): elke pagina krijgt zijn eigen DisplayControl met een eigen PageRoot en een
+eigen taak. `pdg_DisplayControl.h` is daarmee opgeheven en verdeeld over
+`pdg_StartPageDisplayControl.h`, `pdg_GameDisplayControl.h` en
+`pdg_GameOverDisplayControl.h`. In plaats van `selectStartPage()`,
+`selectGamePage()` en `selectGameOverPage()` op een gedeelde interface luistert
+elke DisplayControl nu naar zijn eigen `showXxxPage()` / `hideXxxPage()`.
+
+De spelmaten (`FrameIntervalMs`, `WallThicknessPix`, ...) en `TwoNumbers` staan nu
+in `pdg_GameDisplayControl.h`: ze beschrijven het speelveld, en `BallControl` en
+`PaddleControl` includeren die header toch al voor `IGameDisplayControl`.
+
+### Wat deze opzet makkelijker maakt
+
+De `show(true)`-val uit de cg-variant bestaat hier niet. Daar hingen drie pagina's
+onder een gedeelde root, en dan is `pageRoot.show(true)` fout (het toont ze alle
+drie) terwijl `show(false)` nodig is om de root zelf zichtbaar te krijgen - iets
+wat makkelijk te vergeten is, en precies wat er misging. Hier draagt elke root
+maar een pagina, dus is `page.show(true)` gewoon het juiste, en de root wordt
+vanzelf zichtbaar. Een hele klasse fouten valt weg.
+
+### Wat deze opzet moeilijker maakt: drie taken die tekenen
+
+Bij een paginawissel verbergt de ene taak zijn pagina terwijl de andere de zijne
+toont. Beide schrijven in dezelfde commandobuffer van `AsyncDisplay`, en welke er
+als laatste uitkomt ligt niet vast - dan wist het ene beeld het andere. De
+originele `_dg` loste dat op met `vTaskDelay(200); // wacht op evt parallel
+afrenderen van scene`; dat is een gok, geen garantie.
+
+Hier is het opgelost door het verbergen *niets te laten tekenen*:
+
+```c
+page.setDrawable(false, true);   // Panel::hide() slaat zijn wisvlak nu over
+page.hide(true);
+page.disable(true);
+```
+
+`Panel::hide()` tekent zijn wisvlak alleen als `isDrawable()`, dus zo kost het
+verbergen geen enkel commando en valt er niets meer te racen: wat overblijft zijn
+`_bVisible` en `_bEnabled`, en die zijn per pagina apart. Bij het tonen gaat
+`setDrawable(true, true)` er weer vooraf.
+
+Dat mag omdat elke pagina begint met een schermvullend `backgroundPanel`: wie in
+beeld komt wist wat de vorige achterliet. **Die eis is nu dragend** - een pagina
+die het scherm niet volledig dekt laat resten van zijn voorganger staan. Als
+bijvangst is de wissel ook mooier: geen zwarte flits tussen twee pagina's in.
+
+De tweede helft van de afspraak zit in de control-objecten: elke `do..()` toont
+zijn pagina aan het begin en verbergt hem aan het eind, en `MainControl` roept ze
+strikt na elkaar aan. Daarmee staat er nooit meer dan een PageRoot in beeld - de
+eis die boven `crt_PageRoot.h` staat.
+
+`main/CMakeLists.txt` bevatte nog een waarschuwing dat de twee pong-apps dezelfde
+headernamen dragen. Dat geldt sinds de `pcg_`/`pdg_`-prefixen alleen nog voor
+`apps/pong/pong`; bijgewerkt.
+
+### Op hardware beproefd, inclusief de paginawissels
+
+`idf.py build` is groen en het bord boot schoon: geen assert, paniek of watchdog,
+en geen van de klachten die CleanGUI zelf uitstuurt. Met drie extra taken erbij
+zegt dat al iets - de drie PageRoots met hun widgetbomen zijn opgebouwd zonder
+ruimtegebrek en de vier touchlisteners passen.
+
+Daarna een volle ronde gespeeld: startpagina -> spel -> game over -> startpagina
+-> tweede spel, dus drie paginawissels op rij. Uit de seriële meting:
+
+```
+I (5230)  pong: 1 fps      <- spel 1 begint
+I (6255)  pong: 26 fps
+I (10260) pong: 25 fps     <- spel 1 loopt ~5 s
+I (13864) pong: 10 fps     <- restant spel 1 + eerste frame spel 2
+I (14864) pong: 25 fps
+I (18943) pong: 25 fps     <- spel 2 weer op tempo
+```
+
+Dat het tweede spel opnieuw 25 fps haalt is het stuk dat vooraf niet vaststond:
+bal en peddel tekenen dus nog na een volledige ronde van `disable`/`enable` op
+alle drie de pagina's, inclusief het `bPressed`-valletje in
+`TouchscreenButton::enable()`.
+
+Visueel nagelopen door Marius: geen artefacten tussen de pagina's. Daarmee is ook
+de aanname bevestigd waar de niet-tekenende `hide` op leunt - elke pagina dekt
+zijn voorganger volledig.
+
+## 2026-08-05 — pong_cleangui_cg: alle GUI in DisplayControl, de rest weer aan de praat
+
+De refactor die alle displayafhankelijke zaken naar `DisplayControl` verhuist was
+halverwege blijven steken. Wat er nog aan mankeerde, per soort.
+
+**Halve zinnen.** `class MainControl : public Task` stond op de plek van de
+constructornaam, `void doGame` miste zijn haakjes, `displayControl.add` was een
+regel die ophield, en de initialisatielijst van `GameControl` eindigde op een
+komma. `GameOverControl` initialiseerde `pStartPageStartButton` terwijl zijn
+member `pGameOverPageStartButton` heet.
+
+**Namen die niet meer bestonden.** In `DisplayControl::main()` heetten de panels
+nog `pageGame` en `startPanel`, de toestand `STATE_GAMEOVER` naast
+`STATE_GAME_OVER`, en `initBallAndPaddlePosition()` naast
+`initBallAndPanelPosition()`. `enabled(true)` moest `enable(true)` zijn. En de
+drie knoppen kregen hun eigenschappen via `setPanelProps()`, die de tekst- en
+fontparameters helemaal niet kent - dat is `setTouchScreenButtonProps()`.
+
+**De knoppen deden niets.** Nergens werd `display.addTouchListener()` aangeroepen.
+In de `_dg`-versie deden `PaddleControl` en `GameControl` dat elk voor hun eigen
+knoppen; nu wonen alle vier de knoppen in `DisplayControl` en meldt die ze in zijn
+constructor aan. Een uitgeschakelde knop negeert een aanraking zelf, dus ze mogen
+alle vier meteen mee.
+
+**De peddelknoppen hadden geen plek.** `PaddleControl` verwees nog naar zijn
+`pagePaddles`, die met de verhuizing verdwenen was. De knoppen zitten nu als kind
+in `gamePanel`. Daarvoor moest `gamePanel` het *hele* scherm beslaan in plaats van
+alleen het speelveld: het speelveld is de bovenste driekwart, de knoppen zitten in
+de onderste kwart, en de promillagecoördinaten van die knoppen zijn op het scherm
+gebaseerd. Dat heeft een tweede voordeel: `moveTo()` herstelt de vrijgekomen
+strook via de boom, en met een fullscreen `gamePanel` lukt dat ook onder de
+doellijn - waar de bal aan het eind van een spel verdwijnt.
+`PaddleControl` roept nu `displayControl.showPaddle()/hidePaddle()` aan en tekent
+zelf niets meer. Dat is de hele bedoeling van deze variant.
+
+**Het spel begon nooit.** `doGame()` selecteerde de gamepagina en ging wachten op
+een gemiste bal, maar riep `ballControl.startBall()` en `paddleControl.enable()`
+niet aan. Toegevoegd, plus de bijbehorende `paddleControl.disable()` als het spel
+uit is.
+
+**Pagina's die over elkaar heen bleven staan.** Bij het tonen van een nieuwe
+pagina werd de oude niet verborgen. Er zijn nu vier hulpfuncties
+(`showGamePage`/`hideGamePage` enzovoort) en elke overgang gebruikt ze.
+
+**Vlaggen die in de verkeerde toestand bleven hangen.** Dit is de venijnigste:
+`waitAny()` wekt alleen op de vlaggen die erin staan, dus een `flagSelectStartPage`
+die binnenkomt terwijl `DisplayControl` in `STATE_GAME_OVER` alleen op
+`flagSelectGamePage` wacht, blijft eeuwig staan - en `MainControl` wacht dan op een
+startpagina die nooit verschijnt. Alle drie de paginavlaggen staan nu in de
+`waitAny()` van elke toestand. Om dezelfde reden wist `hideGamePage()` de twee
+peddelvlaggen: `paddleControl.disable()` valt samen met het einde van het spel, en
+die `flagHidePaddle` zou anders in het volgende spel de peddel meteen weer laten
+verdwijnen. En `doStartPage()`/`doGameOver()` wissen `flagStartPressed` voor ze
+gaan wachten: de twee startknoppen liggen op precies dezelfde plek, dus de druk
+waarmee je het vorige scherm wegklikte zou het volgende meteen weer wegklikken.
+
+**Op hardware gedraaid.** `idf.py build` is groen zonder waarschuwingen uit de
+`pcg_`-bestanden, en na flashen boot het bord schoon: kalibratie uit spiffs,
+geen assert, geen paniek, geen watchdog. Uit de seriële meting van 60 seconden:
+na een aanraking van de startknop komt de fps-teller van `DisplayControl` op
+gang en houdt hij `25 fps` vast - precies de `FrameIntervalMs = 40` die
+`BallControl` aanhoudt. Daarmee staat vast dat de aanmelding als touchlistener
+werkt, dat `doGame()` de bal daadwerkelijk start, en dat de gamepagina zijn
+balupdates op tempo verwerkt.
+
+Maar de meting loog: op het bord stond het beeld stil terwijl de teller vrolijk
+25 fps rapporteerde. Zie het stuk hieronder - dat is meteen de les.
+
+### De root die nooit zichtbaar werd
+
+Het beeld verscheen wel maar bewoog niet, peddel noch bal. Toch liep de
+fps-teller op 25. Dat verschil wijst precies de plek aan: die teller staat naast
+de `moveTo()` in dezelfde tak en telt *verwerkte events*, geen getekende pixels.
+Het hele signaalpad - `BallControl` -> `Pool` -> `Flag` -> `waitAny` ->
+`hasFired` -> `moveTo` - werkte dus perfect. Alleen de laatste stap deed niets.
+
+De oorzaak: `PageRoot` had nooit een `show()` gehad, en `_bVisible` begint op
+`false` (`crt_Widget.h:50`). Er lopen namelijk twee verschillende paden naar het
+scherm:
+
+- *voor het eerst tekenen* gaat via `Panel::show()` -> `showPanel()`, en dat
+  roept regelrecht `getDisplay()->fillSmoothRoundRect()` aan. Het kijkt niet naar
+  `_bVisible` en niet naar de root. Vandaar dat het beeld gewoon verscheen.
+- *opnieuw tekenen na een verplaatsing* gaat via `moveTo()` -> `repaintRegion()`
+  -> `getRoot()->redrawRegion()`. En `redrawRegion()` begint met
+  `if (!_bVisible) { return; }` (`crt_Widget.h:357`).
+
+Op een onzichtbare root keert die dus meteen terug, en dat is de hele boom in
+één keer. Niet alleen werd de bal niet op zijn nieuwe plek getekend - ook de
+strook die hij verliet werd niet hersteld, want die gaat langs dezelfde weg.
+
+`moveTo()` komt bij die root omdat `ballPanel` een `cornerRadius` heeft:
+`Panel::coversOwnRect()` geeft dan false (`crt_Panel.h:182`), en een widget die
+zijn eigen rect niet volledig dekt moet de boom eronder laten meetekenen, anders
+schemert het vorige beeld door de ronde hoeken. `paddlePanel` heeft een radius
+van `PaddleHeightPix/3` en liep tegen exact dezelfde muur.
+
+De fix is `pageRoot.show(false)` direct na het aanmaken. **`show(true)` zou hier
+fout zijn**: `Widget::show()` daalt dan af naar alle kinderen en tekent de drie
+pagina's over elkaar heen - en zet hun `_bVisible` op true, waarna elke
+`redrawRegion` de game-over-pagina en de startpagina over het speelveld blijft
+tekenen (ze staan later in de kinderlijst dan `gamePanel`). De root is een kale
+`Widget` en tekent zelf niets, dus `show(false)` zet alleen de vlag om.
+
+Waarom dit in `_dg` niet bestond: daar *is* de PageRoot de pagina, dus
+`pageGame.show(true)` zette de root vanzelf zichtbaar. Het cg-ontwerp hangt drie
+pagina's ónder één root. Bij die verhuizing is de `show()` op paginaniveau blijven
+staan en heeft niemand de root nog aangezet. Dezelfde `_bVisible`-regel is
+tegelijk wat wél gewenst is: hij zorgt dat een verborgen `startPagePanel` niet
+meetekent als de bal over de gamepagina beweegt. De root kent daarop geen
+uitzondering - en dat is precies waar dit misging.
+
+Eén ding met opzet gelaten zoals het stond: `MainControl` gaat van
+`STATE_GAME_OVER` naar `STATE_START_PAGE` en niet rechtstreeks naar
+`STATE_GAME_RUNNING`. Na een spel zijn er dus twee klikken nodig om opnieuw te
+beginnen, terwijl op de game-over-knop "Click here to Start" staat. Dat is een
+ontwerpkeuze, geen fout, dus onaangeroerd.
+
+Los daarvan: `apps/pong_cleangui_dg` includeerde nog de oude `crt_`-namen van
+bestanden die in dezelfde commit `pdg_` werden. Die staan in het includepad maar
+worden niet gebouwd, dus het viel niet op. Rechtgezet.
+
 ## 2026-08-03 — Bouwfouten in pong_cleangui_cg: restanten van een omgedraaide koppeling
 
 De nieuwe `_cg`-variant draait de koppeling tussen bal en peddel om. Vroeger

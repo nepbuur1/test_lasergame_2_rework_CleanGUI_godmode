@@ -119,11 +119,13 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../apps/kopie_van_wifi_scan_example_van_esp_idf"
 "../libs/esp_http_client/main"
 
-# De twee pong-apps dragen dezelfde headernamen (crt_BallControl.h,
+# De _cg- en _dg-varianten dragen elk hun eigen headerprefix (pcg_ en pdg_)
+# en hun eigen namespace, dus die mogen samen in het includepad staan:
+# main.cpp kiest met zijn #include van de .ino welke van de twee er gebouwd
+# wordt. apps/pong/pong gebruikt nog de kale crt_-namen (crt_BallControl.h,
 # crt_GameControl.h, crt_PaddleControl.h, crt_SceneDisplayControl.h,
-# crt_CharMatrix.h). Staan ze allebei in het includepad, dan bepaalt de
-# volgorde hier stilzwijgend welke versie er gecompileerd wordt. Er wordt
-# toch maar een app tegelijk gebouwd: zet aan wat je nodig hebt.
+# crt_CharMatrix.h) en botst daarmee wel; laat die uit staan tenzij je hem
+# nodig hebt.
 #"../apps/pong/pong"
 "../apps/pong_cleangui_cg"
 "../apps/pong_cleangui_dg"

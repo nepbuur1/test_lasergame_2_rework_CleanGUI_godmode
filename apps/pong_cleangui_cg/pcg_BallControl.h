@@ -52,7 +52,7 @@ namespace pong_cleangui_cg
         State state;
 
 	public:
-		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, ISceneDisplayControl& displayControl, PaddleControl& paddleControl) :	
+		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IDisplayControl& displayControl, PaddleControl& paddleControl) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
             flagStart(this),
             displayControl(displayControl),
@@ -195,15 +195,14 @@ namespace pong_cleangui_cg
                     else
                     {
                         updateBallPosition();
+                        vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
+                                                        // een stap van BallSpeedPixPerFrame pixels.
                     }
                     break;
                 
                 default:
                     break;
                 }
-
-                vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
-                                                // een stap van BallSpeedPixPerFrame pixels.
 			}
 		}
 	}; // end class BallControl

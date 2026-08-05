@@ -18,9 +18,12 @@
 #include <crt_Logger.h>
 #include <crt_Handler.h>
 #include <crt_Button.h>
-#include "crt_PaddleControl.h"
-#include "crt_SceneDisplayControl.h"
-#include "crt_GameControl.h"
+#include "pdg_StartPageDisplayControl.h"
+#include "pdg_GameDisplayControl.h"
+#include "pdg_GameOverDisplayControl.h"
+#include "pdg_PaddleControl.h"
+#include "pdg_BallControl.h"
+#include "pdg_MainControl.h"
 
 using namespace crt;
 namespace pong_cleangui_dg
@@ -30,7 +33,7 @@ namespace pong_cleangui_dg
 	// Keuzes voor buffergroottes - ruim gekozen voor deze applicatie.
 	const int MaxNofTouchListeners = 20;	// Max aantal touch listeners dat het display kan hebben.
 	const int CommandBufferSize = 100;		// Max aantal commando's dat het display kan bufferen.
-	const int MaxNofClientTasks = 10;		// Max aantal taken dat commando's naar het display kan sturen.	
+	const int MaxNofClientTasks = 10;		// Max aantal taken dat commando's naar het display kan sturen.
 
 	TFT_eSPI_FreeFonts<20/*MaxNofFreeFonts*/> freeFonts;		// not used when LOAD_GFXFF is not defined.
 
@@ -43,11 +46,22 @@ namespace pong_cleangui_dg
 				            MaxNofClientTasks*sizeof(PrintContext) /*stackBytes*/, ARDUINO_RUNNING_CORE,
 				            tft_eSPI_DisplayAdapter, 1/*rotation*/, 2/*fontTouchCalibration*/);
 
-	SceneDisplayControl<20,10> sceneDisplayControl("SceneDisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts); 
+	// Elke pagina zijn eigen DisplayControl, elk met een eigen PageRoot en een
+	// eigen taak. Ze mogen naast elkaar bestaan omdat er steeds maar een van de
+	// drie in beeld staat - MainControl roept de pagina's strikt na elkaar aan.
+	// Zie de opmerking boven crt_PageRoot.h.
+	//
+	// Let op de volgorde: elk object hieronder krijgt de objecten erboven mee.
+	// gameDisplayControl kent de schermmaat al in zijn constructor, dus de twee
+	// controls daaronder mogen daar meteen getWidth()/getHeight() van vragen.
+	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 1 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	GameDisplayControl<20,10> gameDisplayControl("GameDisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
+	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 1 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
-	BallControl ballControl("BallControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, sceneDisplayControl);
-	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts, sceneDisplayControl, ballControl); 	
-	GameControl gameControl("GameControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts, sceneDisplayControl, ballControl, paddleControl);
+	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
+	BallControl ballControl("BallControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl, paddleControl);
+	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
+	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl, ballControl, paddleControl);
 }
 
 void setup()

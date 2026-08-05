@@ -13,15 +13,13 @@ namespace pong_cleangui_cg
 	private:
 		Task* pTask; // The task that this control object is merged to.
 		IDisplayControl& displayControl;
-		State state;
 		IButton* pStartPageStartButton;
 		Flag flagStartPressed;
 
 	public:
-		StartPageControl(Task* pTask, IDisplayControl& displayControl) :	
-			pTask(pTask), 
+		StartPageControl(Task* pTask, IDisplayControl& displayControl) :
+			pTask(pTask),
 			displayControl(displayControl),
-			state(STATE_IDLE),
 			pStartPageStartButton(nullptr),
 			flagStartPressed(pTask)
 		{
@@ -48,18 +46,23 @@ namespace pong_cleangui_cg
 		// do nothing
 	};
 
-	private:
-
 		/*override keyword not supported*/
 		void doStartPage()
 		{
-			displayControl.selectStartPage();
+			displayControl.showStartPage();
 			pTask->dumpStackHighWaterMarkIfIncreased(); // This function call takes about 0.25ms! It should be called while debugging only.
+
+			// Een druk van voor deze pagina - bijvoorbeeld die op de
+			// game-over-knop, die op precies dezelfde plek zit - mag de startknop
+			// niet meteen weer "indrukken".
+			flagStartPressed.clear();
 
 			// Only one state, so no need for a switch statement.
 			// STATE_WAIT_FOR_START
 			pTask->wait(flagStartPressed);
-		}
-	}; // end class PaddleControl
 
-};// end namespace crt
+			displayControl.hideStartPage();
+		}
+	}; // end class StartPageControl
+
+};// end namespace pong_cleangui_cg

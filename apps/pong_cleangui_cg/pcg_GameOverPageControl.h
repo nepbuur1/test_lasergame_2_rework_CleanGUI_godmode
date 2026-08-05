@@ -19,10 +19,10 @@ namespace pong_cleangui_cg
 		Flag flagStartPressed;
 
 	public:
-		GameOverControl(Task* pTask, IDisplayControl& displayControl) :	
-			pTask(pTask), 
+		GameOverControl(Task* pTask, IDisplayControl& displayControl) :
+			pTask(pTask),
 			displayControl(displayControl),
-			pStartPageStartButton(nullptr),
+			pGameOverPageStartButton(nullptr),
 			flagStartPressed(pTask)
 		{
 			pGameOverPageStartButton = displayControl.addGameOverPageStartButtonListener(this);
@@ -48,16 +48,22 @@ namespace pong_cleangui_cg
 		// do nothing
 	};
 
-	private:
 		void doGameOver()
 		{
-			displayControl.selectGameOverPage();
+			displayControl.showGameOverPage();
 			pTask->dumpStackHighWaterMarkIfIncreased(); // This function call takes about 0.25ms! It should be called while debugging only.
+
+			// Een druk van voor deze pagina telt niet mee: de game-over-knop zit
+			// op dezelfde plek als de startknop, dus de druk waarmee het spel
+			// begon zou de game-over-pagina meteen weer wegklikken.
+			flagStartPressed.clear();
 
 			// Only one state, so no need for a switch statement.
 			// STATE_WAIT_FOR_START
 			pTask->wait(flagStartPressed);
-		}
-	}; // end class PaddleControl
 
-};// end namespace crt
+			displayControl.hideGameOverPage();
+		}
+	}; // end class GameOverControl
+
+};// end namespace pong_cleangui_cg

@@ -1,12 +1,10 @@
 # Pong CleanGUI DG (Decentralised Graphics)
-When we assume to be using CleanGUI, which already is a centralised graphics engine,
-there is no need to further centralise the game objects of our game-engine.
-Each game object can manage its drawables itself.
+In this case, every "page" of the application get's its own DisplayControl,
+and its own pageroot.
 
 Advantage of this approach:
-- No (additional) DisplayControl object needed, so simpler design.
+- Smaller, more clear DisplayControl files, then when all is poured 
+  into one file.
 
 Disadvantage of this approach:
-- Not easy to switch to other graphics engine (like direct TFT_esp lib calls).
-  (with a centralised DisplayControl control you only need to update the
-   DisplayControl object, when porting the code to another engine)
+- Multiple DisplayControl files needed. 

@@ -36,7 +36,7 @@ namespace pong_cleangui_cg
 	// een paar per beeld af - dat is het verschil tussen verspringen en bewegen.
 	//
 	// De oorsprong van het speelveld ligt LINKSONDER: y=0 is de peddellijn en y
-	// loopt omhoog. SceneDisplayControl is de enige die dat naar schermpixels
+	// loopt omhoog. DisplayControl is de enige die dat naar schermpixels
 	// omrekent (het scherm telt van boven).
 	const int FrameIntervalMs      = 40;	// 25 beelden per seconde.
 	const int WallThicknessPix     = 10;
@@ -57,26 +57,34 @@ namespace pong_cleangui_cg
 			virtual IButton* addGameOverPageStartButtonListener(IButtonListener* pButtonListener) = 0;
 			virtual void updateBallPosition(int x, int y) = 0;
 			virtual void updatePaddlePosition(int x) = 0;
-			virtual void enable() = 0;
-			virtual void disable() = 0;
+			// Per pagina een show en een hide, net als in de _dg-variant. Elk
+			// control-object toont zijn eigen pagina aan het begin van zijn
+			// do..()-functie en verbergt hem aan het eind; MainControl roept die
+			// strikt na elkaar aan, dus er staat er nooit meer dan een in beeld.
+			//
+			// Bewust geen select..(): dat zou beloven dat het tonen van de ene
+			// pagina de andere vanzelf uitzet, en dat doet het niet.
+			virtual void showStartPage() = 0;
+			virtual void hideStartPage() = 0;
+			virtual void showGamePage() = 0;
+			virtual void hideGamePage() = 0;
+			virtual void showGameOverPage() = 0;
+			virtual void hideGameOverPage() = 0;
+			virtual void showPaddle() = 0;
+			virtual void hidePaddle() = 0;
 	};
 
 	template <int WIDTH, int HEIGHT>
 	class DisplayControl : public Task, public IDisplayControl
 	{
-		enum State
-		{
-			STATE_START,
-			STATE_GAME,
-			STATE_GAMEOVER
-		};
-
 	private:
 		IDisplay& display;
 		TFT_eSPI_IFreeFonts& freeFonts;
 
 		// Het speelveld in pixels, met de oorsprong LINKSONDER. Deze klasse is de
 		// enige die dat naar schermpixels omrekent - het scherm telt van boven.
+		int screenWidth;	// schermbreedte in pixels
+		int screenHeight;	// schermhoogte in pixels
 		int width;			// speelveldbreedte in pixels
 		int height;			// speelveldhoogte in pixels
 		int frameDelayMs;
@@ -86,23 +94,26 @@ namespace pong_cleangui_cg
 		// - De Game Over pagina
 		// - De Pagina met de Game elementen
 
-		// Via de functies selectStartPage, selectGameOverPage en selectGamePage
-		// kun je kiezen welke pagina wordt weergegeven.
+		// Via de functieparen showStartPage/hideStartPage, showGamePage/hideGamePage
+		// en showGameOverPage/hideGameOverPage kun je kiezen welke pagina wordt
+		// weergegeven.
 
 		// Sommige Widgets kunnen gekoppeld zijn aan TouchscreenButtons.
-		// Middels de calls add addLeftPaddleButtonListener, 
+		// Middels de calls add addLeftPaddleButtonListener,
 		// addRightPanelButtonListener, addStartPageStartButtonListener
-		// en addGameOverPageStartButtonListener kunnen de geinteresseerde 
+		// en addGameOverPageStartButtonListener kunnen de geinteresseerde
 		// controlobject zichzelf abonneren op berichten van die knoppen.
 
 		// De panels krijgen hun maat en plek pas in main(), zodra de veldmaat
 		// bekend is. Ze hier al invullen zou betekenen dat de initialisatielijst
 		// leden leest die nog niet bestaan.
-		
+
 		// Game Panel Widgets
 		// gamePanel heeft een extra nut: moveTo() laat de vrijgekomen strook
 		// door de boom opnieuw tekenen, en zonder iets dat daar wel wat tekent
-		// blijft de oude bal gewoon staan.
+		// blijft de oude bal gewoon staan. Het beslaat daarom het HELE scherm:
+		// het speelveld is alleen de bovenste driekwart, maar de peddelknoppen
+		// in de onderste kwart horen bij dezelfde pagina.
 		Panel<8> gamePanel;
 		Panel<0> ballPanel;
 		Panel<0> bottomLinePanel;
@@ -125,15 +136,16 @@ namespace pong_cleangui_cg
 
 		Pool<TwoNumbers> poolBallPosition;
 		Pool<int> poolPaddlePosition;
-		Flag flagSelectStartPage;
-		Flag flagSelectGamePage;
-		Flag flagSelectGameOverPage;
+		Flag flagShowStartPage;
+		Flag flagHideStartPage;
+		Flag flagShowGamePage;
+		Flag flagHideGamePage;
+		Flag flagShowGameOverPage;
+		Flag flagHideGameOverPage;
 		Flag flagShowPaddle;
 		Flag flagHidePaddle;
 		Flag flagBallPositionUpdated;
 		Flag flagPaddlePositionUpdated;
-		
-		State state;
 
 	public:
 		DisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, int frameDelayMs,
@@ -141,28 +153,44 @@ namespace pong_cleangui_cg
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			display(display),
 			freeFonts(freeFonts),
+			screenWidth(0),
+			screenHeight(0),
 			width(0),
 			height(0),
 			frameDelayMs(frameDelayMs),
-			flagSelectStartPage(this),
-			flagSelectGamePage(this),
-			flagSelectGameOverPage(this),
+			flagShowStartPage(this),
+			flagHideStartPage(this),
+			flagShowGamePage(this),
+			flagHideGamePage(this),
+			flagShowGameOverPage(this),
+			flagHideGameOverPage(this),
 			flagShowPaddle(this),
 			flagHidePaddle(this),
 			flagBallPositionUpdated(this),
-			flagPaddlePositionUpdated(this),
-			state (STATE_START)
+			flagPaddlePositionUpdated(this)
 		{
 			// getScreenSize() mag hier al: AsyncDisplay geeft de rotatie door in
 			// zijn eigen constructor, dus de adapter kent de gedraaide maat al.
 			// Het speelveld krijgt de bovenste driekwart van het scherm; de
-			// onderste kwart is van de peddelknoppen van PaddleControl.
+			// onderste kwart is van de peddelknoppen.
 			Vec2 screenSize = display.getScreenSize();
-			width  = screenSize.x;
-			height = (screenSize.y * 3)/4;
+			screenWidth  = screenSize.x;
+			screenHeight = screenSize.y;
+			width  = screenWidth;
+			height = (screenHeight * 3)/4;
 
 			poolBallPosition.write(TwoNumbers(width/2, height/2));
 			poolPaddlePosition.write(width/2);
+
+			// De knoppen moeten hun aanrakingen van het display krijgen. Dit is de
+			// enige plek waar dat gebeurt: alle knoppen van alle pagina's wonen
+			// hier. Uitgeschakelde knoppen negeren een aanraking zelf (zie
+			// TouchscreenButton::touchPressed), dus alle vier mogen ze meteen mee.
+			display.addTouchListener(&buttonLeft);
+			display.addTouchListener(&buttonRight);
+			display.addTouchListener(&buttonStartPageStart);
+			display.addTouchListener(&buttonGameOverStart);
+
 			start();
 		}
 
@@ -212,34 +240,54 @@ namespace pong_cleangui_cg
 		flagPaddlePositionUpdated.set();
 	}
 
-	void selectStartPage()
+	// Per pagina een paar: alleen de laatste wens telt, dus de tegenhanger gaat
+	// leeg. Wat de andere pagina's doen staat hier los van - dat regelt de
+	// aanroeper met zijn eigen show/hide.
+	void showStartPage()
 	{
-		flagSelectGameOverPage.clear(); // make sure that only one page is selected.
-		flagSelectGamePage.clear();
-		flagSelectStartPage.set();
+		flagHideStartPage.clear();
+		flagShowStartPage.set();
 	}
 
-	void selectGamePage()
+	void hideStartPage()
 	{
-		flagSelectGameOverPage.clear(); // make sure that only one page is selected.
-		flagSelectStartPage.clear();
-		flagSelectGamePage.set();
+		flagShowStartPage.clear();
+		flagHideStartPage.set();
 	}
 
-	void selectGameOverPage()
+	void showGamePage()
 	{
-		flagSelectGamePage.clear(); // make sure that only one page is selected.
-		flagSelectStartPage.clear();
-		flagSelectGameOverPage.set();
+		flagHideGamePage.clear();
+		flagShowGamePage.set();
+	}
+
+	void hideGamePage()
+	{
+		flagShowGamePage.clear();
+		flagHideGamePage.set();
+	}
+
+	void showGameOverPage()
+	{
+		flagHideGameOverPage.clear();
+		flagShowGameOverPage.set();
+	}
+
+	void hideGameOverPage()
+	{
+		flagShowGameOverPage.clear();
+		flagHideGameOverPage.set();
 	}
 
 	void showPaddle()
 	{
+		flagHidePaddle.clear();
 		flagShowPaddle.set();
 	}
 
 	void hidePaddle()
 	{
+		flagShowPaddle.clear();
 		flagHidePaddle.set();
 	}
 
@@ -262,8 +310,9 @@ namespace pong_cleangui_cg
 		// is de schermmaat nog niet in een speelveld vertaald.
 		void initGamePanels()
 		{
-			gamePanel.setPanelProps("backgroundPanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
-				/*size*/Vec2(width, height), /*cornerRadius*/0, CoordType::Pixels,
+			// Het hele scherm: het speelveld erboven, de peddelknoppen eronder.
+			gamePanel.setPanelProps("gamePanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
+				/*size*/Vec2(screenWidth, screenHeight), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::TopLeft, /*colFg*/0x00000000, /*colBg*/0x00000000);
 
 			ballPanel.setPanelProps("ballPanel", /*locPos*/centreToTopLeftPix(width/2, height/2, ballSizePix()), CoordType::Pixels,
@@ -292,16 +341,34 @@ namespace pong_cleangui_cg
 			bottomLinePanel.setPanelProps("bottomLinePanel", /*locPos*/Vec2(0, height - 2), CoordType::Pixels,
 				/*size*/Vec2(width, 2), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::TopLeft, /*colFg*/0x00404040, /*colBg*/0x00000000);
+
+			// De peddelknoppen staan in de onderste kwart, onder de doellijn.
+			// Let op: locPos is de LINKERBOVENHOEK van de widget. De Alignment
+			// hieronder geldt alleen voor de tekst binnen de knop, niet voor de
+			// plek van de knop zelf.
+			buttonLeft.setTouchScreenButtonProps
+				("left",/*locPos*/Vec2(20, 790), CoordType::Promillage,
+				/*size*/Vec2(250, 190), /*cornerRadius*/50, CoordType::Promillage,
+				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "<-", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
+
+			buttonRight.setTouchScreenButtonProps
+				("right",/*locPos*/Vec2(730, 790), CoordType::Promillage,
+				/*size*/Vec2(250, 190), /*cornerRadius*/50, CoordType::Promillage,
+				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "->", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
 		}
 
 		void initGameOverPanels()
 		{
 			gameOverPanel.setPanelProps("gameOverPanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
-				/*size*/Vec2(width, height), /*cornerRadius*/0, CoordType::Pixels,
+				/*size*/Vec2(screenWidth, screenHeight), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::TopLeft, /*colFg*/0x00000000, /*colBg*/0x00000000);
 
 			gameOverLabelPanel.setPanelProps
-				("gameOverPanel",/*locPos*/Vec2(100, 250), CoordType::Promillage,
+				("gameOverLabelPanel",/*locPos*/Vec2(100, 250), CoordType::Promillage,
 				/*size*/Vec2(800, 200), /*cornerRadius*/50, CoordType::Promillage,
 				Alignment::TopLeft,	/*colFg*/0x00202020, /*colBg*/0x00000000);
 			// locPos (0,0): voor een MidMid-tekst is de oorsprong al het midden van
@@ -314,7 +381,7 @@ namespace pong_cleangui_cg
 				(/*locPos*/Vec2(0, 0), CoordType::Promillage, Alignment::MidMid,
 				"GAME OVER", /*font*/2, /*color*/0x00FF4040, /*fontScale*/2);
 
-			buttonGameOverStart.setPanelProps
+			buttonGameOverStart.setTouchScreenButtonProps
 				("start",/*locPos*/Vec2(100, 562), CoordType::Promillage,
 				/*size*/Vec2(800, 225), /*cornerRadius*/50, CoordType::Promillage,
 				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
@@ -325,10 +392,10 @@ namespace pong_cleangui_cg
 		void initStartPagePanels()
 		{
 			startPagePanel.setPanelProps("startPagePanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
-				/*size*/Vec2(width, height), /*cornerRadius*/0, CoordType::Pixels,
+				/*size*/Vec2(screenWidth, screenHeight), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::TopLeft, /*colFg*/0x00000000, /*colBg*/0x00000000);
 
-			buttonStartPageStart.setPanelProps
+			buttonStartPageStart.setTouchScreenButtonProps
 				("start",/*locPos*/Vec2(100, 562), CoordType::Promillage,
 				/*size*/Vec2(800, 225), /*cornerRadius*/50, CoordType::Promillage,
 				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
@@ -336,14 +403,14 @@ namespace pong_cleangui_cg
 				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
 		}
 
-		void initBallAndPanelPosition()
+		void initBallAndPaddlePosition()
 		{
 			// Bal en peddel eerst op hun nieuwe plek zetten, en pas
 			// daarna tonen. Anders tekent show(true) ze nog even op de
 			// plek van het vorige spel - en voor de bal is dat onder de
 			// doellijn, buiten het speelveld. De moveTo() die daar
 			// meteen op volgt herstelt die plek niet: buiten
-			// backgroundPanel is er niets dat daar iets tekent, dus
+			// gamePanel is er niets dat daar iets tekent, dus
 			// bleef er een tweede bal staan.
 			//
 			// setLocPos en niet moveTo: er staat op dit moment nog
@@ -362,6 +429,32 @@ namespace pong_cleangui_cg
 			flagPaddlePositionUpdated.clear();
 		}
 
+		// Een pagina in en uit beeld. IWidget& en niet het paneeltype zelf: de
+		// drie pagina's zijn Panel<8>, Panel<2> en Panel<1>, en show/hide/enable/
+		// disable/setDrawable zitten allemaal in IWidget.
+		//
+		// Deze twee zijn gelijk aan die van de _dg-variant. Het verbergen tekent
+		// niets - setDrawable(false) eerst, zodat Panel::hide() zijn wisvlak
+		// overslaat. Hier is dat niet nodig om races te vermijden (er tekent maar
+		// een taak), maar het scheelt wel de zwarte flits tussen twee pagina's in,
+		// en het houdt de twee varianten vergelijkbaar.
+		//
+		// Het mag omdat elke pagina begint met een schermvullend paneel: de
+		// volgende pagina wist wat de vorige achterlaat.
+		void showPage(IWidget& page)
+		{
+			page.setDrawable(true, true);
+			page.show(true);
+			page.enable(true);
+		}
+
+		void hidePage(IWidget& page)
+		{
+			page.setDrawable(false, true);
+			page.hide(true);
+			page.disable(true);
+		}
+
 		static Vec2 ballSizePix()   { return Vec2(BallSizePix, BallSizePix); }
 		static Vec2 paddleSizePix() { return Vec2(PaddleWidthPix, PaddleHeightPix); }
 
@@ -377,6 +470,17 @@ namespace pong_cleangui_cg
 
 			PageRoot<20> pageRoot("rootSceneDisplay",display);
 
+			// De root moet zelf zichtbaar staan, anders tekent hij nooit iets.
+			// redrawRegion() breekt namelijk meteen af op een onzichtbare widget,
+			// en moveTo() laat juist via de root de vrijgekomen strook herstellen
+			// en de bal opnieuw tekenen. Zonder deze regel verschijnt het beeld
+			// wel (show() tekent rechtstreeks) maar beweegt er daarna niets meer.
+			//
+			// show(false) en niet show(true): true zou alle drie de pagina's
+			// tegelijk tonen. De root zelf tekent niets - hij is een kale Widget -
+			// dus dit zet alleen de vlag om.
+			pageRoot.show(false);
+
 			// Game Page toevoegen aan de pageRoot
 			initGamePanels();
 			pageRoot.addChildWidget(gamePanel);	// eerst, want alles hierna tekent erop.
@@ -386,8 +490,9 @@ namespace pong_cleangui_cg
 			gamePanel.addChildWidget(topBorderPanel);
 			gamePanel.addChildWidget(ballPanel);
 			gamePanel.addChildWidget(paddlePanel);
-			gamePanel.hide(true);
-			gamePanel.disable(true);
+			gamePanel.addChildWidget(buttonLeft);
+			gamePanel.addChildWidget(buttonRight);
+			hidePage(gamePanel);
 
 			// Game Over Page toevoegen
 			initGameOverPanels();
@@ -395,119 +500,118 @@ namespace pong_cleangui_cg
 			gameOverPanel.addChildWidget(gameOverLabelPanel);
 			gameOverLabelPanel.addChildWidget(gameOverText);
 			gameOverPanel.addChildWidget(buttonGameOverStart);
+			hidePage(gameOverPanel);
 
 			// Start Page toevoegen
 			initStartPagePanels();
 			pageRoot.addChildWidget(startPagePanel);	// eerst, want alles hierna tekent erop.
 			startPagePanel.addChildWidget(buttonStartPageStart);
-
-			// Start the game by showing the Start Page Panel:
-			startPagePanel.show(true);
+			hidePage(startPagePanel);
+			// Geen showStartPage() hier: StartPageControl vraagt hem zo meteen zelf
+			// op, net als in de _dg-variant.
 
 			// Beeldtelling, om te kunnen nagaan of de 25 per seconde ook echt
 			// gehaald worden in plaats van dat aan te nemen.
 			int32_t nofFrames = 0;
 			int64_t timeOfLastReportUs = esp_timer_get_time();
 
+			// Geen toestand meer over welke pagina "de huidige" is: elke pagina
+			// heeft zijn eigen show en hide, en de aanroeper houdt dat paar bij.
+			// Dat maakt deze lus een platte lijst gebeurtenissen - en spiegelt de
+			// drie losse DisplayControls van de _dg-variant.
 			while (true)
 			{
 				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
-				switch(state)
+
+				// Alles waar deze taak op reageert in een keer: wie hier niet in
+				// staat wordt niet gewekt, en dan blijft zijn wens hangen.
+				waitAny(flagShowStartPage + flagHideStartPage +
+					    flagShowGamePage + flagHideGamePage +
+					    flagShowGameOverPage + flagHideGameOverPage +
+					    flagShowPaddle + flagHidePaddle +
+					    flagBallPositionUpdated + flagPaddlePositionUpdated);
+
+				if(hasFired(flagShowGamePage))
 				{
-					case STATE_GAME:
+					initBallAndPaddlePosition();
+					showPage(gamePanel);
+				}
+				else if(hasFired(flagHideGamePage))
+				{
+					hidePage(gamePanel);
+					// Een peddelwens van het vorige spel mag niet blijven staan:
+					// PaddleControl zet flagHidePaddle op het moment dat het spel
+					// eindigt, en die zou anders in het volgende spel de peddel
+					// meteen weer laten verdwijnen.
+					flagShowPaddle.clear();
+					flagHidePaddle.clear();
+				}
+				else if(hasFired(flagShowStartPage))
+				{
+					showPage(startPagePanel);
+				}
+				else if(hasFired(flagHideStartPage))
+				{
+					hidePage(startPagePanel);
+				}
+				else if(hasFired(flagShowGameOverPage))
+				{
+					showPage(gameOverPanel);
+				}
+				else if(hasFired(flagHideGameOverPage))
+				{
+					hidePage(gameOverPanel);
+				}
+				else if(hasFired(flagShowPaddle))
+				{
+					paddlePanel.show(true);
+					paddlePanel.enable(true);
+					buttonLeft.show(true);
+					buttonLeft.enable(true);
+					buttonRight.show(true);
+					buttonRight.enable(true);
+				}
+				else if(hasFired(flagHidePaddle))
+				{
+					paddlePanel.hide(true);
+					paddlePanel.disable(true);
+					buttonLeft.hide(true);
+					buttonLeft.disable(true);
+					buttonRight.hide(true);
+					buttonRight.disable(true);
+				}
+				else if(hasFired(flagPaddlePositionUpdated))
+				{
+					int paddlePosition;
+					poolPaddlePosition.read(paddlePosition);
+					// moveTo() en niet setLocPos(): die laatste verzet alleen de
+					// coordinaten en tekent niets, zodat de peddel op het scherm
+					// blijft staan waar hij stond. moveTo() herstelt bovendien
+					// alleen de strook die vrijkomt - dat is wat dit betaalbaar
+					// maakt bij 25 beelden per seconde.
+					//
+					// Staat de gamepagina niet in beeld, dan verzet dit alleen de
+					// coordinaten: moveTo() keert vroeg terug op een onzichtbare
+					// widget.
+					paddlePanel.moveTo(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels);
+				}
+				else if(hasFired(flagBallPositionUpdated))
+				{
+					TwoNumbers ballPosition;
+					poolBallPosition.read(ballPosition);
+					ballPanel.moveTo(centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix()), CoordType::Pixels);
+
+					nofFrames++;
+					int64_t nowUs = esp_timer_get_time();
+					if (nowUs - timeOfLastReportUs >= 1000000)
 					{
-						waitAny(flagSelectGameOverPage + flagSelectGamePage + flagSelectStartPage +
-							    flagBallPositionUpdated + flagPaddlePositionUpdated);
-						
-						if(hasFired(flagSelectGamePage))
-						{
-							// state blijft STATE_GAME
-							break;
-						}
-						else if(hasFired(flagSelectGameOverPage))
-						{
-							gamePanel.hide(true);
-							gamePanel.disable(true);
-							gameOverPanel.show(true);
-							gameOverPanel.enabled(true);
-							state = STATE_GAME_OVER;
-						}
-						else if(hasFired(flagSelectStartPage))
-						{
-							gamePanel.hide(true);
-							gamePanel.disable(true);
-							startPanel.show(true);
-							startPanel.enabled(true);
-							state = STATE_START;
-						}
-						else if(hasFired(flagShowPaddle))
-						{
-							paddlePanel.show(true);
-							paddlePanel.enable(true);
-						}
-						else if(hasFired(flagHidePaddle))
-						{
-							paddlePanel.hide(true);
-							paddlePanel.disable(true);
-						}
-						else if(hasFired(flagPaddlePositionUpdated))
-						{
-							int paddlePosition;
-							poolPaddlePosition.read(paddlePosition);
-							// moveTo() en niet setLocPos(): die laatste verzet alleen de
-							// coordinaten en tekent niets, zodat de peddel op het scherm
-							// blijft staan waar hij stond. moveTo() herstelt bovendien
-							// alleen de strook die vrijkomt - dat is wat dit betaalbaar
-							// maakt bij 25 beelden per seconde.
-							paddlePanel.moveTo(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels);
-							// state blijft STATE_GAME
-						}
-						else if(hasFired(flagBallPositionUpdated))
-						{
-							TwoNumbers ballPosition;
-							poolBallPosition.read(ballPosition);
-							ballPanel.moveTo(centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix()), CoordType::Pixels);
-
-							nofFrames++;
-							int64_t nowUs = esp_timer_get_time();
-							if (nowUs - timeOfLastReportUs >= 1000000)
-							{
-								ESP_LOGI("pong", "%d fps", (int)nofFrames);
-								nofFrames = 0;
-								timeOfLastReportUs = nowUs;
-							}
-							// state blijft STATE_GAME
-							break;
-						}
-						break;
-				    }
-
-					case STATE_GAME_OVER:
-					{
-						wait(flagSelectGamePage);
-
-						initBallAndPaddlePosition();
-						pageGame.show(true);
-						pageGame.enable(true);
-						state = STATE_GAME;
-						break;
+						ESP_LOGI("pong", "%d fps", (int)nofFrames);
+						nofFrames = 0;
+						timeOfLastReportUs = nowUs;
 					}
-
-					case STATE_START:
-					{
-						wait(flagSelectGamePage);
-
-						initBallAndPaddlePosition();
-						pageGame.show(true);
-						pageGame.enable(true);
-						state = STATE_GAME;
-						break;
-					}
-					default:
-						assert(false);
 				}
 			}
 		}
-	}; // end class SceneDisplayControl
+	}; // end class DisplayControl
 
-};// end namespace crt
+};// end namespace pong_cleangui_cg

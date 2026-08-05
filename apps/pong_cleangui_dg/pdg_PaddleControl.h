@@ -2,33 +2,22 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
-#include "crt_SceneDisplayControl.h"
-#include "crt_BallControl.h"
-
-#include <crt_CleanGUI.h>
-
-//#include <crt_TFT_eSPI_DisplayAdapter.h>
-
-#ifdef LOAD_GFXFF
-#include <Free_Fonts.h>
-#endif
-
-#include <crt_TFT_eSPI_FreeFonts.h>
+#include "pdg_GameDisplayControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
 using namespace crt;
 namespace pong_cleangui_dg
 {
-	extern ILogger& logger;
+	// Zie pdg_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
 	class PaddleControl : public Task, public IButtonListener
 	{
 		enum State
 		{
+			STATE_DISABLED,
 			STATE_ENABLED,		// wacht op een knop die ingedrukt wordt
-			STATE_MOVING,		// een knop wordt vastgehouden: blijf schuiven
-			STATE_DISABLED
+			STATE_MOVING		// een knop wordt vastgehouden: blijf schuiven
 		};
 
 		// De peddel schuift op dezelfde beeldklok als de bal, zodat hij net zo
@@ -36,14 +25,9 @@ namespace pong_cleangui_dg
 		static constexpr uint64_t repeatPeriodUs = FrameIntervalMs * 1000;
 
 	private:
-		IDisplay& display;
-		TFT_eSPI_IFreeFonts& freeFonts;
-		Panel<0> backgroundPanel;	// de onderste kwart van het scherm - de rest is speelveld.
-		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonLeft;
-		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonRight;
 		State state;
-		ISceneDisplayControl& sceneDisplayControl;
-		BallControl& ballControl;
+		IGameDisplayControl& displayControl;
+		Pool<int> poolPaddlePos;
 		Flag flagEnable;
 		Flag flagDisable;
         Flag flagLeftPressed;
@@ -55,68 +39,56 @@ namespace pong_cleangui_dg
 		int paddlePosition;
 		int paddleWidth;
 		int paddleDirection;		// -1 naar links, +1 naar rechts, 0 = stil
+		IButton* pButtonLeft;
+		IButton* pButtonRight;
 
 	public:
-		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts, ISceneDisplayControl& sceneDisplayControl, BallControl& ballControl) :	
+		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& displayControl) :	
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
-			display(display),
-			freeFonts(freeFonts),
-			// Let op: locPos is de LINKERBOVENHOEK van de widget. De Alignment
-			// hieronder geldt alleen voor de tekst binnen de knop, niet voor de
-			// plek van de knop zelf.
-			backgroundPanel
-				("paddleBackground",/*locPos*/Vec2(0, 750), CoordType::Promillage,
-				/*size*/Vec2(1000, 250), /*cornerRadius*/0, CoordType::Promillage,
-				Alignment::TopLeft,	/*colFg*/0x00000000, /*colBg*/0x00000000),
-			buttonLeft
-				("left",/*locPos*/Vec2(20, 790), CoordType::Promillage,
-				/*size*/Vec2(250, 190), /*cornerRadius*/50, CoordType::Promillage,
-				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
-				/*bInvertedArea*/false, "<-", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
-				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
-			buttonRight
-				("right",/*locPos*/Vec2(730, 790), CoordType::Promillage,
-				/*size*/Vec2(250, 190), /*cornerRadius*/50, CoordType::Promillage,
-				Alignment::TopLeft,	/*colPanel*/0x00FF0000, /*colBg*/0x00000000,
-				/*bInvertedArea*/false, "->", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 0, Alignment::MidMid,
-				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0),
 			state(STATE_DISABLED),
-			sceneDisplayControl(sceneDisplayControl),
-			ballControl(ballControl),
-			flagEnable(this),	
+			displayControl(displayControl),
+			flagEnable(this),
 			flagDisable(this),
 			flagLeftPressed(this),
 			flagRightPressed(this),
 			flagLeftReleased(this),
 			flagRightReleased(this),
 			repeatTimer(this),
-			screenWidth(sceneDisplayControl.getWidth()),
+			screenWidth(displayControl.getWidth()),
 			paddlePosition(screenWidth/2),
 			paddleWidth(PaddleWidthPix),
-			paddleDirection(0)
+			paddleDirection(0),
+			pButtonLeft(nullptr),
+			pButtonRight(nullptr)
 		{
-			display.addTouchListener(&buttonLeft);
-			display.addTouchListener(&buttonRight);
-			buttonLeft.addButtonListener(this);
-			buttonRight.addButtonListener(this);
+			poolPaddlePos.write(paddlePosition);
+			pButtonLeft = displayControl.addLeftButtonListener(this);
+			pButtonRight = displayControl.addRightButtonListener(this);
 			start();
 		}
+
+	int getPaddlePos()
+	{
+		int tempPaddlePos;
+		poolPaddlePos.read(tempPaddlePos);
+		return tempPaddlePos;
+	}
 
     void buttonPressed(IButton* pButton)
     {
 		logger.logText(pButton->getButtonName());
 
-		if(pButton == &buttonLeft)
+		if(pButton == pButtonLeft)
 		{
         	flagLeftPressed.set();
 		}
-		else if(pButton == &buttonRight)
+		else if(pButton == pButtonRight)
 		{
 			flagRightPressed.set();
 		}
 		else
 		{
-			assert(false);
+			// not interested.
 		}
     }
 
@@ -124,17 +96,17 @@ namespace pong_cleangui_dg
 	// daartussen schuift de peddel door.
 	void buttonReleased(IButton* pButton)
 	{
-		if(pButton == &buttonLeft)
+		if(pButton == pButtonLeft)
 		{
 			flagLeftReleased.set();
 		}
-		else if(pButton == &buttonRight)
+		else if(pButton == pButtonRight)
 		{
 			flagRightReleased.set();
 		}
 		else
 		{
-			assert(false);
+			// not interested.
 		}
 	};
 
@@ -161,8 +133,12 @@ namespace pong_cleangui_dg
 			if (paddlePosition < minPosition) { paddlePosition = minPosition; }
 			if (paddlePosition > maxPosition) { paddlePosition = maxPosition; }
 
-			sceneDisplayControl.updatePaddlePosition(paddlePosition);
-			ballControl.updatePaddlePosition(paddlePosition);
+			displayControl.updatePaddlePosition(paddlePosition);
+
+			// De bal krijgt de positie niet meer toegeschoven, hij haalt hem zelf
+			// op met getPaddlePos(). Deze pool is dus de enige koppeling die
+			// daarvoor nodig is.
+			poolPaddlePos.write(paddlePosition);		// facilitatie getPaddlePos()
 		}
 
 		void stopMoving()
@@ -175,18 +151,6 @@ namespace pong_cleangui_dg
 		/*override keyword not supported*/
 		void main()
 		{
-#ifdef LOAD_GFXFF							  // Don't select font indices 0 and 1 - they are reserved.
-			freeFonts.setFreeFont(10, FSB9);  // Free serif 9 pix font.
-			freeFonts.setFreeFont(12, FSB12); // Free serif 12 pix font.
-#endif
-			PageRoot<20> pagePaddles("rootPaddleControl",display);
-			pagePaddles.addChildWidget(backgroundPanel);
-			pagePaddles.addChildWidget(buttonLeft);
-			pagePaddles.addChildWidget(buttonRight);
-
-			pagePaddles.hide(true);
-			pagePaddles.disable(true);
-
 			vTaskDelay(1000); // wait for other threads to have started up as well.
 
 			while (true)
@@ -196,12 +160,26 @@ namespace pong_cleangui_dg
 
 				switch(state)
 				{
+					case State::STATE_DISABLED:
+						wait(flagEnable);
+						flagDisable.clear();		// een disable van voor deze enable telt niet meer mee.
+						// Drukken die tijdens het uitgeschakeld zijn zijn blijven
+						// staan, mogen de peddel niet meteen op weg sturen.
+						flagLeftPressed.clear();
+						flagRightPressed.clear();
+						flagLeftReleased.clear();
+						flagRightReleased.clear();
+						// Tekenen doet DisplayControl - dat is de hele reden dat de
+						// peddelknoppen daar wonen en niet hier.
+						displayControl.showPaddle();
+						state = State::STATE_ENABLED;
+					break;
+
 					case State::STATE_ENABLED:
 						waitAny(flagLeftPressed + flagRightPressed + flagDisable);
 						if (hasFired(flagDisable))
 						{
-							pagePaddles.hide(true);
-							pagePaddles.disable(true);
+							displayControl.hidePaddle();
 							state = State::STATE_DISABLED;
 						}
 						else if(hasFired(flagLeftPressed))
@@ -234,8 +212,7 @@ namespace pong_cleangui_dg
 						if (hasFired(flagDisable))
 						{
 							stopMoving();
-							pagePaddles.hide(true);
-							pagePaddles.disable(true);
+							displayControl.hidePaddle();
 							state = State::STATE_DISABLED;
 						}
 						else if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))
@@ -251,12 +228,7 @@ namespace pong_cleangui_dg
 							assert(false);
 						}
 					break;
-					case State::STATE_DISABLED:
-						wait(flagEnable);
-						pagePaddles.show(true);
-						pagePaddles.enable(true);
-						state = State::STATE_ENABLED;
-					break;
+					
 					default:
 						assert(false);
 					break;

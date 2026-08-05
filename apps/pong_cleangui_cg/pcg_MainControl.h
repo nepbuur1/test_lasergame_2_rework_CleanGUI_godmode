@@ -24,15 +24,15 @@ namespace pong_cleangui_cg
 {
 	// Zie pcg_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	enum State
-	{
-		STATE_START_PAGE,
-		STATE_GAME_RUNNING,
-		STATE_GAME_OVER
-	};
-
 	class MainControl : public Task
 	{
+		enum State
+		{
+			STATE_START_PAGE,
+			STATE_GAME_RUNNING,
+			STATE_GAME_OVER
+		};
+
 	private:
 	    State state;
 		// Control objects that have been merged to the current Task
@@ -40,11 +40,10 @@ namespace pong_cleangui_cg
 		GameControl gameControl;
 		GameOverControl gameOverControl;
 		StartPageControl startPageControl;
-		
+
 	public:
-			class MainControl : public Task
-			(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IDisplayControl& displayControl, BallControl& ballControl, PaddleControl& paddleControl) :	
-			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
+		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IDisplayControl& displayControl, BallControl& ballControl, PaddleControl& paddleControl) :
+			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
 			gameControl(this, displayControl, ballControl, paddleControl),
 			gameOverControl(this, displayControl),
@@ -71,7 +70,7 @@ namespace pong_cleangui_cg
 						startPageControl.doStartPage();
 						state = STATE_GAME_RUNNING;
 						break;
-						
+
 					case STATE_GAME_RUNNING:
 						gameControl.doGame();
 						state = STATE_GAME_OVER;
@@ -79,7 +78,7 @@ namespace pong_cleangui_cg
 
 					case STATE_GAME_OVER:
 						gameOverControl.doGameOver();
-						state = STATE_START_PAGE;
+						state = STATE_GAME_RUNNING;
 						break;
 
 					default:
@@ -89,6 +88,6 @@ namespace pong_cleangui_cg
 				vTaskDelay(1);
 			}
 		}
-	}; // end class PaddleControl
+	}; // end class MainControl
 
-};// end namespace crt
+};// end namespace pong_cleangui_cg

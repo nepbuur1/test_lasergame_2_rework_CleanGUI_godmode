@@ -12,24 +12,23 @@
 using namespace crt;
 namespace pong_cleangui_cg
 {
-	class GameControl : public IButtonListener, public IBallControlListener
+	class GameControl : public IBallControlListener
 	{
 	private:
+		Task* pTask; // The task that this control object is merged to.
 		IDisplayControl& displayControl;
 		BallControl& ballControl;
 		PaddleControl& paddleControl;
-		State state;
 		Flag flagBallMissedByPaddle;
 
 	public:
 		GameControl(Task* pTask, IDisplayControl& displayControl, BallControl& ballControl, PaddleControl& paddleControl) :
+			pTask(pTask),
 			displayControl(displayControl),
 			ballControl(ballControl),
 			paddleControl(paddleControl),
-			state(STATE_GAME_RUNNING),
-			flagBallMissedByPaddle(pTask),
+			flagBallMissedByPaddle(pTask)
 		{
-			displayControl.add
 			ballControl.setBallControlListener(this);
 		}
 
@@ -38,21 +37,27 @@ namespace pong_cleangui_cg
 			flagBallMissedByPaddle.set();
 		}
 
-	private:
-
 		/*override keyword not supported*/
-		void doGame
+		void doGame()
 		{
-			displayControl.selectGamePage();			
+			displayControl.showGamePage();
 			flagBallMissedByPaddle.clear();	// en een gemiste bal van het vorige spel mag dit spel niet meteen beeindigen.
 
-			dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
+			pTask->dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-			// One and only state for now:	
+			// De peddel eerst: die moet er staan voordat de bal eraan komt.
+			paddleControl.enable();
+			ballControl.startBall();
+
+			// One and only state for now:
 			// STATE_GAME_RUNNING:
 			logger.logText("STATE_GAME_RUNNING");
-			wait(flagBallMissedByPaddle);
-		}
-	}; // end class PaddleControl
+			pTask->wait(flagBallMissedByPaddle);
 
-};// end namespace crt
+			// De peddelknoppen horen bij het spel, niet bij de game-over-pagina.
+			paddleControl.disable();
+			displayControl.hideGamePage();
+		}
+	}; // end class GameControl
+
+};// end namespace pong_cleangui_cg

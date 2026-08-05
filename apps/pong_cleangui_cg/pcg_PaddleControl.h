@@ -26,7 +26,7 @@ namespace pong_cleangui_cg
 
 	private:
 		State state;
-		ISceneDisplayControl& displayControl;
+		IDisplayControl& displayControl;
 		Pool<int> poolPaddlePos;
 		Flag flagEnable;
 		Flag flagDisable;
@@ -162,8 +162,16 @@ namespace pong_cleangui_cg
 				{
 					case State::STATE_DISABLED:
 						wait(flagEnable);
-						pagePaddles.show(true);
-						pagePaddles.enable(true);
+						flagDisable.clear();		// een disable van voor deze enable telt niet meer mee.
+						// Drukken die tijdens het uitgeschakeld zijn zijn blijven
+						// staan, mogen de peddel niet meteen op weg sturen.
+						flagLeftPressed.clear();
+						flagRightPressed.clear();
+						flagLeftReleased.clear();
+						flagRightReleased.clear();
+						// Tekenen doet DisplayControl - dat is de hele reden dat de
+						// peddelknoppen daar wonen en niet hier.
+						displayControl.showPaddle();
 						state = State::STATE_ENABLED;
 					break;
 
@@ -171,8 +179,7 @@ namespace pong_cleangui_cg
 						waitAny(flagLeftPressed + flagRightPressed + flagDisable);
 						if (hasFired(flagDisable))
 						{
-							pagePaddles.hide(true);
-							pagePaddles.disable(true);
+							displayControl.hidePaddle();
 							state = State::STATE_DISABLED;
 						}
 						else if(hasFired(flagLeftPressed))
@@ -205,8 +212,7 @@ namespace pong_cleangui_cg
 						if (hasFired(flagDisable))
 						{
 							stopMoving();
-							pagePaddles.hide(true);
-							pagePaddles.disable(true);
+							displayControl.hidePaddle();
 							state = State::STATE_DISABLED;
 						}
 						else if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))
