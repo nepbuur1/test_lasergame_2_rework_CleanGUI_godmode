@@ -125,7 +125,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
 # volgorde hier stilzwijgend welke versie er gecompileerd wordt. Er wordt
 # toch maar een app tegelijk gebouwd: zet aan wat je nodig hebt.
 #"../apps/pong/pong"
-"../apps/pong_cleangui"
+"../apps/pong_cleangui_cg"
+"../apps/pong_cleangui_dg"
 
 #"../apps/TestHwLibGlcOled"
 # Adafruit libs for driving SSD1306 OLED:

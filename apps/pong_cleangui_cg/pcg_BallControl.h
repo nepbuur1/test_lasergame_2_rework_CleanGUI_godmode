@@ -5,7 +5,9 @@
 #include <esp_timer.h>
 #include <crt_CleanRTOS.h>
 #include <crt_Button.h>
-#include "crt_SceneDisplayControl.h"
+
+#include "pcg_DisplayControl.h"
+#include "pcg_PaddleControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
@@ -15,9 +17,12 @@
 // kwartier. Zie initialiseRandomStartPos().
 //#define PONG_FAST_GAME_OVER
 
-namespace crt
+using namespace crt;
+namespace pong_cleangui_cg
 {
-	extern ILogger& logger;
+	// Geen eigen extern-declaratie van logger: die zou pong_cleangui_cg::logger
+	// aankondigen, en dat object bestaat niet. De enige logger is crt::logger uit
+	// main.cpp, en die is hier al bereikbaar via het using namespace crt hierboven.
 
     class IBallControlListener
     {
@@ -35,8 +40,8 @@ namespace crt
 
 	private:
         Flag flagStart;
-        Pool<int> poolPaddlePosition;
-        ISceneDisplayControl& sceneDisplayControl;
+        IDisplayControl& displayControl;
+        PaddleControl& paddleControl;
         IBallControlListener* pBallControlListener;
         int screenWidth;
         int screenHeigth;
@@ -47,25 +52,20 @@ namespace crt
         State state;
 
 	public:
-		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, ISceneDisplayControl& sceneDisplayControl) :	
+		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, ISceneDisplayControl& displayControl, PaddleControl& paddleControl) :	
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
             flagStart(this),
-            sceneDisplayControl(sceneDisplayControl),
+            displayControl(displayControl),
+            paddleControl(paddleControl),
             pBallControlListener(nullptr),
-			screenWidth(sceneDisplayControl.getWidth()),
-            screenHeigth(sceneDisplayControl.getHeight()),
+			screenWidth(displayControl.getWidth()),
+            screenHeigth(displayControl.getHeight()),
             posX(screenWidth/2),
             posY(screenHeigth/2),
             vX(1),
             vY(1),
             state(STATE_STOPPED)
 		{
-            // Zonder deze regel denkt BallControl dat de peddel op 0 staat tot de
-            // speler voor het eerst links of rechts aanraakt - en is de eerste bal
-            // dus altijd mis. De peddel begint in het midden, net als in
-            // PaddleControl en SceneDisplayControl.
-            poolPaddlePosition.write(screenWidth/2);
-
             srand((unsigned int)esp_timer_get_time());  // anders elke boot dezelfde "willekeurige" richting.
 			start();
 		}
@@ -78,11 +78,6 @@ namespace crt
         void startBall()
         {
             flagStart.set();
-        }
-
-        void updatePaddlePosition(int x)
-        {
-            poolPaddlePosition.write(x);
         }
 
 	private:
@@ -118,7 +113,7 @@ namespace crt
 
             // Meteen doorgeven, anders staat de bal het eerste beeld van een
             // nieuw spel nog op de plek waar het vorige spel verloren ging.
-            sceneDisplayControl.updateBallPosition(posX, posY);
+            displayControl.updateBallPosition(posX, posY);
         }
 
         void updateBallPosition()
@@ -149,8 +144,8 @@ namespace crt
 
             // De peddel: alleen als de bal daalt, en alleen als hij binnen de
             // breedte van de peddel valt.
-            int paddlePosition(0);
-            poolPaddlePosition.read(paddlePosition);
+            int paddlePosition = paddleControl.getPaddlePos();
+            
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
                 && (posX <= paddlePosition + PaddleWidthPix/2 + ballRadius))
@@ -170,7 +165,7 @@ namespace crt
                 }
             }
 
-            sceneDisplayControl.updateBallPosition(posX, posY);
+            displayControl.updateBallPosition(posX, posY);
         }
 
 		/*override keyword not supported*/

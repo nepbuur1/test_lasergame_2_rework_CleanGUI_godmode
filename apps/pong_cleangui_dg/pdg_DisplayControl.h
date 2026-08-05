@@ -15,7 +15,8 @@
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
-namespace crt
+using namespace crt;
+namespace pong_cleangui_dg
 {
 	extern ILogger& logger;
 

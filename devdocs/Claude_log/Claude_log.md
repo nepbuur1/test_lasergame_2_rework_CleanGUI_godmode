@@ -1,5 +1,42 @@
 # Claude log
 
+## 2026-08-03 — Bouwfouten in pong_cleangui_cg: restanten van een omgedraaide koppeling
+
+De nieuwe `_cg`-variant draait de koppeling tussen bal en peddel om. Vroeger
+duwde `PaddleControl` de positie naar de bal met
+`ballControl.updatePaddlePosition(...)`; nu haalt `BallControl` hem zelf op met
+`paddleControl.getPaddlePos()`, met `poolPaddlePos` eronder.
+
+Van de oude richting stonden er drie dingen nog in `pcg_PaddleControl.h`, en die
+gaven samen zes compilerfouten:
+
+- `#include "pcg_BallControl.h"`, terwijl `pcg_BallControl.h` nu andersom
+  includeert. Met `#pragma once` betekent dat: wie als eerste binnenkomt ziet de
+  ander nog niet gedeclareerd staan. Vandaar `'PaddleControl' does not name a
+  type` in het ene bestand en `does not have any field named 'ballControl'` in
+  het andere - twee symptomen van dezelfde kring.
+- `ballControl(ballControl),` in de initialisatielijst, zonder member en zonder
+  constructorparameter van die naam.
+- `ballControl.updatePaddlePosition(paddlePosition);` in `movePaddle()`. Die
+  functie bestaat in de `_cg`-`BallControl` niet meer; de `poolPaddlePos.write()`
+  op de regel erboven doet het werk.
+
+Alle drie verwijderd. De include hoort maar één kant op te lopen: BallControl
+kent PaddleControl, niet andersom.
+
+Daarna bleef er een linkfout over: `undefined reference to
+pong_cleangui_cg::logger`. De vier `pcg_`-headers hadden de regel
+`extern ILogger& logger;` meeverhuisd naar de nieuwe namespace, en daarmee
+kondigden ze een object aan dat niemand definieert. De enige logger is
+`crt::logger` uit `main/main.cpp:24`. In de oorspronkelijke pong stonden deze
+bestanden zelf in namespace `crt`, dus daar klopte die regel nog. Nu niet meer:
+de extern-declaraties zijn weg, en het `using namespace crt;` dat boven elk van
+die bestanden al stond zorgt dat `logger` gewoon bij `crt::logger` uitkomt.
+
+`apps/pong_cleangui_dg` staat wel in de include-paden van `main/CMakeLists.txt`,
+maar `main.cpp` includeert alleen `Pong_CleanGUI_cg.ino` - die variant is dus
+niet meegecompileerd en niet gecontroleerd.
+
 ## 2026-08-03 — Code-navigatie in VS Code over WSL
 
 Geen codewijziging; alleen gereedschap. In het Remote-WSL-venster gaf

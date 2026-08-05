@@ -65,7 +65,7 @@ namespace crt
 //#include <ImageViewer.ino>
 //#include <MultiPanel.ino>
 //#include <Pong2.ino>						// console-versie, apps/pong/pong
-#include <Pong_CleanGUI.ino>					// touchscreen-versie, apps/pong_cleangui
+#include <Pong_CleanGUI_cg.ino>					// touchscreen-versie, apps/pong_cleangui
 
 // **** TFT_eSPI DMA examples ****
 // Let op: de map heet "DMA test" mét spatie. Die kan niet in

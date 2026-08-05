@@ -4,7 +4,7 @@
 // can be inspected in non-Arduino IDE environments with 
 // proper code highlighting and intellisense too.
 
-#include "Pong_CleanGUI_ino.h"
+#include "Pong_CleanGUI_cg_ino.h"
 
 // IMPORTANT: required for this example to work:
 // if you are building from Arduino IDE, make sure to set 

@@ -5,8 +5,8 @@
 #include <crt_Button.h>
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
-
-namespace crt
+using namespace crt;
+namespace pong_cleangui_dg
 {
 	template <int WIDTH, int HEIGHT>
 	class CharMatrix {

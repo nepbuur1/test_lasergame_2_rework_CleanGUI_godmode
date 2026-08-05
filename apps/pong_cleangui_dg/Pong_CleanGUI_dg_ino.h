@@ -22,7 +22,8 @@
 #include "crt_SceneDisplayControl.h"
 #include "crt_GameControl.h"
 
-namespace crt
+using namespace crt;
+namespace pong_cleangui_dg
 {
     MainInits mainInits;            // Initialize CleanRTOS.
 

@@ -7,6 +7,15 @@
 #include "crt_Widget.h"
 #include "crt_IDisplay.h"
 #include "crt_ILogger.h"
+
+// PageRoot is the root of a drawing-tree.
+// Multiple PageRoots - each task that manages drawables its own pageroot,
+// can be useful to avoid races caused by multiple tasks modifying the same
+// drawables.
+// That only works properly though if:
+// - the PageRoots do not overlap, or
+// - only one PageRoot is shown/enabled at a time.
+
 namespace crt
 {
 	extern ILogger& logger;
