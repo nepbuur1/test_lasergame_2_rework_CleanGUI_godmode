@@ -17,6 +17,7 @@
 #include "gameOver-trcolor_FF00FF.h"
 #include "goalLine.h"
 #include "paddle-trcolor_FF00FF.h"
+#include "presentCrate-ssh_1x5.h"
 
 namespace crt
 {
@@ -30,10 +31,11 @@ namespace crt
 	constexpr Image imageGameOver(arGameOverIndices, 256, 64, arPalette, true);
 	constexpr Image imageGoalLine(arGoalLineIndices, 320, 2, arPalette);
 	constexpr Image imagePaddle(arPaddleIndices, 50, 12, arPalette, true);
+	constexpr Image imagePresentCrate(arPresentCrateIndices, 140, 28, arPalette, false, 1, 5);
 
 	// Alles hierboven, op volgorde van bestandsnaam, zodat een viewer of een
 	// test ze kan aflopen zonder ze bij naam te noemen.
-	static constexpr int nofAllImages = 10;
+	static constexpr int nofAllImages = 11;
 
 	static constexpr const Image* const arAllImages[] =
 	{
@@ -47,6 +49,7 @@ namespace crt
 		&imageGameOver,
 		&imageGoalLine,
 		&imagePaddle,
+		&imagePresentCrate,
 	};
 
 	static constexpr const char* const arAllImageNames[] =
@@ -61,5 +64,6 @@ namespace crt
 		"imageGameOver",
 		"imageGoalLine",
 		"imagePaddle",
+		"imagePresentCrate",
 	};
 };

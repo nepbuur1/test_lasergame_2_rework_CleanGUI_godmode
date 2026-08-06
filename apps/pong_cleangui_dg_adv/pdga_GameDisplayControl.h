@@ -57,6 +57,37 @@ namespace pong_cleangui_dg_adv
 		int32_t indexBurningStep;
 	};
 
+	// Hoeveel present crates er tegelijk in het veld kunnen staan, hoe groot ze
+	// zijn en hoeveel treffers ze verdragen. Zie UC04 en UC07: elke drie seconden
+	// dat er geen bal de onderlijn passeert komt er een bij, en na NofCrateHits
+	// balaanrakingen gaat hij open en levert hij NofBallsPerCrate ballen op.
+	const int MaxNofCrates     = 5;
+	const int CrateSizePix     = 28;
+	const int NofCrateHits     = 5;
+	const int NofBallsPerCrate = 10;
+
+	// Wat het tekenen van EEN present crate nodig heeft.
+	struct CrateState
+	{
+		CrateState():posX(0),posY(0),bActive(false),nofHitsLeft(0){}
+		CrateState(int posX, int posY, int nofHitsLeft)
+			:posX(posX),posY(posY),bActive(true),nofHitsLeft(nofHitsLeft){}
+
+		int posX;
+		int posY;
+		bool bActive;
+
+		// Hoeveel treffers er nog nodig zijn. De display kiest daarmee de cel van
+		// de spritesheet: cel 0 is gaaf en toont NofCrateHits, elke treffer schuift
+		// een cel op. Zo staat het aftellen in het plaatje zelf.
+		int nofHitsLeft;
+	};
+
+	struct CrateStates
+	{
+		CrateState arCrate[MaxNofCrates];
+	};
+
 	// Alle ballen in een bericht.
 	//
 	// Een array en niet vijftig losse berichten, om twee redenen. Pool::write()
@@ -130,7 +161,7 @@ namespace pong_cleangui_dg_adv
 	// daar komen MaxNofBalls balpanels bij. Een te krappe root laat
 	// addChildWidget() op een assert stuklopen, en dat is dan bij het opstarten -
 	// dus als deze constante achterloopt, merk je het meteen.
-	typedef PageRoot<8 + MaxNofBalls> GamePageRoot;
+	typedef PageRoot<8 + MaxNofBalls + MaxNofCrates> GamePageRoot;
 
 	class IGameDisplayControl
 	{
@@ -139,7 +170,10 @@ namespace pong_cleangui_dg_adv
 			virtual int getHeight() = 0;
 			virtual IButton* addLeftButtonListener(IButtonListener* pButtonListener) = 0;
 			virtual IButton* addRightButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void updateBallStates(const BallStates& ballStates) = 0;
+			// Een beeld: alle ballen en alle crates in een keer, met een enkele
+			// vlag erachter. Twee losse berichten zouden twee hertekeningen kunnen
+			// opleveren, en een present kost het hele scherm.
+			virtual void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates) = 0;
 
 			// De laagste speelveld-y waarop nog iets van de bal te zien is. Onder
 			// deze waarde is hij het scherm uit. Deze klasse beantwoordt dat en
@@ -190,6 +224,7 @@ namespace pong_cleangui_dg_adv
 		// beide aanwijst is het hele idee: de bal hoeft zijn panel niet te kennen
 		// en het panel de bal niet.
 		Panel<0> arBallPanels[MaxNofBalls];
+		Panel<0> arCratePanels[MaxNofCrates];
 		Panel<0> bottomLinePanel;
 		Panel<0> leftBorderPanel;
 		Panel<0> rightBorderPanel;
@@ -199,6 +234,7 @@ namespace pong_cleangui_dg_adv
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonRight;
 
 		Pool<BallStates> poolBallStates;
+		Pool<CrateStates> poolCrateStates;
 		Pool<int> poolPaddlePosition;
 		Flag flagShowGamePage;
 		Flag flagDeshowGamePage;
@@ -293,9 +329,10 @@ namespace pong_cleangui_dg_adv
 		return &buttonRight;
 	}
 
-	void updateBallStates(const BallStates& ballStates)
+	void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates)
 	{
 		poolBallStates.write(ballStates);
+		poolCrateStates.write(crateStates);
 		flagBallPositionUpdated.set();
 	}
 
@@ -397,6 +434,20 @@ namespace pong_cleangui_dg_adv
 				panel.setDrawable(false, true);
 			}
 
+			// En hetzelfde voor de present crates. Cel 0 is een gaaf kistje; welke
+			// cel er getoond wordt volgt uit de teller - zie applyCrateStates().
+			for (int i = 0; i < MaxNofCrates; i++)
+			{
+				Panel<0>& panel = arCratePanels[i];
+
+				panel.setPanelProps("cratePanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
+					/*size*/crateSizePix(), /*cornerRadius*/0, CoordType::Pixels,
+					Alignment::MidMid, /*colFg*/0x00A87038, /*colBg*/0x00000000);
+				setImageChecked(panel, imagePresentCrate, crateSizePix(), "cratePanel");
+				panel.setImageFrame(0, 0);
+				panel.setDrawable(false, true);
+			}
+
 			paddlePanel.setPanelProps("paddlePanel", /*locPos*/centreToTopLeftPix(width/2, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels,
 				/*size*/paddleSizePix(), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::MidMid, /*colFg*/0x0000FFff, /*colBg*/0x00000000);
@@ -470,6 +521,10 @@ namespace pong_cleangui_dg_adv
 			poolBallStates.read(ballStates);
 			applyBallStates(ballStates);
 
+			CrateStates crateStates;
+			poolCrateStates.read(crateStates);
+			applyCrateStates(crateStates);
+
 			int paddlePosition;
 			poolPaddlePosition.read(paddlePosition);
 			paddlePanel.setLocPos(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()),
@@ -530,6 +585,37 @@ namespace pong_cleangui_dg_adv
 
 		// Cel 0 is de gewone bal, de rest is de brandcyclus.
 		static int nofBurningFrames() { return (int)imageBall.nofCols - 1; }
+
+		static Vec2 crateSizePix() { return Vec2(CrateSizePix, CrateSizePix); }
+
+		// Alle cratepanels op de zojuist ontvangen standen zetten. Zelfde opzet
+		// als applyBallStates(): een slot dat niet in het spel is wordt
+		// niet-tekenbaar, en zo verdwijnt een geopende crate vanzelf.
+		void applyCrateStates(const CrateStates& crateStates)
+		{
+			for (int i = 0; i < MaxNofCrates; i++)
+			{
+				const CrateState& crateState = crateStates.arCrate[i];
+				Panel<0>& panel = arCratePanels[i];
+
+				if (!crateState.bActive)
+				{
+					panel.setDrawable(false, true);
+					continue;
+				}
+
+				panel.setDrawable(true, true);
+				panel.setLocPos(centreToTopLeftPix(crateState.posX, crateState.posY, crateSizePix()),
+								CoordType::Pixels, Alignment::MidMid);
+
+				// Cel 0 is gaaf en toont NofCrateHits; elke treffer schuift een cel
+				// op. Het aftellen zit dus in het plaatje en niet in losse tekst.
+				int indexFrame = NofCrateHits - crateState.nofHitsLeft;
+				if (indexFrame < 0) { indexFrame = 0; }
+				if (indexFrame >= imagePresentCrate.nofCols) { indexFrame = (int)imagePresentCrate.nofCols - 1; }
+				panel.setImageFrame(0, indexFrame);
+			}
+		}
 
 		// Alle balpanels op de zojuist ontvangen standen zetten. Een slot dat niet
 		// in het spel is, wordt niet-tekenbaar - dat is hoe een bal die zichzelf
@@ -604,6 +690,13 @@ namespace pong_cleangui_dg_adv
 			pageGame.addChildWidget(paddlePanel);
 			pageGame.addChildWidget(buttonLeft);
 			pageGame.addChildWidget(buttonRight);
+
+			// De crates vóór de ballen, zodat een bal er overheen gaat en niet
+			// erachter verdwijnt op het moment dat hij hem raakt.
+			for (int i = 0; i < MaxNofCrates; i++)
+			{
+				pageGame.addChildWidget(arCratePanels[i]);
+			}
 
 			// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een
 			// kaatsing tegen de peddel: een brandende bal valt onder de doellijn
@@ -712,10 +805,15 @@ namespace pong_cleangui_dg_adv
 							BallStates ballStates;
 							poolBallStates.read(ballStates);
 
-							// Alle balpanels op hun nieuwe stand, inclusief de cel
-							// van de brandcyclus en het uitzetten van slots die niet
-							// meer in het spel zijn. Nog niet tekenen.
+							CrateStates crateStates;
+							poolCrateStates.read(crateStates);
+
+							// Alle panels op hun nieuwe stand, inclusief de cel van
+							// de brandcyclus, de cel van de crate-teller, en het
+							// uitzetten van slots die niet meer in het spel zijn.
+							// Nog niet tekenen.
 							applyBallStates(ballStates);
+							applyCrateStates(crateStates);
 
 							// Is er een beeld overgeslagen? Zie nofSkippedSteps.
 							if (indexLastDrawnStep >= 0)

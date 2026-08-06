@@ -1,5 +1,229 @@
 # Claude log
 
+## 2026-08-06 — Present crates, en de peddelstand die vijftig keer per beeld op slot ging
+
+UC07_PresentHandling erbij, langs dezelfde weg als de ballen: een
+`Depot<PresentCrateControl, 5>`, vijf panels op dezelfde index, en dezelfde
+`Handler` die ze aandrijft. De crate spawnt op het beslismoment van UC04 - elke
+drie seconden dat er geen bal door de onderlijn gaat - en dat beslismoment is één
+functie, `GameControl::spawnObject()`, zodat de keuze tussen mijn en crate later
+op precies één plek komt te staan. Voorlopig altijd een crate.
+
+Het aftellen zit in de spritesheet zelf: `presentCrate-ssh_1x5.png`, cel 0 toont
+een gaaf kistje met een **5**, elke treffer schuift een cel op en voegt een scheur
+toe, cel 4 toont een **1**. De code kiest alleen de cel met
+`NofCrateHits - nofHitsLeft`. Opaak weggeschreven (geen alfakanaal): het kistje
+dekt zijn hele cel, dus blitten is een `memcpy` per beeldregel in plaats van een
+per zichtbaar stuk.
+
+Twee dingen die het ontwerp niet zegt en die toch moesten:
+
+- **De bal kaatst tegen een crate.** Zonder kaatsing is de teller zinloos: een bal
+  die er dwars doorheen vliegt overlapt vijf beelden achter elkaar en sloopt het
+  kistje in tweehonderd milliseconde. Hij wordt teruggeduwd langs de as waar hij
+  het minst diep zit - altijd verticaal kaatsen laat een bal die van opzij komt er
+  dwars doorheen schieten.
+- **`IBallControlListener` is vervallen.** Het einde van het spel hangt sinds UC07
+  niet meer aan één bal maar aan "geen ballen meer in het spel" (UC04 stap 4), en
+  alleen wie het depot afloopt weet dat. Nu `IGameObjectsListener::allBallsGone()`,
+  op de overgang naar nul - want vóór de eerste spawn staat die teller ook op nul.
+  Zou `GameControl` zelf `getNofInUse()` pollen, dan kon het een verouderde waarde
+  lezen en voorgoed blijven wachten.
+
+### Vijftig ballen, en een slot dat vijftig keer per beeld omging
+
+Met vier crates die vlak na elkaar opengingen liep het depot vol tot 50 ballen.
+Alles bleef kloppen - `0 overgeslagen` in élke seconde, geen assert, beide depots
+meldden hun uitputting netjes in plaats van te stoppen - maar de Handler ging over
+zijn periode heen:
+
+```
+I (178595) Probleem: Handler Delay too long in us:54628
+I (179205) Probleem: Handler Delay too long in us:49440
+```
+
+De oorzaak zat in `BallControl::step()`, dat per bal per beeld
+`PaddleControl::getPaddlePos()` aanriep. Dat gaat door een `Pool`, en die neemt
+een `SimpleMutex`. Met vijftig ballen zijn dat vijftig slotoperaties per beeld op
+een slot dat óók door `PaddleControl` wordt genomen - en die draait op prioriteit
+1, dus ónder de Handler. Houdt die het slot vast op het moment dat de Handler het
+wil, dan wacht de Handler op een taak die zelf niet aan de beurt komt.
+
+`GameObjectsControl` leest de peddelstand nu één keer per beeld en zet hem in een
+`int` die de ballen via een `const int*` lezen - in dezelfde taak, dus er valt
+niets te vergrendelen. Alle ballen van een beeld zien bovendien gegarandeerd
+dezelfde peddel, wat sowieso hoort.
+
+Gemeten na de ingreep, bij dezelfde belasting (41 ballen): **nul overruns in
+negentig seconden**, tegen twee ervoor.
+
+Wat blijft staan is een wiebel aan de displaykant: in vier van de tweeëntwintig
+gemeten seconden `beeldtijd 11..66 ms` in plaats van 37..40 - één beeld dat ~26 ms
+te laat komt en één dat er meteen achteraan zit. Het gemiddelde blijft 26 fps en
+`overgeslagen` blijft 0, dus er gaat geen spelstand verloren; alleen de cadans van
+het tekenen loopt onder druk niet gelijk. Vermoeden, niet gemeten: met 41 ballen
+gaan er zo'n zestig commando's per hertekening de queue in, `AsyncDisplay` doet er
+tien per ronde en pollt er de touch tussendoor, en de auto-present gaat pas af als
+de queue leeg is.
+
+## 2026-08-06 — Ballen uit een Depot: vijftig objecten, één taak
+
+`BallControl` is geen `Task` meer. Er kunnen er tot vijftig tegelijk in de lucht
+zijn (UC07 spawnt er tien ineens), en vijftig taken van 5000 bytes stack is 250
+KB - meer DRAM dan dit bord heeft, zeker met de backbuffer van 76.800 bytes erbij.
+Ze liggen nu geprealloceerd in een `Depot<BallControl, 50>` en doen per beeld een
+stap in `update()`, aangedreven door één `crt::Handler`. Dat is precies waar
+`Handler` voor gemaakt is; zijn eigen kopregel zegt het al.
+
+`Depot<T,N>` is nieuw, en staat in de app (`pdga_Depot.h`, `pdga_IDepot.h`) en niet
+in CleanRTOS. `obtain()` geeft een **index** terug, niet een referentie: die index
+wijst behalve het object ook het panel aan dat ernaast ligt. Bij uitputting
+`InvalidIndex` en een melding, bewust geen assert - een spel dat tien objecten
+ineens wil spawnen komt daar vanzelf een keer aan.
+
+Het belangrijkste ontwerpdetail: **`arInUse` wordt nooit samengeperst.** Daardoor
+mag een bal zichzelf midden in zijn eigen `update()` vrijgeven - de index-scan
+loopt gewoon door. Dat is de reden dat "de bal geeft zichzelf terug zodra hij het
+scherm uit is" veilig is, en dat er een bool-array staat en geen lijst van actieve
+indices.
+
+Twee dingen die de vorm bepaalden:
+
+- **Een `Flag` per bal kan niet.** `crt_Task.h` doet `assert(nofWaitables < 24)`,
+  dus een taak bezit er hooguit vierentwintig. Alle standen gaan daarom in één
+  array met één vlag erachter.
+- **`Pool::write(T item)` neemt op waarde aan.** Zouden vijftig ballen elk zelf
+  schrijven, dan is dat vijftig keer ~800 bytes kopiëren per beeld. Vandaar dat de
+  ballen nergens naartoe schrijven maar worden uitgelezen, in één publicatiestap
+  per beeld.
+
+Dat publiceren doet `GameObjectsControl`, en dat is het enige dat zich bij de
+Handler aanmeldt. Het depot ís ook een `IHandlerListener` en had er dus
+rechtstreeks bij gekund, met een tweede listener erachter voor het publiceren -
+maar dan bepaalt de registratievolgorde bij de Handler of het beeld klopt. Nu
+staat die volgorde in de functie zelf.
+
+### Een fout in crt_Handler.h die er waarschijnlijk al lang lag
+
+Het project bouwde niet:
+
+```
+crt_Handler.h:47: error: member 'crt::Handler<4>::infiniteBatchSizeUs' is used uninitialized
+```
+
+De constructor met vier parameters delegeert naar die met vijf en geeft
+`infiniteBatchSizeUs` als argument mee - maar dat was een **niet-statisch** lid,
+dat op dat moment nog niet bestaat. `batchSizeUs` kreeg daarmee een willekeurige
+waarde, waardoor er stilzwijgend `taskYIELD()`s tussen de updates konden vallen in
+plaats van "geen limiet". Nu `static constexpr`, dus hij bestaat los van het
+object. Dit is de eerste keer dat `Handler` in dit project wordt gebruikt.
+
+Twee dingen in datzelfde bestand zijn **niet** aangeraakt, omdat ze elke
+Handler-gebruiker raken:
+
+- De klok loopt ~2,5% te snel. `vTaskDelay((periodUs - diffAll) / 1000)` kapt af
+  naar hele milliseconden, dus hij slaapt elke ronde tot 1 ms te kort. Gemeten:
+  38-39 ms per beeld op een periode van 40, en 26 fps waar 25 bedoeld is.
+- De overrun-melding gaat bij elke boot één keer loos af
+  (`Handler Delay too long in us:500419`): `main()` zet zijn referentietijd vóór de
+  `vTaskDelay(500)` waarmee hij zijn luisteraars de kans geeft zich te melden, en
+  telt die wachttijd mee als overschrijding van de eerste ronde. Een detector die
+  bij elke boot loos afgaat, leer je negeren.
+
+## 2026-08-06 — De brandende bal, en twee sprongen die geen sprongen mochten zijn
+
+UC05_BallHandling stap 1b: een bal die de onderlijn passeert vat vlam, vliegt
+brandend door tot buiten het scherm, en pas dán is het game over. De bal komt uit
+een spritesheet van zes cellen van 28x28 - cel 0 de gewone bal, cel 1..5 de
+brandcyclus. De cel is ruimer dan de bal (12 px) zodat de vlammen ergens heen
+kunnen zonder dat de botsingsmaat verandert; `BallSizePix` bleef 12. De cel-maat
+wordt uit `imageBall.width / nofCols` afgeleid, zodat er geen tweede plek is waar
+die 28 kan verouderen.
+
+Gemeten: 17 stappen, 68 pixels, ~3,5 vlamcycli. De ballen worden als laatste aan
+de pagina toegevoegd en dus bovenop getekend - anders verdween de brandende bal
+vlak onder de doellijn achter een peddelknop, en juist het doorvliegen was het
+punt.
+
+### Twee sprongen, allebei door hetzelfde patroon
+
+"Het lijkt wel of de bal wat sneller gaat, als hij eenmaal in brand staat." Dat
+klopte, en het stond in de meting: `beeldtijd 1..44 ms` en `3..44 ms`, terwijl
+alle andere seconden strak op 42-44 zaten. Bij het passeren van de doellijn werd
+de positie **ongestapt** doorgestuurd, waarna de eerstvolgende ronde op hetzelfde
+moment de gestapte stuurde. Het scherm tekende twee beelden binnen enkele
+milliseconden en de bal legde zijn hele stap af in een oogwenk. Dezelfde fout
+bleek bij het starten van elk spel te zitten. Beide melding weggehaald; de vlammen
+verschijnen nu een beeld later, en dat klopt ook beter - hij vat vlam terwijl hij
+de lijn passeert.
+
+### vTaskDelay is een pauze, geen periode
+
+De brandmeting gaf 91 px/s waar 100 verwacht werd: 43,6 ms per stap in plaats van
+40. `vTaskDelay(40)` pauzeert vanaf **nu**, dus de looptijd van de lus komt er
+bovenop - en hoeveel dat is hangt af van hoe druk de tekentaak het heeft.
+`xTaskDelayUntil` rekent vanaf het vorige wekmoment en haalt dat eruit. Meteen
+daarna gemeten, drie keer identiek: **17 stappen, 68 px in 680 ms = 100 px/s**.
+
+Eén valkuil zit erin: na de game-over-pagina staat het wekmoment seconden in het
+verleden, en dan haalt `xTaskDelayUntil` die achterstand in met een reeks stappen
+zonder pauze - precies de schok die er net uit was. De klok wordt daarom bij elke
+nieuwe bal opnieuw gezet.
+
+**Een gevolgtrekking die niet klopte, voor de duidelijkheid:** uit de eerdere
+`beeldtijd 41..45 ms` was afgeleid dat het tékenen ~43 ms nodig had, en daar hing
+een voorstel aan om `present()` alleen het veranderde gebied te laten sturen. Dat
+was onjuist. Die extra milliseconden waren volledig de drift van `vTaskDelay`; na
+de vaste klok staat de beeldtijd op 39..40 ms. Het tekenen zat altijd al binnen de
+40 ms, en de aanleiding voor die ingreep verviel daarmee.
+
+## 2026-08-06 — pong_cleangui_dg_adv: alles uit 8bpp paletted bitmaps
+
+`pong_cleangui_dg` is gekopieerd naar `pong_cleangui_dg_adv`, met prefix `pdga_`
+en namespace `pong_cleangui_dg_adv` - nodig, want alle drie de varianten staan
+tegelijk in het includepad. Daarna is de app omgezet naar
+`TFT_eSPI_DisplayAdapter_PAL8`: een schermvullende backbuffer van 320x240 bij 8
+bits per pixel (76.800 bytes), net als het MultiPanel-voorbeeld. Hij past, en DMA
+komt op.
+
+Acht objecten komen nu uit een PAL8-plaatje: de drie wanden, de doellijn, de
+peddel, de bal, de PLAY-knop en "GAME OVER" - later gevolgd door de twee
+peddelknoppen. Samen ~42 KB indices in flash. De bronnen staan in `images/` en
+worden getekend door `images/make_pong_images.py`, zodat ze bij te stellen zijn
+zonder tekenprogramma; omzetten gaat met `tools/img2rgb565.py --pal8`.
+
+`images/_pal8/_userPalette.h` is met de hand geschreven: de kleuren die de code
+zélf nog noemt (de zwarte achtergrond, de rode peddelknoppen, hun witte tekst)
+liggen daarmee op een vaste index, zodat `indexForColour()` ze op afstand 0 vindt
+in plaats van "iets dat de median-cut toevallig heeft opgeleverd".
+
+Twee dingen volgden uit de adapter en niet uit smaak. Afgeronde hoeken worden
+vierkant - een `TFT_eSprite` heeft er geen primitieve voor - dus alles wat rond
+moet zijn is nu een plaatje, inclusief het kader achter "GAME OVER" en de
+schuine kant van de knoppen. En gedeeltelijk hertekenen is er niet meer bij:
+`present()` stuurt altijd het hele scherm (~31 ms), dus per beeld de hele boom
+opnieuw opbouwen is goedkoper dan het slim proberen te doen. De DisplayControls
+vragen `display.isBuffered()` en kiezen zelf; met de RGB565-typedef terug werkt de
+oude `moveTo()`-route nog.
+
+### Het hele scherm knipperde, en dat was een taakprioriteit
+
+Ook zonder iets aan te raken flikkerde het beeld, ongeveer drie keer per seconde.
+MultiPanel doet dat niet.
+
+`AsyncDisplay` presenteert uit zichzelf zodra zijn commandoqueue leeg is en er iets
+getekend is - die auto-present neemt "queue leeg" als "beeld af". De drie
+DisplayControls van pong draaien op prioriteit 1, dus **onder** de tekentaak op 2.
+Een schrijver die daar zit, wordt bij zijn ingestuurde opdrachten opzij gezet, en
+de tekentaak treft de queue dan leeg aan terwijl er pas een deel van het beeld in
+de buffer staat. Het eerste commando van elk pong-beeld is het schermvullende
+zwarte achtergrondpaneel - dus zo'n half beeld ís een zwart scherm.
+
+Alle voorbeelden in `libs/CleanGUI_for_TFT_eSPI/examples` draaien hun tekenende
+taak om deze reden op 2. Na de drie DisplayControls naar 2 te hebben gezet, was
+het knipperen weg. Vóór de omzetting viel het niet op: bij de RGB565-adapter is
+`present()` leeg en raakte `moveTo()` alleen kleine rechthoekjes aan.
+
 ## 2026-08-05 — show/hide per pagina, in beide varianten gelijk
 
 De paginafuncties heetten eerst `selectXxxPage()`, daarna kort

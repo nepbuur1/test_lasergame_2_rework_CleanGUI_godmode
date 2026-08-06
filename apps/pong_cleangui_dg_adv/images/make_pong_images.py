@@ -303,6 +303,92 @@ def make_ball_sheet(cell_size, nof_burning):
     save(sheet, "ball-trcolor_FF00FF-ssh_1x%d.png" % len(cells))
 
 
+# --- de present crate ------------------------------------------------------
+#
+# Een spritesheet van vijf cellen: cel 0 is gaaf, cel 4 is bijna stuk. De crate
+# begint met vijf treffers tegoed (UC07), dus de cel volgt uit de teller en de
+# speler ziet zonder cijfers hoe ver hij is.
+
+CRATE_WOOD      = (0xA8, 0x70, 0x38)
+CRATE_WOOD_LIT  = (0xD8, 0xA0, 0x60)
+CRATE_WOOD_DARK = (0x60, 0x38, 0x18)
+CRATE_RIBBON    = (0xE0, 0x30, 0x50)
+CRATE_CRACK     = (0x30, 0x1C, 0x0C)
+
+
+def draw_crate_face(draw, w, h, damage, nof_hits_left):
+    """Het kistje, met damage van 0 (gaaf) tot 1 (bijna stuk).
+
+    nof_hits_left komt als cijfer op het kistje te staan. De scheuren zeggen het
+    ook al, maar niet precies genoeg om op te spelen - je wilt kunnen zien of er
+    nog twee of nog drie treffers nodig zijn, niet ongeveer hoe stuk het is.
+    """
+
+    draw.rectangle([0, 0, w - 1, h - 1], fill=CRATE_WOOD)
+
+    # Twee horizontale planken met een naad ertussen, en een lichte bovenrand:
+    # zonder die geleding is het een bruin vierkant.
+    draw.rectangle([0, 0, w - 1, h // 8], fill=CRATE_WOOD_LIT)
+    draw.line([(0, h // 2), (w - 1, h // 2)], fill=CRATE_WOOD_DARK, width=SS)
+    draw.rectangle([0, 0, w - 1, h - 1], outline=CRATE_WOOD_DARK, width=2 * SS)
+
+    # Het lint maakt er een cadeau van in plaats van een krat.
+    ribbonWidth = max(SS, w // 9)
+    draw.rectangle([w // 2 - ribbonWidth // 2, 0, w // 2 + ribbonWidth // 2, h - 1], fill=CRATE_RIBBON)
+    draw.rectangle([0, h // 2 - ribbonWidth // 2, w - 1, h // 2 + ribbonWidth // 2], fill=CRATE_RIBBON)
+
+    # De schade. De scheuren staan vast per stadium en zijn niet willekeurig:
+    # het plaatje wordt in git bewaard, dus het hoort er elke keer hetzelfde uit
+    # te zien.
+    cracks = [
+        [(0.18, 0.12), (0.32, 0.34), (0.24, 0.52)],
+        [(0.78, 0.16), (0.66, 0.38), (0.80, 0.60)],
+        [(0.20, 0.70), (0.38, 0.82), (0.30, 0.94)],
+        [(0.60, 0.66), (0.74, 0.84), (0.62, 0.96)],
+    ]
+
+    nofCracks = int(round(damage * len(cracks)))
+    for crack in cracks[:nofCracks]:
+        points = [(x * w, y * h) for (x, y) in crack]
+        draw.line(points, fill=CRATE_CRACK, width=max(SS, w // 22), joint="curve")
+
+    # Het aantal treffers dat er nog nodig is, midden op het kistje. Met een
+    # donkere rand eromheen, want wit op lichthout leest anders niet.
+    text = "%d" % nof_hits_left
+    font = font_that_fits(text, int(w * 0.5), int(h * 0.52))
+    draw_centred_text(draw, (0, 0, w, h), text, font, WHITE,
+                      stroke_width=max(1, SS // 2), stroke_fill=CRATE_WOOD_DARK)
+
+
+def make_present_crate(size, nof_states):
+    cells = []
+    for i in range(nof_states):
+        damage = i / (nof_states - 1) if nof_states > 1 else 0.0
+
+        # Cel 0 is gaaf en toont het volle aantal; elke treffer schuift een cel
+        # op. De display rekent dat om met (nofHits - nofHitsLeft).
+        nofHitsLeft = nof_states - i
+
+        def colour(img, w, h, damage=damage, nofHitsLeft=nofHitsLeft):
+            draw_crate_face(ImageDraw.Draw(img), w, h, damage, nofHitsLeft)
+
+        def mask(img, w, h):
+            ImageDraw.Draw(img).rectangle([0, 0, w - 1, h - 1], fill=255)
+
+        cells.append(antialiased(size, size, CRATE_WOOD, colour, mask))
+
+    sheet = Image.new("RGBA", (size * len(cells), size), (0, 0, 0, 0))
+    for i, cell in enumerate(cells):
+        sheet.paste(cell, (i * size, 0))
+
+    # Zonder alfakanaal wegschrijven: het kistje is vierkant en dekt zijn hele
+    # cel, dus er valt niets door te laten. Een alfakanaal dat overal 255 is,
+    # levert alleen een waarschuwing van de converter op ("heeft een alpha-kanaal
+    # maar geen -trcolor") en geen enkel voordeel. Opaak blitten is bovendien een
+    # memcpy per beeldregel in plaats van een per zichtbaar stuk.
+    save(sheet.convert("RGB"), "presentCrate-ssh_1x%d.png" % len(cells))
+
+
 # --- de peddel -------------------------------------------------------------
 
 def make_paddle(width, height):
@@ -432,6 +518,11 @@ def main():
     game_over_width  = 256
     game_over_height = 64
 
+    # De present crate: even groot als een cel van de bal-sheet, en vijf cellen
+    # want hij begint met vijf treffers tegoed (UC07).
+    crate_size       = 28
+    nof_crate_states = 5
+
     # De peddelknoppen stonden op 250 x 190 promille van 320 x 240. In pixels is
     # dat 80 x 45,6 - en juist die halve pixel is de reden dat ze nu in pixels
     # staan: zie de toelichting in pdga_PlayButton.h.
@@ -445,6 +536,7 @@ def main():
     make_paddle(paddle_width, paddle_height)
     make_play_button(button_width, button_height)
     make_paddle_buttons(paddle_button_width, paddle_button_height)
+    make_present_crate(crate_size, nof_crate_states)
     make_game_over(game_over_width, game_over_height)
 
 

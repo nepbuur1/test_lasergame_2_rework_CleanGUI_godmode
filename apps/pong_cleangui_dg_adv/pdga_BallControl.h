@@ -9,6 +9,7 @@
 
 #include "pdga_GameDisplayControl.h"
 #include "pdga_PaddleControl.h"
+#include "pdga_PresentCrateControl.h"
 
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
 // binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
@@ -22,18 +23,6 @@ namespace pong_cleangui_dg_adv
 	// Geen eigen extern-declaratie van logger: die zou pong_cleangui_dg_adv::logger
 	// aankondigen, en dat object bestaat niet. De enige logger is crt::logger uit
 	// main.cpp, en die is hier al bereikbaar via het using namespace crt hierboven.
-
-    class IBallControlListener
-    {
-    public:
-        // Vroeger heette dit ballMissedByPaddle, en dat klopte toen ook: de bal
-        // was het spel uit op het moment dat hij de doellijn passeerde. Sinds
-        // UC05_BallHandling stap 1b vliegt hij daarna brandend door, en is het
-        // spel pas afgelopen als hij het scherm heeft verlaten. De naam volgt dat
-        // moment, want een naam die het verkeerde moment aanwijst is erger dan
-        // geen naam.
-        virtual void ballLeftTheScreen() = 0;
-    };
 
 	// Een bal is GEEN taak.
 	//
@@ -63,8 +52,21 @@ namespace pong_cleangui_dg_adv
 
 	private:
         IGameDisplayControl* pGameDisplayControl;
-        PaddleControl* pPaddleControl;
-        IBallControlListener* pBallControlListener;
+
+        // De peddelstand van dit beeld, eigendom van GameObjectsControl. Een
+        // aanwijzer en geen PaddleControl&, en dat is geen stijlkeuze:
+        // PaddleControl::getPaddlePos() gaat via een Pool, en die neemt een
+        // SimpleMutex. Met vijftig ballen waren dat vijftig slotoperaties per
+        // beeld op een slot dat ook door PaddleControl zelf wordt genomen - en die
+        // draait op een lágere prioriteit, dus de Handler kon daar op gaan staan
+        // wachten. Nu leest GameObjectsControl de stand een keer per beeld, in
+        // dezelfde taak waarin deze update() draait, en is er niets meer te
+        // vergrendelen. Alle ballen zien bovendien gegarandeerd dezelfde peddel.
+        const int* pPaddlePosition;
+
+        // Waar de bal vraagt of hij een present crate raakt. Hij kent de crates
+        // zelf niet - zie IPresentCrateField.
+        IPresentCrateField* pCrateField;
 
         // Het depot waar deze bal in ligt, en waar hij in ligt. Hij geeft zichzelf
         // vrij zodra hij het scherm uit is. Via IDepot en niet via Depot<...>:
@@ -102,8 +104,8 @@ namespace pong_cleangui_dg_adv
         // in een keer. Alles wat een bal verder nodig heeft komt via init().
 		BallControl() :
             pGameDisplayControl(nullptr),
-            pPaddleControl(nullptr),
-            pBallControlListener(nullptr),
+            pPaddlePosition(nullptr),
+            pCrateField(nullptr),
             pDepot(nullptr),
             indexSlot(-1),
             fieldWidth(0),
@@ -124,12 +126,12 @@ namespace pong_cleangui_dg_adv
         // vorm zegt in deze codebase dat je hem later nog eens mag aanroepen om
         // iets te wijzigen, en dat geldt hier niet - dit ligt vast zodra het spel
         // loopt.
-        void init(IGameDisplayControl& gameDisplayControl, PaddleControl& paddleControl,
-                  IBallControlListener* pBallControlListener, IDepot* pDepot, int indexSlot)
+        void init(IGameDisplayControl& gameDisplayControl, const int* pPaddlePosition,
+                  IPresentCrateField* pCrateField, IDepot* pDepot, int indexSlot)
         {
             this->pGameDisplayControl = &gameDisplayControl;
-            this->pPaddleControl = &paddleControl;
-            this->pBallControlListener = pBallControlListener;
+            this->pPaddlePosition = pPaddlePosition;
+            this->pCrateField = pCrateField;
             this->pDepot = pDepot;
             this->indexSlot = indexSlot;
 
@@ -143,6 +145,29 @@ namespace pong_cleangui_dg_adv
         // In het spel zetten. Aan te roepen nadat het depot deze bal heeft
         // uitgegeven - het depot begint hem daarna vanzelf te updaten.
         void spawn()
+        {
+            spawnInTheMiddle();
+        }
+
+        // Op een opgegeven plek, met een willekeurige richting. Zo komen de
+        // ballen uit een geopende present crate (UC07 stap 3) daar vandaan in
+        // plaats van uit het midden.
+        void spawnAt(int posX, int posY)
+        {
+            this->posX = posX;
+            this->posY = posY;
+
+            // Een spreiding in de horizontale snelheid, zodat tien ballen uit
+            // dezelfde crate niet als een blok bewegen. De verticale houdt zijn
+            // vaste grootte - daar hangt de valsnelheid aan.
+            vX = (int)(rand() % (4*BallSpeedPixPerFrame + 1)) - 2*BallSpeedPixPerFrame;
+            vY = ((rand()%2) == 0) ? BallSpeedPixPerFrame : -BallSpeedPixPerFrame;
+
+            indexBurningStep = 0;
+            state = STATE_RUNNING;
+        }
+
+        void spawnInTheMiddle()
         {
 #ifdef PONG_FAST_GAME_OVER
             // De bal begint vlak boven de doellijn, helemaal links, en gaat
@@ -221,10 +246,7 @@ namespace pong_cleangui_dg_adv
 
                     state = STATE_IDLE;
 
-                    assert(pBallControlListener != nullptr);
-                    pBallControlListener->ballLeftTheScreen();
-
-                    // En zichzelf teruggeven. Dit mag vanuit de eigen update():
+                    // Zichzelf teruggeven. Dit mag vanuit de eigen update():
                     // een Depot perst zijn administratie niet samen, dus de lus
                     // die ons aanroept raakt hier niet van in de war. Het panel
                     // volgt vanzelf - de display tekent per beeld alleen de slots
@@ -294,7 +316,7 @@ namespace pong_cleangui_dg_adv
 
             // De peddel: alleen als de bal daalt, en alleen als hij binnen de
             // breedte van de peddel valt.
-            int paddlePosition = pPaddleControl->getPaddlePos();
+            int paddlePosition = (pPaddlePosition != nullptr) ? *pPaddlePosition : 0;
 
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
@@ -313,6 +335,51 @@ namespace pong_cleangui_dg_adv
                 {
                     vX = (offsetFromCentre < 0) ? -1 : 1;	// nooit helemaal recht omhoog.
                 }
+            }
+
+            bounceOffCrateIfHit();
+        }
+
+        // UC05_BallHandling stap 1c: raakt de bal een present crate, dan geeft hij
+        // dat door aan dat object. Wat er verder gebeurt - de teller omlaag, en bij
+        // nul de crate open - is de zaak van de crate, niet van de bal.
+        //
+        // De kaatsing zelf staat NIET in het ontwerp, maar zonder is de teller
+        // zinloos: een bal die er dwars doorheen vliegt, overlapt vijf beelden
+        // achter elkaar en sloopt het kistje in tweehonderd milliseconde. Kaatsen
+        // is bovendien wat je van een kistje verwacht.
+        void bounceOffCrateIfHit()
+        {
+            if (pCrateField == nullptr)
+            {
+                return;
+            }
+
+            CrateHit hit = pCrateField->reportBallHit(posX, posY, ballRadius);
+            if (!hit.bHit)
+            {
+                return;
+            }
+
+            // Terugduwen langs de as waar hij het minst diep in zit: dat is de
+            // kant waar hij binnenkwam. Zou je altijd verticaal kaatsen, dan
+            // schiet een bal die van opzij komt dwars door het kistje heen.
+            int halfSize = hit.sizePix/2;
+            int dx = posX - hit.posX;
+            int dy = posY - hit.posY;
+
+            int overlapX = (halfSize + ballRadius) - ((dx < 0) ? -dx : dx);
+            int overlapY = (halfSize + ballRadius) - ((dy < 0) ? -dy : dy);
+
+            if (overlapX < overlapY)
+            {
+                posX += (dx >= 0) ? overlapX : -overlapX;
+                vX = (dx >= 0) ? ((vX < 0) ? -vX : vX) : ((vX > 0) ? -vX : vX);
+            }
+            else
+            {
+                posY += (dy >= 0) ? overlapY : -overlapY;
+                vY = (dy >= 0) ? ((vY < 0) ? -vY : vY) : ((vY > 0) ? -vY : vY);
             }
         }
 	}; // end class BallControl

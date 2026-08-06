@@ -27,7 +27,8 @@
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_BallControl.h"
-#include "pdga_BallsControl.h"
+#include "pdga_PresentCrateControl.h"
+#include "pdga_GameObjectsControl.h"
 #include "pdga_MainControl.h"
 
 using namespace crt;
@@ -106,7 +107,8 @@ namespace pong_cleangui_dg_adv
 	// backbuffer van 76.800 bytes erbij. Een Handler tikt ze aan; zie
 	// pdga_BallsControl.h en pdga_Depot.h.
 	BallDepot ballDepot("ballDepot");
-	BallsControl ballsControl(ballDepot, gameDisplayControl);
+	CrateDepot crateDepot("crateDepot");
+	GameObjectsControl gameObjectsControl(ballDepot, crateDepot, gameDisplayControl, paddleControl);
 
 	// Prioriteit 2, gelijk aan asyncDisplay en de DisplayControls. Deze taak
 	// tekent zelf niet, maar hij zet wel de balstanden klaar waar een beeld op
@@ -118,7 +120,8 @@ namespace pong_cleangui_dg_adv
 	Handler<4/*MaxNofListeners*/> handler("Handler", 2 /*priority*/, ARDUINO_RUNNING_CORE, FrameIntervalMs);
 
 	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
-	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl, ballDepot, paddleControl);
+	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl,
+	                        ballDepot, crateDepot, gameObjectsControl, paddleControl);
 }
 
 void setup()
@@ -140,7 +143,7 @@ void setup()
 	// Aanmelden bij de Handler. Dit moet binnen 500 ms na het opstarten gebeuren:
 	// Handler::main() wacht zo lang voordat hij begint met tikken, juist zodat
 	// zijn luisteraars zich kunnen melden. setup() draait ruim binnen die tijd.
-	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::ballsControl);
+	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::gameObjectsControl);
 
 	ESP_LOGI("checkpoint", "start of main");vTaskDelay(1);
 }
