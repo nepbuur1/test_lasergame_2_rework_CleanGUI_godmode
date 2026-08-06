@@ -7,7 +7,7 @@
 #include <crt_Image.h>
 
 #include "_palette.h"
-#include "ball-trcolor_FF00FF.h"
+#include "ball-trcolor_FF00FF-ssh_1x6.h"
 #include "borderLeft.h"
 #include "borderRight.h"
 #include "borderTop.h"
@@ -20,7 +20,7 @@
 
 namespace crt
 {
-	constexpr Image imageBall(arBallIndices, 12, 12, arPalette, true);
+	constexpr Image imageBall(arBallIndices, 168, 28, arPalette, true, 1, 6);
 	constexpr Image imageBorderLeft(arBorderLeftIndices, 10, 180, arPalette);
 	constexpr Image imageBorderRight(arBorderRightIndices, 10, 180, arPalette);
 	constexpr Image imageBorderTop(arBorderTopIndices, 320, 10, arPalette);

@@ -22,6 +22,7 @@ daarom -trcolor_FF00FF in hun naam: elke pixel met alpha < 128 wordt palet-index
 255 en laat door wat eronder ligt.
 """
 
+import math
 import os
 
 from PIL import Image, ImageDraw, ImageFont
@@ -76,8 +77,11 @@ def antialiased(width, height, base_colour, draw_colour, draw_mask):
     colour = Image.new("RGB", (width * SS, height * SS), base_colour)
     mask = Image.new("L", (width * SS, height * SS), 0)
 
-    draw_colour(ImageDraw.Draw(colour), width * SS, height * SS)
-    draw_mask(ImageDraw.Draw(mask), width * SS, height * SS)
+    # De tekenaars krijgen het Image en niet alleen een ImageDraw: een enkele
+    # vorm die zelf uit meerdere lagen bestaat - de bal met zijn eigen verloop
+    # en masker - is dan als tegel in te plakken zonder de rest te overschilderen.
+    draw_colour(colour, width * SS, height * SS)
+    draw_mask(mask, width * SS, height * SS)
 
     colour = colour.resize((width, height), Image.LANCZOS)
     mask = mask.resize((width, height), Image.LANCZOS)
@@ -163,26 +167,140 @@ def make_goal_line(width, height):
 
 
 # --- de bal ----------------------------------------------------------------
+#
+# Een spritesheet van zes cellen op een rij: cel 0 is de gewone bal, cel 1..5 is
+# een cyclus van een brandende bal. Zie UC05_BallHandling in
+# models/PongDesign_adv.md - een bal die de onderlijn passeert vliegt brandend
+# door tot hij het scherm uit is.
+#
+# De cel is ruimer dan de bal (BallSizePix), zodat de vlammen ergens heen kunnen
+# zonder dat de botsingsmaat verandert. De bal staat in het MIDDEN van de cel:
+# GameDisplayControl plaatst het panel op het balmiddelpunt, dus een bal die niet
+# in het midden van zijn cel staat, staat op het scherm ook naast waar het spel
+# hem denkt te hebben.
 
-def make_ball(size):
-    def colour(draw, w, h):
-        # Radiaal verloop met het licht linksboven: van buiten naar binnen
-        # steeds lichter, en de buitenste ring donker.
-        cx, cy = w * 0.38, h * 0.36
-        radius = w * 0.82
-        steps = 24
-        for i in range(steps, 0, -1):
-            t = i / steps
-            r = radius * t
-            draw.ellipse([cx - r, cy - r, cx + r, cy + r],
-                         fill=lerp(YELLOW_LIT, YELLOW_DARK, t))
-        # De rand nog een tint donkerder, anders vloeit hij weg op zwart.
-        draw.ellipse([0, 0, w - 1, h - 1], outline=YELLOW_DARK, width=SS)
+# De voet bewust geen bijna-wit: op deze maat steekt hij naast de bal uit en
+# leest wit daar als een omlijning om de bal in plaats van als vuur.
+FLAME_HOT  = (0xFF, 0xE0, 0x60)
+FLAME_MID  = (0xFF, 0xA0, 0x20)
+FLAME_COOL = (0xF0, 0x60, 0x10)
+FLAME_TIP  = (0xB0, 0x20, 0x00)
 
-    def mask(draw, w, h):
-        draw.ellipse([0, 0, w - 1, h - 1], fill=255)
 
-    save(antialiased(size, size, YELLOW, colour, mask), "ball-trcolor_FF00FF.png")
+def flame_colour(t):
+    """Van wit-heet bij de bal naar dieprood in de punt."""
+
+    if t < 0.35:
+        return lerp(FLAME_HOT, FLAME_MID, t / 0.35)
+    if t < 0.7:
+        return lerp(FLAME_MID, FLAME_COOL, (t - 0.35) / 0.35)
+    return lerp(FLAME_COOL, FLAME_TIP, (t - 0.7) / 0.3)
+
+
+def draw_ball_body(draw, cx, cy, radius):
+    # Radiaal verloop met het licht linksboven: van buiten naar binnen steeds
+    # lichter, en de buitenste ring donker.
+    lightX, lightY = cx - radius * 0.24, cy - radius * 0.28
+    steps = 24
+    for i in range(steps, 0, -1):
+        t = i / steps
+        r = radius * 1.64 * t
+        draw.ellipse([lightX - r, lightY - r, lightX + r, lightY + r],
+                     fill=lerp(YELLOW_LIT, YELLOW_DARK, t))
+    draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius],
+                 outline=YELLOW_DARK, width=SS)
+
+
+def draw_flames(draw, cx, cy, ball_radius, phase, colour_layer):
+    """Vlamtongen boven de bal.
+
+    Boven, want de brandende bal valt naar beneden - vuur trekt dan de andere
+    kant op. De vijf tongen krijgen elk een eigen faseverschuiving, zodat ze niet
+    als een blok op en neer gaan maar door elkaar heen flakkeren.
+
+    De punt wordt als eerste getekend en de hete voet als laatste, zodat het
+    lichte deel bovenop komt te liggen in plaats van eronder te verdwijnen.
+    """
+
+    tongues = [(-0.62, 0.70), (-0.30, 0.90), (0.0, 1.0), (0.32, 0.88), (0.62, 0.66)]
+
+    for k, (offset, heightScale) in enumerate(tongues):
+        wobble = math.sin(2.0 * math.pi * (phase + k / len(tongues)))
+
+        # 1,6 x de balstraal is geen smaak maar de ruimte die er is: de bal staat
+        # midden in de cel, dus boven hem past (cel/2 - balstraal) = 8 pixels. Een
+        # hogere vlam wordt door de celrand afgesneden, en dat zie je als een
+        # rechte streep dwars door het vuur.
+        height = ball_radius * 1.6 * heightScale * (0.72 + 0.28 * wobble)
+
+        steps = 16
+        for s in range(steps - 1, -1, -1):
+            t = s / (steps - 1)
+            x = cx + offset * ball_radius * (1.0 - 0.35 * t) \
+                + math.sin(t * 3.4 + 2.0 * math.pi * phase) * ball_radius * 0.22 * t
+            y = cy - ball_radius * 0.55 - height * t
+            r = ball_radius * 0.40 * (1.0 - t) ** 0.75 + 0.5 * SS
+
+            box = [x - r, y - r, x + r, y + r]
+            draw.ellipse(box, fill=flame_colour(t) if colour_layer else 255)
+
+
+def ball_cell(size, phase):
+    """Een cel van de spritesheet. phase is None voor de gewone bal."""
+
+    ballDiameter = 12		# BallSizePix - de bal zelf blijft even groot.
+
+    def geometry(w, h):
+        cx, cy = w / 2.0, h / 2.0
+        ballRadius = (ballDiameter / 2.0) * (w / size)
+        return cx, cy, ballRadius
+
+    def colour(img, w, h):
+        cx, cy, ballRadius = geometry(w, h)
+        draw = ImageDraw.Draw(img)
+
+        if phase is not None:
+            draw_flames(draw, cx, cy, ballRadius, phase, True)
+
+        # De bal als eigen tegel met eigen masker. Zijn radiale verloop wordt
+        # getekend met cirkels die tot ruim buiten de bal reiken - dat is wat
+        # het licht van opzij laat komen - en zonder dit masker schilderde dat
+        # verloop de vlammen eromheen weer geel.
+        side = max(2, int(round(2 * ballRadius)))
+        body = Image.new("RGB", (side, side), YELLOW)
+        draw_ball_body(ImageDraw.Draw(body), side / 2.0, side / 2.0, side / 2.0)
+
+        bodyMask = Image.new("L", (side, side), 0)
+        ImageDraw.Draw(bodyMask).ellipse([0, 0, side - 1, side - 1], fill=255)
+
+        img.paste(body, (int(round(cx - ballRadius)), int(round(cy - ballRadius))), bodyMask)
+
+    def mask(img, w, h):
+        cx, cy, ballRadius = geometry(w, h)
+        draw = ImageDraw.Draw(img)
+
+        if phase is not None:
+            draw_flames(draw, cx, cy, ballRadius, phase, False)
+
+        draw.ellipse([cx - ballRadius, cy - ballRadius,
+                      cx + ballRadius, cy + ballRadius], fill=255)
+
+    base = YELLOW if phase is None else FLAME_MID
+    return antialiased(size, size, base, colour, mask)
+
+
+def make_ball_sheet(cell_size, nof_burning):
+    cells = [ball_cell(cell_size, None)]
+    for i in range(nof_burning):
+        cells.append(ball_cell(cell_size, i / nof_burning))
+
+    sheet = Image.new("RGBA", (cell_size * len(cells), cell_size), (0, 0, 0, 0))
+    for i, cell in enumerate(cells):
+        sheet.paste(cell, (i * cell_size, 0))
+
+    # -ssh_1x6: een rij van zes cellen. De converter zet dat in Image::nofRows /
+    # nofCols, en Panel::setImageFrame() kiest er een uit.
+    save(sheet, "ball-trcolor_FF00FF-ssh_1x%d.png" % len(cells))
 
 
 # --- de peddel -------------------------------------------------------------
@@ -190,7 +308,8 @@ def make_ball(size):
 def make_paddle(width, height):
     radius = height * SS // 2
 
-    def colour(draw, w, h):
+    def colour(img, w, h):
+        draw = ImageDraw.Draw(img)
         for y in range(h):
             t = y / (h - 1)
             draw.line([(0, y), (w - 1, y)], fill=lerp(CYAN, CYAN_DARK, t ** 0.8))
@@ -199,8 +318,8 @@ def make_paddle(width, height):
         draw.rounded_rectangle([SS, SS, w - 1 - SS, h // 3],
                                radius=radius // 2, fill=WHITE)
 
-    def mask(draw, w, h):
-        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    def mask(img, w, h):
+        ImageDraw.Draw(img).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
 
     save(antialiased(width, height, CYAN_MID, colour, mask), "paddle-trcolor_FF00FF.png")
 
@@ -231,12 +350,13 @@ def button_face(draw, w, h, radius):
 def make_button(width, height, name, draw_label):
     radius = BUTTON_RADIUS * SS
 
-    def colour(draw, w, h):
+    def colour(img, w, h):
+        draw = ImageDraw.Draw(img)
         button_face(draw, w, h, radius)
         draw_label(draw, w, h)
 
-    def mask(draw, w, h):
-        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    def mask(img, w, h):
+        ImageDraw.Draw(img).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
 
     save(antialiased(width, height, RED, colour, mask), name)
 
@@ -280,7 +400,8 @@ def make_paddle_buttons(width, height):
 def make_game_over(width, height):
     radius = 14 * SS
 
-    def colour(draw, w, h):
+    def colour(img, w, h):
+        draw = ImageDraw.Draw(img)
         draw.rectangle([0, 0, w - 1, h - 1], fill=BOX_DARK)
         draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius,
                                outline=GAMEOVER_RED, width=2 * SS)
@@ -289,8 +410,8 @@ def make_game_over(width, height):
         draw_centred_text(draw, (0, 0, w, h), "GAME OVER", font, GAMEOVER_RED,
                           stroke_width=SS // 2, stroke_fill=RED_DARK)
 
-    def mask(draw, w, h):
-        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    def mask(img, w, h):
+        ImageDraw.Draw(img).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
 
     save(antialiased(width, height, BOX_DARK, colour, mask), "gameOver-trcolor_FF00FF.png")
 
@@ -301,7 +422,8 @@ def main():
     playfield_width  = 320
     playfield_height = 180
     wall_thickness   = 10
-    ball_size        = 12
+    ball_cell_size   = 28	# de spritesheet-cel; de bal erin blijft 12 (BallSizePix)
+    nof_burning      = 5
     paddle_width     = 50
     paddle_height    = 12
     goal_line_height = 2
@@ -319,7 +441,7 @@ def main():
     print("pong_cleangui_dg_adv images:")
     make_walls(playfield_width, playfield_height, wall_thickness)
     make_goal_line(playfield_width, goal_line_height)
-    make_ball(ball_size)
+    make_ball_sheet(ball_cell_size, nof_burning)
     make_paddle(paddle_width, paddle_height)
     make_play_button(button_width, button_height)
     make_paddle_buttons(paddle_button_width, paddle_button_height)

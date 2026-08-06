@@ -19,7 +19,7 @@ namespace pong_cleangui_dg_adv
 		IGameDisplayControl& gameDisplayControl;
 		BallControl& ballControl;
 		PaddleControl& paddleControl;
-		Flag flagBallMissedByPaddle;
+		Flag flagBallLeftTheScreen;
 
 	public:
 		GameControl(Task* pTask, IGameDisplayControl& gameDisplayControl, BallControl& ballControl, PaddleControl& paddleControl) :
@@ -27,14 +27,14 @@ namespace pong_cleangui_dg_adv
 			gameDisplayControl(gameDisplayControl),
 			ballControl(ballControl),
 			paddleControl(paddleControl),
-			flagBallMissedByPaddle(pTask)
+			flagBallLeftTheScreen(pTask)
 		{
 			ballControl.setBallControlListener(this);
 		}
 
-		void ballMissedByPaddle()
+		void ballLeftTheScreen()
 		{
-			flagBallMissedByPaddle.set();
+			flagBallLeftTheScreen.set();
 		}
 
 		// Elke do..()-functie vraagt zijn eigen pagina op en geeft hem aan het eind
@@ -45,7 +45,7 @@ namespace pong_cleangui_dg_adv
 		void doGame()
 		{
 			gameDisplayControl.showGamePage();
-			flagBallMissedByPaddle.clear();	// en een gemiste bal van het vorige spel mag dit spel niet meteen beeindigen.
+			flagBallLeftTheScreen.clear();	// en een gemiste bal van het vorige spel mag dit spel niet meteen beeindigen.
 
 			pTask->dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
@@ -56,7 +56,7 @@ namespace pong_cleangui_dg_adv
 			// One and only state for now:
 			// STATE_GAME_RUNNING:
 			logger.logText("STATE_GAME_RUNNING");
-			pTask->wait(flagBallMissedByPaddle);
+			pTask->wait(flagBallLeftTheScreen);
 
 			// De peddelknoppen horen bij het spel, niet bij de game-over-pagina.
 			paddleControl.disable();

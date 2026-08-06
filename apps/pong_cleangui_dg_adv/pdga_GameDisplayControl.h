@@ -25,13 +25,23 @@ namespace pong_cleangui_dg_adv
 {
 	// Zie pdga_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	struct TwoNumbers
+	// Alles wat het tekenen van de bal nodig heeft, in een bericht. Het brandende
+	// bit reist met de positie mee en niet als losse vlag: de twee horen bij
+	// elkaar, en apart verstuurd kunnen ze in de verkeerde volgorde aankomen -
+	// dan vlamt de bal een beeld te vroeg of te laat.
+	struct BallState
 	{
-		TwoNumbers():number1(0),number2(0){}
-		TwoNumbers(int number1, int number2):number1(number1),number2(number2){}
+		BallState():posX(0),posY(0),bBurning(false),indexStep(0){}
+		BallState(int posX, int posY, bool bBurning, int32_t indexStep)
+			:posX(posX),posY(posY),bBurning(bBurning),indexStep(indexStep){}
 
-		int number1;
-		int number2;
+		int posX;
+		int posY;
+		bool bBurning;
+
+		// Doorlopend nummer, alleen om te kunnen zien of er een stap niet is
+		// getekend. Zie nofSkippedSteps in GameDisplayControl.
+		int32_t indexStep;
 	};
 
 	// ---- Spelmaten, allemaal in pixels ------------------------------------
@@ -71,11 +81,16 @@ namespace pong_cleangui_dg_adv
 	template <typename PANEL>
 	inline void setImageChecked(PANEL& panel, const Image& image, const Vec2& sizePix, const char* strName)
 	{
-		if ((image.width != sizePix.x) || (image.height != sizePix.y))
+		// De cel telt, niet het hele plaatje: bij een spritesheet is het panel zo
+		// groot als een frame.
+		int32_t frameWidth  = image.width  / ((image.nofCols > 0) ? image.nofCols : 1);
+		int32_t frameHeight = image.height / ((image.nofRows > 0) ? image.nofRows : 1);
+
+		if ((frameWidth != sizePix.x) || (frameHeight != sizePix.y))
 		{
 			ESP_LOGE("pong", "%s: plaatje is %dx%d maar het panel %dx%d - draai "
 				"images/make_pong_images.py en tools/img2rgb565.py --pal8 opnieuw.",
-				strName, (int)image.width, (int)image.height, (int)sizePix.x, (int)sizePix.y);
+				strName, (int)frameWidth, (int)frameHeight, (int)sizePix.x, (int)sizePix.y);
 		}
 		panel.setImage(&image);
 	}
@@ -87,7 +102,14 @@ namespace pong_cleangui_dg_adv
 			virtual int getHeight() = 0;
 			virtual IButton* addLeftButtonListener(IButtonListener* pButtonListener) = 0;
 			virtual IButton* addRightButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void updateBallPosition(int x, int y) = 0;
+			virtual void updateBallPosition(int x, int y, bool bBurning, int32_t indexStep) = 0;
+
+			// De laagste speelveld-y waarop nog iets van de bal te zien is. Onder
+			// deze waarde is hij het scherm uit. Deze klasse beantwoordt dat en
+			// niet BallControl, omdat het antwoord van de spritemaat afhangt - een
+			// brandende bal draagt zijn vlammen mee - en die kent alleen de
+			// display.
+			virtual int getBallOffScreenY() = 0;
 			virtual void updatePaddlePosition(int x) = 0;
 			virtual void showGamePage() = 0;
 			virtual void hideGamePage() = 0;
@@ -136,7 +158,7 @@ namespace pong_cleangui_dg_adv
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonLeft;
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonRight;
 
-		Pool<TwoNumbers> poolBallPosition;
+		Pool<BallState> poolBallState;
 		Pool<int> poolPaddlePosition;
 		Flag flagShowGamePage;
 		Flag flagDeshowGamePage;
@@ -153,6 +175,20 @@ namespace pong_cleangui_dg_adv
 		// niet in een constructor die voor het opstarten van de andere taken uit
 		// loopt.
 		bool bDisplayIsBuffered;
+
+		// Welke cel van de brandcyclus aan de beurt is. Schuift een stap op per
+		// getekend beeld, zodat het vuur op de beeldsnelheid flakkert in plaats
+		// van op een eigen klok die daarnaast kan gaan lopen.
+		int indexBurningFrame;
+
+		// Het stapnummer van de bal dat als laatste is getekend, en hoeveel er
+		// sindsdien zijn overgeslagen. De Pool bewaart alleen de laatste stand:
+		// loopt de spelklok voor op het tekenen, dan wordt een positie
+		// overschreven voordat hij ooit op het scherm heeft gestaan en verspringt
+		// de bal een dubbele stap. Dat is precies wat je als schokkerig ziet, en
+		// zonder deze telling niet te onderscheiden van een bal die snel gaat.
+		int32_t indexLastDrawnStep;
+		int32_t nofSkippedSteps;
 
 	public:
 		GameDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, int frameDelayMs,
@@ -172,7 +208,10 @@ namespace pong_cleangui_dg_adv
 			flagBallPositionUpdated(this),
 			flagPaddlePositionUpdated(this),
 			state (STATE_HIDDEN),
-			bDisplayIsBuffered(false)
+			bDisplayIsBuffered(false),
+			indexBurningFrame(0),
+			indexLastDrawnStep(-1),
+			nofSkippedSteps(0)
 		{
 			// getScreenSize() mag hier al: AsyncDisplay geeft de rotatie door in
 			// zijn eigen constructor, dus de adapter kent de gedraaide maat al.
@@ -184,7 +223,7 @@ namespace pong_cleangui_dg_adv
 			width  = screenWidth;
 			height = (screenHeight * 3)/4;
 
-			poolBallPosition.write(TwoNumbers(width/2, height/2));
+			poolBallState.write(BallState(width/2, height/2, false, 0));
 			poolPaddlePosition.write(width/2);
 
 			// De knoppen van deze pagina moeten hun aanrakingen van het display
@@ -218,10 +257,21 @@ namespace pong_cleangui_dg_adv
 		return &buttonRight;
 	}
 
-	void updateBallPosition(int x, int y)
+	void updateBallPosition(int x, int y, bool bBurning, int32_t indexStep)
 	{
-		poolBallPosition.write(TwoNumbers(x,y));
+		poolBallState.write(BallState(x,y,bBurning,indexStep));
 		flagBallPositionUpdated.set();
+	}
+
+	// De bal is uit beeld zodra de bovenkant van zijn sprite onder de onderrand
+	// van het scherm ligt. In speelveldcoordinaten (oorsprong linksonder) telt y
+	// omhoog, dus dat is een negatief getal.
+	//
+	// De vlammen horen bij de sprite en dus bij deze grens: zou hier de kale
+	// BallSizePix staan, dan knipt het vuur weg terwijl het nog zichtbaar was.
+	int getBallOffScreenY()
+	{
+		return (height - 1) - screenHeight - ballPanelSizePix().y/2;
 	}
 
 	void updatePaddlePosition(int x)
@@ -289,10 +339,17 @@ namespace pong_cleangui_dg_adv
 			// maar zodra iemand de typedef in de ino terugzet naar RGB565 en de
 			// setImage-regels hieronder weghaalt, staat het spel er weer zoals het
 			// was.
-			ballPanel.setPanelProps("ballPanel", /*locPos*/centreToTopLeftPix(width/2, height/2, ballSizePix()), CoordType::Pixels,
-				/*size*/ballSizePix(), /*cornerRadius*/0, CoordType::Pixels,
+			// Het panel is zo groot als een cel van de spritesheet en dus ruimer
+			// dan de bal zelf: de brandende bal draagt zijn vlammen mee. Voor het
+			// spel verandert er niets - BallControl rekent met BallSizePix.
+			ballPanel.setPanelProps("ballPanel", /*locPos*/centreToTopLeftPix(width/2, height/2, ballPanelSizePix()), CoordType::Pixels,
+				/*size*/ballPanelSizePix(), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::MidMid, /*colFg*/0x00FFFF00, /*colBg*/0x00000000);
-			setImageChecked(ballPanel, imageBall, ballSizePix(), "ballPanel");
+			setImageChecked(ballPanel, imageBall, ballPanelSizePix(), "ballPanel");
+
+			// Zonder deze regel staat er geen frame gekozen (_frameRow/_frameCol
+			// zijn -1) en tekent Panel de HELE sheet - zes ballen naast elkaar.
+			ballPanel.setImageFrame(0, 0);
 
 			paddlePanel.setPanelProps("paddlePanel", /*locPos*/centreToTopLeftPix(width/2, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels,
 				/*size*/paddleSizePix(), /*cornerRadius*/0, CoordType::Pixels,
@@ -363,10 +420,14 @@ namespace pong_cleangui_dg_adv
 			//
 			// setLocPos en niet moveTo: er staat op dit moment nog niets van deze
 			// pagina op het scherm, dus er valt niets te herstellen.
-			TwoNumbers ballPosition;
-			poolBallPosition.read(ballPosition);
-			ballPanel.setLocPos(centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix()),
+			BallState ballState;
+			poolBallState.read(ballState);
+			ballPanel.setLocPos(centreToTopLeftPix(ballState.posX, ballState.posY, ballPanelSizePix()),
 								CoordType::Pixels, Alignment::MidMid);
+
+			// Een nieuw spel begint met een bal die niet brandt, ook als het
+			// vorige eindigde met een die dat wel deed.
+			updateBallFrame(false);
 
 			int paddlePosition;
 			poolPaddlePosition.read(paddlePosition);
@@ -418,7 +479,32 @@ namespace pong_cleangui_dg_adv
 			flagHidePaddle.clear();
 		}
 
-		static Vec2 ballSizePix()   { return Vec2(BallSizePix, BallSizePix); }
+		// De maat van een cel uit de spritesheet, dus inclusief de ruimte voor de
+		// vlammen. Uit het plaatje afgeleid en niet als constante opgeschreven:
+		// dan kan het er niet naast komen te zitten.
+		static Vec2 ballPanelSizePix()
+		{
+			return Vec2(imageBall.width / imageBall.nofCols, imageBall.height / imageBall.nofRows);
+		}
+
+		// Cel 0 is de gewone bal, de rest is de brandcyclus.
+		static int nofBurningFrames() { return (int)imageBall.nofCols - 1; }
+
+		// Welke cel de bal nu toont. Aanroepen per getekend beeld: zolang hij
+		// brandt schuift de cyclus een stap op, en anders staat hij op de gewone
+		// bal en begint de cyclus straks weer bij het begin.
+		void updateBallFrame(bool bBurning)
+		{
+			if (!bBurning)
+			{
+				indexBurningFrame = 0;
+				ballPanel.setImageFrame(0, 0);
+				return;
+			}
+
+			ballPanel.setImageFrame(0, 1 + (indexBurningFrame % nofBurningFrames()));
+			indexBurningFrame++;
+		}
 		static Vec2 paddleSizePix() { return Vec2(PaddleWidthPix, PaddleHeightPix); }
 
 		/*override keyword not supported*/
@@ -458,10 +544,16 @@ namespace pong_cleangui_dg_adv
 			pageGame.addChildWidget(leftBorderPanel);
 			pageGame.addChildWidget(rightBorderPanel);
 			pageGame.addChildWidget(topBorderPanel);
-			pageGame.addChildWidget(ballPanel);
 			pageGame.addChildWidget(paddlePanel);
 			pageGame.addChildWidget(buttonLeft);
 			pageGame.addChildWidget(buttonRight);
+
+			// De bal als laatste, dus bovenop. Dat is niet alleen mooier bij een
+			// kaatsing tegen de peddel: een brandende bal valt onder de doellijn
+			// door en komt daarbij over de peddelknoppen heen. Stond hij eerder in
+			// de rij, dan verdween hij vlak na de doellijn achter een knop in
+			// plaats van door te vliegen tot buiten het scherm.
+			pageGame.addChildWidget(ballPanel);
 
 			hidePage(pageGame);		// het spel begint op de startpagina.
 
@@ -469,6 +561,9 @@ namespace pong_cleangui_dg_adv
 			// gehaald worden in plaats van dat aan te nemen.
 			int32_t nofFrames = 0;
 			int64_t timeOfLastReportUs = esp_timer_get_time();
+			int64_t timeOfLastFrameUs = 0;
+			int32_t minFrameIntervalUs = 0x7FFFFFFF;
+			int32_t maxFrameIntervalUs = 0;
 
 			while (true)
 			{
@@ -554,9 +649,22 @@ namespace pong_cleangui_dg_adv
 						}
 						else if(hasFired(flagBallPositionUpdated))
 						{
-							TwoNumbers ballPosition;
-							poolBallPosition.read(ballPosition);
-							Vec2 ballTopLeftPix = centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix());
+							BallState ballState;
+							poolBallState.read(ballState);
+							Vec2 ballTopLeftPix = centreToTopLeftPix(ballState.posX, ballState.posY, ballPanelSizePix());
+
+							// De cel kiezen voordat er getekend wordt. Bij de
+							// gebufferde route doet pageGame.show(true) hieronder
+							// het tekenwerk, bij de andere de moveTo() - allebei
+							// tekenen ze de cel die hier is gezet.
+							updateBallFrame(ballState.bBurning);
+
+							// Is er een stand overgeslagen? Zie nofSkippedSteps.
+							if (indexLastDrawnStep >= 0)
+							{
+								nofSkippedSteps += (ballState.indexStep - indexLastDrawnStep - 1);
+							}
+							indexLastDrawnStep = ballState.indexStep;
 
 							if (bDisplayIsBuffered)
 							{
@@ -584,10 +692,43 @@ namespace pong_cleangui_dg_adv
 
 							nofFrames++;
 							int64_t nowUs = esp_timer_get_time();
+
+							// Niet alleen hoeveel beelden er per seconde zijn, maar
+							// ook hoe gelijkmatig ze vallen. Een gemiddelde van 25
+							// fps kan net zo goed 40+40+40 zijn als 20+70+30, en
+							// alleen het tweede ziet er schokkerig uit. Zonder dit
+							// onderscheid is "minder vloeiend" niet na te gaan.
+							if (timeOfLastFrameUs > 0)
+							{
+								int32_t frameIntervalUs = (int32_t)(nowUs - timeOfLastFrameUs);
+								if (frameIntervalUs < minFrameIntervalUs) { minFrameIntervalUs = frameIntervalUs; }
+								if (frameIntervalUs > maxFrameIntervalUs) { maxFrameIntervalUs = frameIntervalUs; }
+							}
+							timeOfLastFrameUs = nowUs;
+
 							if (nowUs - timeOfLastReportUs >= 1000000)
 							{
-								ESP_LOGI("pong", "%d fps", (int)nofFrames);
+								// Een seconde met maar een beeld erin - vlak na een
+								// herstart - heeft geen enkel interval opgeleverd. Dan
+								// staat de teller nog op zijn beginwaarde, en die als
+								// "beeldtijd 2147483..0 ms" afdrukken leest als een
+								// meting terwijl er niets gemeten is.
+								if (maxFrameIntervalUs > 0)
+								{
+									ESP_LOGI("pong", "%d fps, beeldtijd %d..%d ms (doel %d), %d overgeslagen",
+										(int)nofFrames, (int)(minFrameIntervalUs/1000),
+										(int)(maxFrameIntervalUs/1000), FrameIntervalMs,
+										(int)nofSkippedSteps);
+								}
+								else
+								{
+									ESP_LOGI("pong", "%d fps, geen beeldtijd gemeten (doel %d), %d overgeslagen",
+										(int)nofFrames, FrameIntervalMs, (int)nofSkippedSteps);
+								}
 								nofFrames = 0;
+								nofSkippedSteps = 0;
+								minFrameIntervalUs = 0x7FFFFFFF;
+								maxFrameIntervalUs = 0;
 								timeOfLastReportUs = nowUs;
 							}
 						}
@@ -604,6 +745,18 @@ namespace pong_cleangui_dg_adv
 						if(hasFired(flagShowGamePage))
 						{
 							showPage(pageGame);
+
+							// Een nieuw spel telt zijn stappen vanaf nul, dus de
+							// vorige stand zegt niets meer.
+							indexLastDrawnStep = -1;
+
+							// De beeldtijdmeting begint hier opnieuw. Tussen twee
+							// spellen staat de game-over-pagina in beeld en tekent
+							// deze pagina niets; zonder deze regel telt die hele
+							// wachttijd mee als uitschieter, en lijkt het spel te
+							// haperen terwijl er alleen niet gespeeld werd.
+							timeOfLastFrameUs = 0;
+
 							state = STATE_SHOWN;
 						}
 						else if(hasFired(flagDeshowGamePage))
