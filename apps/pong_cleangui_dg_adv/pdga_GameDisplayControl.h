@@ -20,6 +20,17 @@
 // maar een getoond. Zie de opmerking boven crt_PageRoot.h, en hidePage()
 // hieronder voor hoe dat wordt afgedwongen.
 
+// Meetgereedschap, normaal uit. Aan: elke seconde de spreiding in de beeldtijd
+// en het aantal overgeslagen spelstanden, en per verbrande bal zijn valsnelheid;
+// plus een regel bij elk gespawnd of geopend object. Daarmee zijn de vragen
+// "loopt de klok goed", "houdt het tekenen het bij" en "wat gebeurt er in het
+// veld" af te lezen in plaats van te beredeneren.
+//
+// Uit, omdat het geld kost waar het gemeten wordt: een logregel is bij 115200
+// baud zo'n 7 ms, en de spawn-regels lopen in de taak van de Handler - een kwart
+// van een beeld.
+//#define PONG_MEASURE
+
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
@@ -88,6 +99,47 @@ namespace pong_cleangui_dg_adv
 		CrateState arCrate[MaxNofCrates];
 	};
 
+	// De vuurkorf (UC08). Hij staat FireBinLifetimeMs in het veld en verdwijnt dan
+	// weer; een bal die hem raakt brandt op in BallBurnUpMs (UC05 stap 1d).
+	//
+	// De kans dat het beslismoment van UC04 een vuurkorf oplevert in plaats van
+	// een present crate is evenredig met het aantal ballen in het veld: bij
+	// NofBallsForCertainFireBin of meer is het altijd een vuurkorf.
+	const int MaxNofFireBins            = 5;
+	const int FireBinSizePix            = 28;
+	const int FireBinLifetimeMs         = 3000;
+	const int BallBurnUpMs              = 4000;
+	const int NofBallsForCertainFireBin = 40;
+
+	struct FireBinState
+	{
+		FireBinState():posX(0),posY(0),bActive(false),indexAnimationStep(0){}
+		FireBinState(int posX, int posY, int32_t indexAnimationStep)
+			:posX(posX),posY(posY),bActive(true),indexAnimationStep(indexAnimationStep){}
+
+		int posX;
+		int posY;
+		bool bActive;
+
+		// Hoe lang de korf al brandt. Anders dan bij de crate is dit geen teller
+		// maar een animatiefase: de display maakt er cyclisch een cel van, zodat
+		// het vuur doorbrandt zolang de korf er staat.
+		int32_t indexAnimationStep;
+	};
+
+	struct FireBinStates
+	{
+		FireBinState arFireBin[MaxNofFireBins];
+	};
+
+	// De score staat tussen de twee peddelknoppen, als vier losse panels die elk
+	// een cel uit de cijfersheet tonen. Geen gerenderde tekst: dat scheelt
+	// tekentijd, en vaste celbreedtes houden de score stil staan - met een
+	// proportioneel font wiebelt hij zodra er een 1 in komt.
+	const int NofScoreDigits      = 4;
+	const int ScoreDigitWidthPix  = 28;
+	const int ScoreDigitHeightPix = 36;
+
 	// Alle ballen in een bericht.
 	//
 	// Een array en niet vijftig losse berichten, om twee redenen. Pool::write()
@@ -125,7 +177,26 @@ namespace pong_cleangui_dg_adv
 	const int PaddleWidthPix       = 50;
 	const int PaddleHeightPix      = 12;
 	const int BallSpeedPixPerFrame = 4;		// 100 pixels per seconde.
-	const int PaddleStepPix        = 6;		// 150 pixels per seconde zolang de knop ingedrukt blijft.
+	const int PaddleStepPix        = 8;		// 150 pixels per seconde zolang de knop ingedrukt blijft.
+
+	// De levensduren uit UC08 en UC05 in beeldstappen, want daarin rekenen de
+	// spelobjecten. Hier en niet bij de constanten hierboven, omdat ze
+	// FrameIntervalMs nodig hebben.
+	const int NofFireBinSteps    = FireBinLifetimeMs / FrameIntervalMs;
+	const int NofBallBurnUpSteps = BallBurnUpMs / FrameIntervalMs;
+
+	// De brandende bal krimpt terwijl hij opbrandt: een seconde op volle grootte,
+	// een seconde half, een seconde een kwart. Elk stadium heeft een eigen cyclus
+	// van NofFramesPerBurnStage cellen in de spritesheet, dus die telt
+	// 1 + NofBurnStages * NofFramesPerBurnStage cellen - de eerste is de gewone
+	// bal.
+	//
+	// Een bal die onder de doellijn door valt is binnen 700 ms weg en komt dus
+	// nooit verder dan het eerste stadium. Dat hoeft nergens apart geregeld te
+	// worden; het volgt uit de tijd.
+	const int NofBurnStages         = 3;
+	const int NofFramesPerBurnStage = 5;
+	const int NofStepsPerBurnStage  = (BallBurnUpMs / NofBurnStages) / FrameIntervalMs;
 
 	// De maten hierboven staan ook in images/make_pong_images.py: daar bepalen ze
 	// hoe groot de PNG's worden. Verander je er een, dan hoort dat script opnieuw
@@ -156,12 +227,19 @@ namespace pong_cleangui_dg_adv
 		panel.setImage(&image);
 	}
 
-	// De PageRoot van de spelpagina moet plaats hebben voor alles wat erin hangt:
-	// achtergrond, doellijn, drie wanden, peddel en twee knoppen zijn er acht, en
-	// daar komen MaxNofBalls balpanels bij. Een te krappe root laat
-	// addChildWidget() op een assert stuklopen, en dat is dan bij het opstarten -
-	// dus als deze constante achterloopt, merk je het meteen.
-	typedef PageRoot<8 + MaxNofBalls + MaxNofCrates> GamePageRoot;
+	// Wat er vast op de spelpagina staat: achtergrond, doellijn, drie wanden,
+	// peddel, twee peddelknoppen en het GAME OVER-vignet. Daar komen de balpanels,
+	// de crates, de vuurkorven en de vier scorecijfers bij.
+	//
+	// Deze telling moet kloppen, en dat merk je NIET vanzelf: een te krappe
+	// PageRoot laat addChildWidget() het laatste kind weigeren met een ESP_LOGI en
+	// verder gewoon doorlopen. Er crasht niets, er ontbreekt alleen stilzwijgend
+	// een widget - en omdat de pagina bij het opstarten wordt gebouwd, is die
+	// melding allang van het scherm als je het merkt. Het vignet is er precies zo
+	// een keer uitgevallen.
+	const int NofFixedGameWidgets = 9;
+
+	typedef PageRoot<NofFixedGameWidgets + MaxNofBalls + MaxNofCrates + MaxNofFireBins + NofScoreDigits> GamePageRoot;
 
 	class IGameDisplayControl
 	{
@@ -173,7 +251,8 @@ namespace pong_cleangui_dg_adv
 			// Een beeld: alle ballen en alle crates in een keer, met een enkele
 			// vlag erachter. Twee losse berichten zouden twee hertekeningen kunnen
 			// opleveren, en een present kost het hele scherm.
-			virtual void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates) = 0;
+			virtual void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates,
+			                               const FireBinStates& fireBinStates, int32_t score) = 0;
 
 			// De laagste speelveld-y waarop nog iets van de bal te zien is. Onder
 			// deze waarde is hij het scherm uit. Deze klasse beantwoordt dat en
@@ -186,6 +265,13 @@ namespace pong_cleangui_dg_adv
 			virtual void hideGamePage() = 0;
 			virtual void showPaddle() = 0;
 			virtual void hidePaddle() = 0;
+
+			// De uitzondering van UC04: "Game Over" over het spelscherm heen, en
+			// aantikbaar. Een knop en geen panel, want er moet op geklikt kunnen
+			// worden.
+			virtual IButton* addGameOverLabelListener(IButtonListener* pButtonListener) = 0;
+			virtual void showGameOverLabel() = 0;
+			virtual void hideGameOverLabel() = 0;
 	};
 
 	template <int WIDTH, int HEIGHT>
@@ -225,6 +311,8 @@ namespace pong_cleangui_dg_adv
 		// en het panel de bal niet.
 		Panel<0> arBallPanels[MaxNofBalls];
 		Panel<0> arCratePanels[MaxNofCrates];
+		Panel<0> arFireBinPanels[MaxNofFireBins];
+		Panel<0> arScoreDigitPanels[NofScoreDigits];
 		Panel<0> bottomLinePanel;
 		Panel<0> leftBorderPanel;
 		Panel<0> rightBorderPanel;
@@ -233,8 +321,13 @@ namespace pong_cleangui_dg_adv
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonLeft;
 		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonRight;
 
+		// Het GAME OVER-vignet, midden over het spelscherm (UC04, uitzondering).
+		TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> buttonGameOverLabel;
+
 		Pool<BallStates> poolBallStates;
 		Pool<CrateStates> poolCrateStates;
+		Pool<FireBinStates> poolFireBinStates;
+		Pool<int32_t> poolScore;
 		Pool<int> poolPaddlePosition;
 		Flag flagShowGamePage;
 		Flag flagDeshowGamePage;
@@ -242,6 +335,8 @@ namespace pong_cleangui_dg_adv
 		Flag flagHidePaddle;
 		Flag flagBallPositionUpdated;
 		Flag flagPaddlePositionUpdated;
+		Flag flagShowGameOverLabel;
+		Flag flagHideGameOverLabel;
 
 		State state;
 
@@ -252,6 +347,7 @@ namespace pong_cleangui_dg_adv
 		// loopt.
 		bool bDisplayIsBuffered;
 
+#ifdef PONG_MEASURE
 		// Het beeldnummer dat als laatste is getekend, en hoeveel er
 		// sindsdien zijn overgeslagen. De Pool bewaart alleen de laatste stand:
 		// loopt de spelklok voor op het tekenen, dan wordt een positie
@@ -260,6 +356,7 @@ namespace pong_cleangui_dg_adv
 		// zonder deze telling niet te onderscheiden van een bal die snel gaat.
 		int32_t indexLastDrawnStep;
 		int32_t nofSkippedSteps;
+#endif
 
 	public:
 		GameDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, int frameDelayMs,
@@ -278,10 +375,14 @@ namespace pong_cleangui_dg_adv
 			flagHidePaddle(this),
 			flagBallPositionUpdated(this),
 			flagPaddlePositionUpdated(this),
+			flagShowGameOverLabel(this),
+			flagHideGameOverLabel(this),
 			state (STATE_HIDDEN),
-			bDisplayIsBuffered(false),
-			indexLastDrawnStep(-1),
-			nofSkippedSteps(0)
+			bDisplayIsBuffered(false)
+#ifdef PONG_MEASURE
+			, indexLastDrawnStep(-1)
+			, nofSkippedSteps(0)
+#endif
 		{
 			// getScreenSize() mag hier al: AsyncDisplay geeft de rotatie door in
 			// zijn eigen constructor, dus de adapter kent de gedraaide maat al.
@@ -303,6 +404,7 @@ namespace pong_cleangui_dg_adv
 			// TouchscreenButton::touchPressed), dus ze mogen meteen mee.
 			display.addTouchListener(&buttonLeft);
 			display.addTouchListener(&buttonRight);
+			display.addTouchListener(&buttonGameOverLabel);
 
 			start();
 		}
@@ -329,10 +431,13 @@ namespace pong_cleangui_dg_adv
 		return &buttonRight;
 	}
 
-	void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates)
+	void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates,
+	                       const FireBinStates& fireBinStates, int32_t score)
 	{
 		poolBallStates.write(ballStates);
 		poolCrateStates.write(crateStates);
+		poolFireBinStates.write(fireBinStates);
+		poolScore.write(score);
 		flagBallPositionUpdated.set();
 	}
 
@@ -377,6 +482,24 @@ namespace pong_cleangui_dg_adv
 		flagHidePaddle.set();
 	}
 
+	IButton* addGameOverLabelListener(IButtonListener* pButtonListener)
+	{
+		buttonGameOverLabel.addButtonListener(pButtonListener);
+		return &buttonGameOverLabel;
+	}
+
+	void showGameOverLabel()
+	{
+		flagHideGameOverLabel.clear();
+		flagShowGameOverLabel.set();
+	}
+
+	void hideGameOverLabel()
+	{
+		flagShowGameOverLabel.clear();
+		flagHideGameOverLabel.set();
+	}
+
 	private:
 		// De linkerbovenhoek waarmee een widget van sizePix met zijn midden op
 		// speelveldpunt (x,y) terechtkomt. Twee dingen zitten hierin:
@@ -412,6 +535,20 @@ namespace pong_cleangui_dg_adv
 			// maar zodra iemand de typedef in de ino terugzet naar RGB565 en de
 			// setImage-regels hieronder weghaalt, staat het spel er weer zoals het
 			// was.
+			// De sheet moet evenveel cellen hebben als de brandcyclus vraagt: een
+			// gewone bal plus een stadium per seconde. Klopt dat niet, dan wordt er
+			// straks een cel buiten de sheet gekozen, en dat zie je pas als de bal
+			// brandt.
+			{
+				const int nofExpectedCells = 1 + NofBurnStages * NofFramesPerBurnStage;
+				if (imageBall.nofCols != nofExpectedCells)
+				{
+					ESP_LOGE("pong", "ball-sheet heeft %d cellen, verwacht %d - draai "
+						"images/make_pong_images.py en tools/img2rgb565.py --pal8 opnieuw.",
+						(int)imageBall.nofCols, nofExpectedCells);
+				}
+			}
+
 			// Elk panel is zo groot als een cel van de spritesheet en dus ruimer
 			// dan de bal zelf: de brandende bal draagt zijn vlammen mee. Voor het
 			// spel verandert er niets - BallControl rekent met BallSizePix.
@@ -429,7 +566,7 @@ namespace pong_cleangui_dg_adv
 				setImageChecked(panel, imageBall, ballPanelSizePix(), "ballPanel");
 
 				// Zonder deze regel staat er geen frame gekozen (_frameRow/_frameCol
-				// zijn -1) en tekent Panel de HELE sheet - zes ballen naast elkaar.
+				// zijn -1) en tekent Panel de HELE sheet - zestien ballen naast elkaar.
 				panel.setImageFrame(0, 0);
 				panel.setDrawable(false, true);
 			}
@@ -444,6 +581,19 @@ namespace pong_cleangui_dg_adv
 					/*size*/crateSizePix(), /*cornerRadius*/0, CoordType::Pixels,
 					Alignment::MidMid, /*colFg*/0x00A87038, /*colBg*/0x00000000);
 				setImageChecked(panel, imagePresentCrate, crateSizePix(), "cratePanel");
+				panel.setImageFrame(0, 0);
+				panel.setDrawable(false, true);
+			}
+
+			// En de vuurkorven. Hun cel loopt cyclisch door zolang ze er staan.
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				Panel<0>& panel = arFireBinPanels[i];
+
+				panel.setPanelProps("fireBinPanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
+					/*size*/fireBinSizePix(), /*cornerRadius*/0, CoordType::Pixels,
+					Alignment::MidMid, /*colFg*/0x00FFA020, /*colBg*/0x00000000);
+				setImageChecked(panel, imageFireBin, fireBinSizePix(), "fireBinPanel");
 				panel.setImageFrame(0, 0);
 				panel.setDrawable(false, true);
 			}
@@ -507,6 +657,51 @@ namespace pong_cleangui_dg_adv
 				/*bInvertedArea*/false, "", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF, /*fontScale*/ 1, Alignment::MidMid,
 				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
 			setImageChecked(buttonRight, imageButtonPaddleRight, paddleButtonSizePix, "buttonRight");
+
+			// Het GAME OVER-vignet, midden in het SPEELVELD en niet midden op het
+			// scherm: verticaal tussen de onderkant van de bovenwand en de
+			// bovenkant van de doellijn. Het scherm loopt daaronder nog door met de
+			// peddelknoppen, dus op het schermmidden zou het vignet zichtbaar te
+			// laag hangen.
+			//
+			// Uitgerekend uit de wanddikte en de doellijn zelf, zodat het meeschuift
+			// als een van die twee verandert.
+			Vec2 gameOverSizePix(imageGameOver.width, imageGameOver.height);
+
+			int32_t fieldTopPix    = WallThicknessPix;
+			int32_t fieldBottomPix = height - imageGoalLine.height;
+			int32_t gameOverTopPix = fieldTopPix + (fieldBottomPix - fieldTopPix - gameOverSizePix.y)/2;
+
+			buttonGameOverLabel.setTouchScreenButtonProps
+				("gameOverLabel",/*locPos*/Vec2((screenWidth - gameOverSizePix.x)/2, gameOverTopPix),
+				CoordType::Pixels, /*size*/gameOverSizePix, /*cornerRadius*/0, CoordType::Pixels,
+				Alignment::MidMid, /*colPanel*/0x00202020, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "", /*buttonFont*/ 2, /*colFont*/ 0x00FF4040,
+				/*fontScale*/ 1, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
+			setImageChecked(buttonGameOverLabel, imageGameOver, gameOverSizePix, "gameOverLabel");
+			buttonGameOverLabel.setDrawable(false, true);
+
+			// De score, midden tussen de peddelknoppen. Die staan links en rechts
+			// met paddleButtonMarginPix marge, dus het midden van het scherm is ook
+			// het midden van de tussenruimte.
+			{
+				Vec2 digitSizePix(ScoreDigitWidthPix, ScoreDigitHeightPix);
+				int scoreWidthPix = NofScoreDigits * ScoreDigitWidthPix;
+				int scoreLeftPix  = (screenWidth - scoreWidthPix)/2;
+				int scoreTopPix   = paddleButtonTopPix + (paddleButtonSizePix.y - ScoreDigitHeightPix)/2;
+
+				for (int i = 0; i < NofScoreDigits; i++)
+				{
+					Panel<0>& panel = arScoreDigitPanels[i];
+
+					panel.setPanelProps("scoreDigit", /*locPos*/Vec2(scoreLeftPix + i*ScoreDigitWidthPix, scoreTopPix),
+						CoordType::Pixels, /*size*/digitSizePix, /*cornerRadius*/0, CoordType::Pixels,
+						Alignment::MidMid, /*colFg*/0x0000FFFF, /*colBg*/0x00000000);
+					setImageChecked(panel, imageScoreDigits, digitSizePix, "scoreDigit");
+					panel.setImageFrame(0, 0);
+				}
+			}
 		}
 
 		void initBallAndPaddlePosition()
@@ -524,6 +719,14 @@ namespace pong_cleangui_dg_adv
 			CrateStates crateStates;
 			poolCrateStates.read(crateStates);
 			applyCrateStates(crateStates);
+
+			FireBinStates fireBinStates;
+			poolFireBinStates.read(fireBinStates);
+			applyFireBinStates(fireBinStates);
+
+			int32_t score;
+			poolScore.read(score);
+			applyScore(score);
 
 			int paddlePosition;
 			poolPaddlePosition.read(paddlePosition);
@@ -544,6 +747,12 @@ namespace pong_cleangui_dg_adv
 		{
 			initBallAndPaddlePosition();
 			page.setDrawable(true, true);
+
+			// setDrawable(true, true) hierboven zet ook het vignet aan; een nieuw
+			// spel begint zonder.
+			buttonGameOverLabel.setDrawable(false, true);
+			buttonGameOverLabel.disable(true);
+
 			page.show(true);
 			page.enable(true);
 		}
@@ -583,10 +792,66 @@ namespace pong_cleangui_dg_adv
 			return Vec2(imageBall.width / imageBall.nofCols, imageBall.height / imageBall.nofRows);
 		}
 
-		// Cel 0 is de gewone bal, de rest is de brandcyclus.
-		static int nofBurningFrames() { return (int)imageBall.nofCols - 1; }
+		// Welke cel een brandende bal toont, gegeven hoe lang hij al brandt.
+		//
+		// Het stadium volgt uit de verstreken tijd en blijft op het laatste staan
+		// als de bal langer brandt dan verwacht - dat kan niet gebeuren zolang
+		// BallBurnUpMs en NofBurnStages bij elkaar passen, maar een index buiten
+		// de sheet is een fout die je pas op het scherm ziet.
+		static int burningFrameIndex(int32_t indexBurningStep)
+		{
+			int32_t stage = indexBurningStep / NofStepsPerBurnStage;
+			if (stage >= NofBurnStages)
+			{
+				stage = NofBurnStages - 1;
+			}
 
-		static Vec2 crateSizePix() { return Vec2(CrateSizePix, CrateSizePix); }
+			int32_t indexInStage = indexBurningStep % NofFramesPerBurnStage;
+			return 1 + (int)(stage * NofFramesPerBurnStage + indexInStage);
+		}
+
+		// De score over de vier cijferpanels verdelen, met voorloopnullen - dan
+		// blijft hij even breed en springt hij niet heen en weer.
+		void applyScore(int32_t score)
+		{
+			if (score < 0) { score = 0; }
+
+			int32_t maxScore = 1;
+			for (int i = 0; i < NofScoreDigits; i++) { maxScore *= 10; }
+			if (score >= maxScore) { score = maxScore - 1; }
+
+			for (int i = NofScoreDigits - 1; i >= 0; i--)
+			{
+				arScoreDigitPanels[i].setImageFrame(0, (int)(score % 10));
+				score /= 10;
+			}
+		}
+
+		static Vec2 crateSizePix()   { return Vec2(CrateSizePix, CrateSizePix); }
+		static Vec2 fireBinSizePix() { return Vec2(FireBinSizePix, FireBinSizePix); }
+
+		// Alle vuurkorfpanels op de zojuist ontvangen standen. Zelfde opzet als bij
+		// de ballen en de crates; alleen is de cel hier een animatiefase en geen
+		// teller, dus hij loopt cyclisch rond.
+		void applyFireBinStates(const FireBinStates& fireBinStates)
+		{
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				const FireBinState& fireBinState = fireBinStates.arFireBin[i];
+				Panel<0>& panel = arFireBinPanels[i];
+
+				if (!fireBinState.bActive)
+				{
+					panel.setDrawable(false, true);
+					continue;
+				}
+
+				panel.setDrawable(true, true);
+				panel.setLocPos(centreToTopLeftPix(fireBinState.posX, fireBinState.posY, fireBinSizePix()),
+								CoordType::Pixels, Alignment::MidMid);
+				panel.setImageFrame(0, (int)(fireBinState.indexAnimationStep % imageFireBin.nofCols));
+			}
+		}
 
 		// Alle cratepanels op de zojuist ontvangen standen zetten. Zelfde opzet
 		// als applyBallStates(): een slot dat niet in het spel is wordt
@@ -644,7 +909,7 @@ namespace pong_cleangui_dg_adv
 				// sheet heeft is kennis van deze klasse; de bal telt alleen hoe
 				// lang hij al brandt.
 				panel.setImageFrame(0, ballState.bBurning
-					? (1 + (ballState.indexBurningStep % nofBurningFrames()))
+					? burningFrameIndex(ballState.indexBurningStep)
 					: 0);
 			}
 		}
@@ -698,6 +963,16 @@ namespace pong_cleangui_dg_adv
 				pageGame.addChildWidget(arCratePanels[i]);
 			}
 
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				pageGame.addChildWidget(arFireBinPanels[i]);
+			}
+
+			for (int i = 0; i < NofScoreDigits; i++)
+			{
+				pageGame.addChildWidget(arScoreDigitPanels[i]);
+			}
+
 			// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een
 			// kaatsing tegen de peddel: een brandende bal valt onder de doellijn
 			// door en komt daarbij over de peddelknoppen heen. Stonden ze eerder in
@@ -708,15 +983,20 @@ namespace pong_cleangui_dg_adv
 				pageGame.addChildWidget(arBallPanels[i]);
 			}
 
+			// En het GAME OVER-vignet daar nog overheen.
+			pageGame.addChildWidget(buttonGameOverLabel);
+
 			hidePage(pageGame);		// het spel begint op de startpagina.
 
 			// Beeldtelling, om te kunnen nagaan of de 25 per seconde ook echt
 			// gehaald worden in plaats van dat aan te nemen.
 			int32_t nofFrames = 0;
 			int64_t timeOfLastReportUs = esp_timer_get_time();
+#ifdef PONG_MEASURE
 			int64_t timeOfLastFrameUs = 0;
 			int32_t minFrameIntervalUs = 0x7FFFFFFF;
 			int32_t maxFrameIntervalUs = 0;
+#endif
 
 			while (true)
 			{
@@ -727,6 +1007,7 @@ namespace pong_cleangui_dg_adv
 					{
 						waitAny(flagShowGamePage + flagDeshowGamePage +
 							    flagShowPaddle + flagHidePaddle +
+							    flagShowGameOverLabel + flagHideGameOverLabel +
 							    flagBallPositionUpdated + flagPaddlePositionUpdated);
 
 						if(hasFired(flagDeshowGamePage))
@@ -775,6 +1056,19 @@ namespace pong_cleangui_dg_adv
 							buttonLeft.disable(true);
 							buttonRight.disable(true);
 						}
+						else if(hasFired(flagShowGameOverLabel))
+						{
+							// Er komen geen balbeelden meer, dus deze pagina wordt
+							// nergens anders meer hertekend. Zelf doen dus.
+							buttonGameOverLabel.setDrawable(true, true);
+							buttonGameOverLabel.enable(true);
+							pageGame.show(true);
+						}
+						else if(hasFired(flagHideGameOverLabel))
+						{
+							buttonGameOverLabel.setDrawable(false, true);
+							buttonGameOverLabel.disable(true);
+						}
 						else if(hasFired(flagPaddlePositionUpdated))
 						{
 							int paddlePosition;
@@ -808,19 +1102,29 @@ namespace pong_cleangui_dg_adv
 							CrateStates crateStates;
 							poolCrateStates.read(crateStates);
 
+							FireBinStates fireBinStates;
+							poolFireBinStates.read(fireBinStates);
+
 							// Alle panels op hun nieuwe stand, inclusief de cel van
 							// de brandcyclus, de cel van de crate-teller, en het
 							// uitzetten van slots die niet meer in het spel zijn.
 							// Nog niet tekenen.
+							int32_t score;
+							poolScore.read(score);
+
 							applyBallStates(ballStates);
 							applyCrateStates(crateStates);
+							applyFireBinStates(fireBinStates);
+							applyScore(score);
 
+#ifdef PONG_MEASURE
 							// Is er een beeld overgeslagen? Zie nofSkippedSteps.
 							if (indexLastDrawnStep >= 0)
 							{
 								nofSkippedSteps += (ballStates.indexFrame - indexLastDrawnStep - 1);
 							}
 							indexLastDrawnStep = ballStates.indexFrame;
+#endif
 
 							if (bDisplayIsBuffered)
 							{
@@ -857,6 +1161,7 @@ namespace pong_cleangui_dg_adv
 							nofFrames++;
 							int64_t nowUs = esp_timer_get_time();
 
+#ifdef PONG_MEASURE
 							// Niet alleen hoeveel beelden er per seconde zijn, maar
 							// ook hoe gelijkmatig ze vallen. Een gemiddelde van 25
 							// fps kan net zo goed 40+40+40 zijn als 20+70+30, en
@@ -869,9 +1174,11 @@ namespace pong_cleangui_dg_adv
 								if (frameIntervalUs > maxFrameIntervalUs) { maxFrameIntervalUs = frameIntervalUs; }
 							}
 							timeOfLastFrameUs = nowUs;
+#endif
 
 							if (nowUs - timeOfLastReportUs >= 1000000)
 							{
+#ifdef PONG_MEASURE
 								// Een seconde met maar een beeld erin - vlak na een
 								// herstart - heeft geen enkel interval opgeleverd. Dan
 								// staat de teller nog op zijn beginwaarde, en die als
@@ -889,10 +1196,13 @@ namespace pong_cleangui_dg_adv
 									ESP_LOGI("pong", "%d fps, geen beeldtijd gemeten (doel %d), %d overgeslagen",
 										(int)nofFrames, FrameIntervalMs, (int)nofSkippedSteps);
 								}
-								nofFrames = 0;
 								nofSkippedSteps = 0;
 								minFrameIntervalUs = 0x7FFFFFFF;
 								maxFrameIntervalUs = 0;
+#else
+								ESP_LOGI("pong", "%d fps", (int)nofFrames);
+#endif
+								nofFrames = 0;
 								timeOfLastReportUs = nowUs;
 							}
 						}
@@ -910,6 +1220,7 @@ namespace pong_cleangui_dg_adv
 						{
 							showPage(pageGame);
 
+#ifdef PONG_MEASURE
 							// Een nieuw spel telt zijn stappen vanaf nul, dus de
 							// vorige stand zegt niets meer.
 							indexLastDrawnStep = -1;
@@ -920,6 +1231,7 @@ namespace pong_cleangui_dg_adv
 							// wachttijd mee als uitschieter, en lijkt het spel te
 							// haperen terwijl er alleen niet gespeeld werd.
 							timeOfLastFrameUs = 0;
+#endif
 
 							state = STATE_SHOWN;
 						}

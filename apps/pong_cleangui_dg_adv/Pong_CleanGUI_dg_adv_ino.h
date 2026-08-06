@@ -28,6 +28,8 @@
 #include "pdga_PaddleControl.h"
 #include "pdga_BallControl.h"
 #include "pdga_PresentCrateControl.h"
+#include "pdga_FireBinControl.h"
+#include "pdga_HallOfFame.h"
 #include "pdga_GameObjectsControl.h"
 #include "pdga_MainControl.h"
 
@@ -88,16 +90,31 @@ namespace pong_cleangui_dg_adv
 	// opdracht opzij gezet. De tekentaak treft de queue dan leeg aan terwijl er
 	// pas een deel van het beeld in de buffer staat, en stuurt dat halve beeld
 	// uit. Bij deze app is het eerste commando van elk beeld het schermvullende
-	// zwarte achtergrondpaneel, dus zo'n half beeld is een zwart scherm: je ziet
-	// het hele scherm knipperen. Op gelijke prioriteit wordt de schrijver niet
-	// opzij gezet en gaat het beeld in een keer de queue in.
+	// zwarte achtergrondpaneel, dus zo'n half beeld IS een zwart scherm: je ziet
+	// het hele scherm knipperen.
 	//
-	// Alle voorbeelden in libs/CleanGUI_for_TFT_eSPI/examples staan om dezelfde
-	// reden op 2. Alleen de taken die niet tekenen (Ball, Paddle, Main) mogen
-	// eronder blijven.
-	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 2 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
-	GameDisplayControl<20,10> gameDisplayControl("GameDisplayControl", 2 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
-	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 2 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	// Op 2, gelijk aan de tekentaak, was dat grotendeels weg - FreeRTOS wisselt
+	// niet uit zichzelf tussen taken van gelijke prioriteit - maar niet helemaal.
+	// Met time slicing valt er nog steeds af en toe een klokttik middenin een
+	// reeks commando's, en dan gebeurt precies hetzelfde. Op de startpagina, die
+	// sinds de fakkels een keer of tien per seconde hertekent, kwam dat neer op
+	// een flits per vijf a tien seconden.
+	//
+	// Vandaar 3, BOVEN asyncDisplay. Dan kan de tekentaak de schrijver niet meer
+	// onderbreken: die maakt zijn reeks af, blokkeert, en pas dan wordt er
+	// getekend en gepresenteerd. Uithongeren kan niet - loopt de commandoqueue
+	// vol, dan blokkeert de schrijver daarop en komt de tekentaak alsnog aan de
+	// beurt.
+	//
+	// Alleen de taken die niet tekenen (Ball, Paddle, Main, Handler) blijven
+	// eronder.
+	// De top-5 leeft in de spiffs-partitie, naast de touchkalibratie. Zie
+	// pdga_HallOfFame.h.
+	HallOfFame hallOfFame("/hallOfFame");
+
+	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	GameDisplayControl<20,10> gameDisplayControl("GameDisplayControl", 3 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
+	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
 
@@ -108,7 +125,8 @@ namespace pong_cleangui_dg_adv
 	// pdga_BallsControl.h en pdga_Depot.h.
 	BallDepot ballDepot("ballDepot");
 	CrateDepot crateDepot("crateDepot");
-	GameObjectsControl gameObjectsControl(ballDepot, crateDepot, gameDisplayControl, paddleControl);
+	FireBinDepot fireBinDepot("fireBinDepot");
+	GameObjectsControl gameObjectsControl(ballDepot, crateDepot, fireBinDepot, gameDisplayControl, paddleControl);
 
 	// Prioriteit 2, gelijk aan asyncDisplay en de DisplayControls. Deze taak
 	// tekent zelf niet, maar hij zet wel de balstanden klaar waar een beeld op
@@ -121,7 +139,8 @@ namespace pong_cleangui_dg_adv
 
 	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
 	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl,
-	                        ballDepot, crateDepot, gameObjectsControl, paddleControl);
+	                        ballDepot, crateDepot, fireBinDepot, gameObjectsControl, paddleControl,
+	                        hallOfFame);
 }
 
 void setup()
@@ -144,6 +163,10 @@ void setup()
 	// Handler::main() wacht zo lang voordat hij begint met tikken, juist zodat
 	// zijn luisteraars zich kunnen melden. setup() draait ruim binnen die tijd.
 	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::gameObjectsControl);
+
+	// De top-5 uit de spiffs-partitie halen. Hier en niet in een constructor:
+	// LITTLEFS moet aangekoppeld zijn, en dat gebeurt pas als er iets om vraagt.
+	pong_cleangui_dg_adv::hallOfFame.load();
 
 	ESP_LOGI("checkpoint", "start of main");vTaskDelay(1);
 }

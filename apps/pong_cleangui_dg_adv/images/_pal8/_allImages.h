@@ -7,35 +7,49 @@
 #include <crt_Image.h>
 
 #include "_palette.h"
-#include "ball-trcolor_FF00FF-ssh_1x6.h"
+#include "ball-trcolor_FF00FF-ssh_1x16.h"
 #include "borderLeft.h"
 #include "borderRight.h"
 #include "borderTop.h"
 #include "buttonPaddleLeft-trcolor_FF00FF.h"
 #include "buttonPaddleRight-trcolor_FF00FF.h"
 #include "buttonPlay-trcolor_FF00FF.h"
+#include "buttonPlayAgain-trcolor_FF00FF.h"
+#include "creditsLine-trcolor_FF00FF.h"
+#include "fireBin-trcolor_FF00FF-ssh_1x5.h"
 #include "gameOver-trcolor_FF00FF.h"
 #include "goalLine.h"
 #include "paddle-trcolor_FF00FF.h"
 #include "presentCrate-ssh_1x5.h"
+#include "scoreDigits-trcolor_FF00FF-ssh_1x10.h"
+#include "titleHallOfFame-trcolor_FF00FF.h"
+#include "titleSuperPong-trcolor_FF00FF.h"
+#include "torch-trcolor_FF00FF-ssh_1x10.h"
 
 namespace crt
 {
-	constexpr Image imageBall(arBallIndices, 168, 28, arPalette, true, 1, 6);
+	constexpr Image imageBall(arBallIndices, 448, 28, arPalette, true, 1, 16);
 	constexpr Image imageBorderLeft(arBorderLeftIndices, 10, 180, arPalette);
 	constexpr Image imageBorderRight(arBorderRightIndices, 10, 180, arPalette);
 	constexpr Image imageBorderTop(arBorderTopIndices, 320, 10, arPalette);
 	constexpr Image imageButtonPaddleLeft(arButtonPaddleLeftIndices, 80, 46, arPalette, true);
 	constexpr Image imageButtonPaddleRight(arButtonPaddleRightIndices, 80, 46, arPalette, true);
 	constexpr Image imageButtonPlay(arButtonPlayIndices, 120, 54, arPalette, true);
+	constexpr Image imageButtonPlayAgain(arButtonPlayAgainIndices, 200, 54, arPalette, true);
+	constexpr Image imageCreditsLine(arCreditsLineIndices, 288, 20, arPalette, true);
+	constexpr Image imageFireBin(arFireBinIndices, 140, 28, arPalette, true, 1, 5);
 	constexpr Image imageGameOver(arGameOverIndices, 256, 64, arPalette, true);
 	constexpr Image imageGoalLine(arGoalLineIndices, 320, 2, arPalette);
 	constexpr Image imagePaddle(arPaddleIndices, 50, 12, arPalette, true);
 	constexpr Image imagePresentCrate(arPresentCrateIndices, 140, 28, arPalette, false, 1, 5);
+	constexpr Image imageScoreDigits(arScoreDigitsIndices, 280, 36, arPalette, true, 1, 10);
+	constexpr Image imageTitleHallOfFame(arTitleHallOfFameIndices, 272, 44, arPalette, true);
+	constexpr Image imageTitleSuperPong(arTitleSuperPongIndices, 288, 72, arPalette, true);
+	constexpr Image imageTorch(arTorchIndices, 360, 72, arPalette, true, 1, 10);
 
 	// Alles hierboven, op volgorde van bestandsnaam, zodat een viewer of een
 	// test ze kan aflopen zonder ze bij naam te noemen.
-	static constexpr int nofAllImages = 11;
+	static constexpr int nofAllImages = 18;
 
 	static constexpr const Image* const arAllImages[] =
 	{
@@ -46,10 +60,17 @@ namespace crt
 		&imageButtonPaddleLeft,
 		&imageButtonPaddleRight,
 		&imageButtonPlay,
+		&imageButtonPlayAgain,
+		&imageCreditsLine,
+		&imageFireBin,
 		&imageGameOver,
 		&imageGoalLine,
 		&imagePaddle,
 		&imagePresentCrate,
+		&imageScoreDigits,
+		&imageTitleHallOfFame,
+		&imageTitleSuperPong,
+		&imageTorch,
 	};
 
 	static constexpr const char* const arAllImageNames[] =
@@ -61,9 +82,16 @@ namespace crt
 		"imageButtonPaddleLeft",
 		"imageButtonPaddleRight",
 		"imageButtonPlay",
+		"imageButtonPlayAgain",
+		"imageCreditsLine",
+		"imageFireBin",
 		"imageGameOver",
 		"imageGoalLine",
 		"imagePaddle",
 		"imagePresentCrate",
+		"imageScoreDigits",
+		"imageTitleHallOfFame",
+		"imageTitleSuperPong",
+		"imageTorch",
 	};
 };

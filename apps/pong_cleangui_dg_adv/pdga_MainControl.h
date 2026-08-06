@@ -12,6 +12,7 @@
 
 #include <crt_TFT_eSPI_FreeFonts.h>
 
+#include "pdga_HallOfFame.h"
 #include "pdga_StartPageControl.h"
 #include "pdga_GameControl.h"
 #include "pdga_GameOverPageControl.h"
@@ -47,13 +48,19 @@ namespace pong_cleangui_dg_adv
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 					IStartPageDisplayControl& startPageDisplayControl, IGameDisplayControl& gameDisplayControl,
 					IGameOverDisplayControl& gameOverDisplayControl, BallDepot& ballDepot, CrateDepot& crateDepot,
-					GameObjectsControl& gameObjectsControl, PaddleControl& paddleControl) :
+					FireBinDepot& fireBinDepot, GameObjectsControl& gameObjectsControl, PaddleControl& paddleControl,
+					HallOfFame& hallOfFame) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
-			gameControl(this, gameDisplayControl, ballDepot, crateDepot, gameObjectsControl, paddleControl),
-			gameOverControl(this, gameOverDisplayControl),
+			gameControl(this, gameDisplayControl, ballDepot, crateDepot, fireBinDepot, gameObjectsControl, paddleControl),
+			gameOverControl(this, gameOverDisplayControl, hallOfFame),
 			startPageControl(this, startPageDisplayControl)
 		{
+			// De game-over-pagina meldt bij dit object dat de naam is ingetypt
+			// (UC03 stap 1b). Hier en niet in de ino: gameOverControl is van
+			// MainControl, en een aanroeper zou er niet bij hoeven kunnen.
+			gameOverDisplayControl.setGameOverDisplayListener(&gameOverControl);
+
 			start();
 		}
 
@@ -82,7 +89,9 @@ namespace pong_cleangui_dg_adv
 						break;
 
 					case STATE_GAME_OVER:
-						gameOverControl.doGameOver();
+						// De score van het zojuist gespeelde spel gaat mee: UC03
+						// beslist ermee of er om een naam wordt gevraagd.
+						gameOverControl.doGameOver(gameControl.getScore());
 						state = STATE_GAME_RUNNING;
 						break;
 

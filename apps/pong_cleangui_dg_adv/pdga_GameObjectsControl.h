@@ -8,6 +8,8 @@
 #include "pdga_GameDisplayControl.h"
 #include "pdga_BallControl.h"
 #include "pdga_PresentCrateControl.h"
+#include "pdga_FireBinControl.h"
+#include "pdga_IBallField.h"
 #include "pdga_PaddleControl.h"
 
 // Wat er per beeld met de spelobjecten gebeurt: de ballen zetten een stap - en
@@ -32,6 +34,7 @@ namespace pong_cleangui_dg_adv
 {
 	typedef Depot<BallControl, MaxNofBalls> BallDepot;
 	typedef Depot<PresentCrateControl, MaxNofCrates> CrateDepot;
+	typedef Depot<FireBinControl, MaxNofFireBins> FireBinDepot;
 
 	// UC04 stap 4: het spel loopt tot er geen ballen meer in het spel zijn. Wie de
 	// depots afloopt is de enige die dat weet, dus die meldt het.
@@ -41,11 +44,12 @@ namespace pong_cleangui_dg_adv
 		virtual void allBallsGone() = 0;
 	};
 
-	class GameObjectsControl : public IHandlerListener, public IPresentCrateField
+	class GameObjectsControl : public IHandlerListener, public IBallField
 	{
 	private:
 		BallDepot& ballDepot;
 		CrateDepot& crateDepot;
+		FireBinDepot& fireBinDepot;
 		IGameDisplayControl& gameDisplayControl;
 		PaddleControl& paddleControl;
 		IGameObjectsListener* pListener;
@@ -61,6 +65,12 @@ namespace pong_cleangui_dg_adv
 		// stack-overflow uit voortkomt.
 		BallStates ballStates;
 		CrateStates crateStates;
+		FireBinStates fireBinStates;
+
+		// De score van het lopende spel (UC05 stap 1a). Hij woont hier omdat dit de
+		// plek is waar de ballen hun kaatsingen melden; GameControl zet hem bij het
+		// begin van een spel terug.
+		int32_t score;
 
 		// Om de overgang naar nul te kunnen zien. Alleen "er zijn er nul" is niet
 		// genoeg: voordat de eerste bal wordt gespawnd is dat ook zo, en dan zou
@@ -68,11 +78,12 @@ namespace pong_cleangui_dg_adv
 		int nofBallsInUsePrev;
 
 	public:
-		GameObjectsControl(BallDepot& ballDepot, CrateDepot& crateDepot,
+		GameObjectsControl(BallDepot& ballDepot, CrateDepot& crateDepot, FireBinDepot& fireBinDepot,
 		                   IGameDisplayControl& gameDisplayControl, PaddleControl& paddleControl) :
-			ballDepot(ballDepot), crateDepot(crateDepot),
+			ballDepot(ballDepot), crateDepot(crateDepot), fireBinDepot(fireBinDepot),
 			gameDisplayControl(gameDisplayControl), paddleControl(paddleControl),
 			pListener(nullptr), paddlePositionThisFrame(0),
+			score(0),
 			nofBallsInUsePrev(0)
 		{
 		}
@@ -89,12 +100,12 @@ namespace pong_cleangui_dg_adv
 			this->pListener = pListener;
 		}
 
-		// Een bal meldt dat hij ergens tegenaan zit. Zie IPresentCrateField.
+		// Een bal meldt dat hij ergens tegenaan zit. Zie IBallField.
 		//
 		// Dit draait binnen ballDepot.update() hieronder, dus binnen de update()
 		// van de bal die het meldt. Dat mag: het crate-depot wordt op dat moment
 		// niet afgelopen, en een crate vrijgeven verandert alleen een bool.
-		/*override*/ CrateHit reportBallHit(int ballPosX, int ballPosY, int ballRadius)
+		/*override*/ CrateHit reportCrateHit(int ballPosX, int ballPosY, int ballRadius)
 		{
 			for (int i = 0; i < MaxNofCrates; i++)
 			{
@@ -129,6 +140,22 @@ namespace pong_cleangui_dg_adv
 			return CrateHit();
 		}
 
+		// Staat de bal in een vuurkorf? Geen melding aan de korf: die doet niets
+		// met ballen, hij staat er alleen (UC08). Wat er met de bal gebeurt staat
+		// in BallControl.
+		/*override*/ bool touchesFireBin(int ballPosX, int ballPosY, int ballRadius)
+		{
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				if (fireBinDepot.isInUse(i) &&
+				    fireBinDepot.getItem(i).overlaps(ballPosX, ballPosY, ballRadius))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
 		// Een crate in het veld zetten. Aangeroepen vanuit GameControl (UC04), dus
 		// vanuit een andere taak dan waarin update() draait. Het gaat om het vullen
 		// van een slot dat nog van niemand was, dus daar zit geen race in die kwaad
@@ -145,6 +172,41 @@ namespace pong_cleangui_dg_adv
 			return true;
 		}
 
+		// Een vuurkorf in het veld zetten. Zelfde afspraak als spawnCrateAt().
+		bool spawnFireBinAt(int posX, int posY)
+		{
+			int indexFireBin = fireBinDepot.obtain();
+			if (indexFireBin == FireBinDepot::InvalidIndex)
+			{
+				return false;
+			}
+
+			fireBinDepot.getItem(indexFireBin).spawn(posX, posY);
+			return true;
+		}
+
+		int getNofBallsInUse()
+		{
+			return ballDepot.getNofInUse();
+		}
+
+		// UC05 stap 1a. Wordt aangeroepen vanuit de update() van een bal, dus in
+		// dezelfde taak als waarin hij hieronder wordt uitgelezen.
+		/*override*/ void reportPaddleBounce()
+		{
+			score++;
+		}
+
+		void resetScore()
+		{
+			score = 0;
+		}
+
+		int32_t getScore()
+		{
+			return score;
+		}
+
 		/*override*/ void update()
 		{
 			// De peddelstand een keer ophalen, voordat er iets beweegt. Daarmee
@@ -152,9 +214,11 @@ namespace pong_cleangui_dg_adv
 			// slot van de Pool een keer om in plaats van vijftig keer.
 			paddlePositionThisFrame = paddleControl.getPaddlePos();
 
-			// Crates eerst; ze doen zelf nog niets, maar zo ligt de volgorde vast
-			// voor als daar ooit een animatie in komt.
+			// Crates en vuurkorven eerst. De korven tellen hun levensduur af en
+			// geven zichzelf terug als ze op zijn (UC08); dat moet gebeurd zijn
+			// voordat de ballen kijken of ze er een raken.
 			crateDepot.update();
+			fireBinDepot.update();
 
 			// Dan de ballen. Een bal die daarbij het scherm verlaat geeft zichzelf
 			// terug aan het depot, en een bal die een crate opent laat er tien
@@ -192,8 +256,12 @@ namespace pong_cleangui_dg_adv
 				nofSpawned++;
 			}
 
+#ifdef PONG_MEASURE
 			ESP_LOGI("pong", "present crate open: %d ballen erbij, nu %d in het spel",
 				nofSpawned, ballDepot.getNofInUse());
+#else
+			(void)nofSpawned;
+#endif
 		}
 
 		void publishStates()
@@ -216,8 +284,15 @@ namespace pong_cleangui_dg_adv
 					: CrateState();
 			}
 
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				fireBinStates.arFireBin[i] = fireBinDepot.isInUse(i)
+					? fireBinDepot.getItem(i).getFireBinState()
+					: FireBinState();
+			}
+
 			ballStates.indexFrame++;
-			gameDisplayControl.updateGameObjects(ballStates, crateStates);
+			gameDisplayControl.updateGameObjects(ballStates, crateStates, fireBinStates, score);
 		}
 	}; // end class GameObjectsControl
 

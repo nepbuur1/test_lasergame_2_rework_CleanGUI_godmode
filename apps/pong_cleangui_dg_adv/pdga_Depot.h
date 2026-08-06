@@ -107,6 +107,20 @@ namespace pong_cleangui_dg_adv
 			nofInUse--;
 		}
 
+		// Alles in een keer terug. Bedoeld voor het opruimen tussen twee rondes
+		// door: exemplaren die op eigen voorwaarden verdwijnen - een crate die
+		// opengaat, een korf die uitbrandt - blijven anders in hun slot zitten als
+		// die voorwaarde nooit intreedt.
+		void releaseAll()
+		{
+			for (unsigned int i = 0; i < N; i++)
+			{
+				arInUse[i] = false;
+			}
+			nofInUse = 0;
+			bExhaustionReported = false;
+		}
+
 		// Ook voor niet-uitgegeven exemplaren: bij het opstarten moet de eigenaar
 		// ze alle N kunnen bedraden, ver voordat er een is geclaimd.
 		T& getItem(int index)

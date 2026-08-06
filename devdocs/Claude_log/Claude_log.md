@@ -1,5 +1,176 @@
 # Claude log
 
+## 2026-08-06 — Fakkels, en de derde keer dat de auto-present een half beeld liet zien
+
+Brandende fakkels naast de PLAY-knop en naast PLAY AGAIN: een spritesheet van
+tien cellen, 36x72. Onderweg drie keer bijgesteld, en die drie stappen zeggen
+meer dan het eindresultaat.
+
+**Eerst was het een driehoekig kuifje dat heen en weer zwiepte.** De fase stuurde
+de x-positie van de tongen, en dat leest als een wapperend vlaggetje. Bij vuur
+staan de tongen vrijwel rechtop en is het de *hoogte* die pulseert, elk met een
+eigen fase. Daarna: een vlamlichaam (een stapel ellipsen die naar boven
+versmalt, zodat de vlam een voet heeft) met vijf smalle tongen erboven. Vier
+brede tongen liepen in elkaar over tot weer een enkele bundel.
+
+**Losgelaten vlammetjes erbij, en er weer uit.** Als enkele ellips bleven het op
+deze maat herkenbare rondjes, en een rondje boven een vuur leest niet als een
+vonk maar als een bolletje. Wil je het effect terug, dan is de vorm het probleem
+en niet het idee: een vonk hoort een kort verticaal streepje te zijn.
+
+**En de tongen liepen boven de cel uit.** Dat zag je als een vlakke bovenkant. De
+fakkelkop zit nu op 58% van de celhoogte in plaats van halverwege - het vuur
+heeft meer ruimte nodig dan de steel.
+
+Het afspelen is op twee manieren onvoorspelbaar gemaakt. De wachttijd per stap
+wordt geloot tussen 45 en 130 ms, wat een eenmalige `Timer` vroeg die na elke tik
+opnieuw wordt gezet in plaats van `start_periodic` - een vaste periode geeft
+precies het ritme dat je bij vuur niet wilt. En de cel schuift per stap een of
+twee plaatsen op of neer, richting elke keer opnieuw geloot. Vrij loten was te
+grof: de tien cellen zijn standen van dezelfde vlam over een cyclus, dus cel 0 en
+cel 5 schelen flink en dat leest als flikkeren. Een stap van nul komt niet voor -
+twee keer dezelfde cel is een haperende vlam. De ondergrens van 45 ms is er omdat
+elke stap een volledige hertekening is, en die kost met de backbuffer ~31 ms.
+
+### De auto-present, deel drie
+
+En toen knipperde het hele startscherm, eens per vijf a tien seconden.
+
+Dezelfde fout als aan het begin van deze sessie, maar in zijn hardnekkigste vorm.
+De auto-present van `AsyncDisplay` gaat af zodra de commandoqueue leeg is; treft
+hij die leeg aan terwijl er pas een deel van het beeld in staat, dan gaat dat
+halve beeld het scherm op. Het eerste commando van elke hertekening is het
+schermvullende zwarte achtergrondpaneel, dus een half beeld **is** een zwart
+scherm.
+
+De weg erheen, in drie stappen:
+
+| prioriteit t.o.v. asyncDisplay (2) | gedrag |
+|---|---|
+| 1, eronder | de tekentaak zet de schrijver bij elke opdracht opzij: onophoudelijk knipperen |
+| 2, gelijk | FreeRTOS wisselt niet uit zichzelf bij gelijke prioriteit - grotendeels weg |
+| 3, erboven | de tekentaak kan de schrijver niet meer onderbreken |
+
+Dat 2 niet genoeg was, kwam pas boven water toen de fakkels de startpagina een
+keer of tien per seconde lieten hertekenen. Met time slicing valt er af en toe
+een kloktik middenin een reeks commando's, en een kans van enkele procenten per
+hertekening wordt dan een flits per vijf a tien seconden. Zolang een pagina
+alleen bij een gebeurtenis hertekende, viel dat nooit op.
+
+Uithongeren kan niet op 3: loopt de commandoqueue vol, dan blokkeert de schrijver
+daarop en komt de tekentaak alsnog aan de beurt. Alleen de taken die niet tekenen
+(Ball, Paddle, Main, Handler) staan nog eronder.
+
+## 2026-08-06 — UC03: hall of fame, naaminvoer, en een PageRoot die er een te klein was
+
+UC03_GameOverHandling is uitgebreid naar wat er nu in het ontwerp staat: haalt de
+score een top-5 plek, dan een invoerveld met "TYPE UW NAAM" en het toetsenbord uit
+`crt_TouchscreenKeyboard.h`, daarna de lijst met "Play Again" eronder.
+
+De pagina heeft daarvoor twee fasen op **een** PageRoot - NAAM en LIJST - die met
+`setDrawable()` worden gewisseld. Niet twee PageRoots: er mag er maar een tegelijk
+in beeld staan (zie de opmerking boven `crt_PageRoot.h`), en die eis geldt binnen
+een taak net zo goed als ertussen.
+
+Twee dingen weken af van het Inputfield-voorbeeld, allebei door de backbuffer:
+
+- Het toetsenbord schuift met `setLocPos` gevolgd door een volledige
+  `page.show(true)`, en niet met `moveTo()`. Met een backbuffer verzet `moveTo()`
+  alleen coordinaten van een deel van de boom; zonder hertekening blijft het
+  toetsenbord op zijn oude plek in de buffer staan.
+- Het veld leegmaken gaat via `keyPressed("DEL")` in een lus. `Inputfield` heeft
+  geen `setTextValue`.
+
+### De opslag, en hoeveel er in de partitie past
+
+De top-5 leeft in dezelfde partitie als de touchkalibratie. Het ontwerp zegt
+"spiffs"; er draait LITTLEFS op, en aanhaken bij wat er al staat is belangrijker
+dan de letterlijke naam - twee bestandssystemen op een partitie gaat niet samen.
+Het bestand draagt een versiebyte, want een lijst van een oudere indeling leest
+anders als geldige onzin.
+
+De vraag of het past is beantwoord met een meting in plaats van een rekensom,
+want LittleFS werkt in blokken van een flash-sector:
+
+```
+hallOfFame: bestandssysteem: 102400 bytes totaal, 8192 in gebruik, 94208 vrij;
+            de top-5 kost 126 bytes aan gegevens.
+```
+
+Die 8192 die al bezet was, is de touchkalibratie: **11 bytes aan gegevens, twee
+blokken van 4 KB**. De top-5 komt daar met 126 bytes bij en kost opnieuw ~4 KB.
+Van de 100 KB blijft 92 over.
+
+### Drie fouten die geen van drieen crashten
+
+Het GAME OVER-vignet is naar `GameControl` verhuisd (de uitzondering in UC04:
+over het spelscherm heen, weg na een tik of drie seconden), en verscheen niet.
+Daar zaten er drie achter elkaar in, met aan de buitenkant steeds hetzelfde beeld:
+
+1. **De vlaggen stonden niet in de `waitAny`.** De afhandeling was geschreven,
+   maar de tekentaak werd er nooit voor gewekt.
+2. **`hasFired()` werd niet aangeroepen.** Dat is in CleanRTOS wat het event-bit
+   wist (`clearEventBits`). Omdat het niet uitmaakte wélke van de twee had
+   gevuurd, riep ik hem helemaal niet aan - waarna het bit van de timer na de
+   eerste keer bleef staan en elke volgende `waitAny` meteen terugkwam. Zichtbaar
+   als: de eerste keer wachtte hij drie seconden, daarna nooit meer.
+3. **De `PageRoot` van de spelpagina had er een te klein.** 8 vaste widgets + 5
+   crates + 5 vuurkorven + 4 scorecijfers + 50 ballen + het vignet is 73; de root
+   had 72. `addChildWidget` **crasht daar niet op** - hij logt een regel en geeft
+   `false` terug. Het vignet was het laatste in de rij en viel er stilzwijgend
+   uit, en omdat de pagina bij het opstarten wordt gebouwd, is die melding allang
+   van het scherm als je het merkt.
+
+Het aantal vaste widgets is daarom nu een benoemde constante met de opsomming
+ernaast, in plaats van een losse `8` in een template-parameter. En "geen geweigerd
+kind bij het opstarten" is sindsdien een vaste controle na het flashen.
+
+## 2026-08-06 — Score, vuurkorven, en een bal die opbrandt in drie stadia
+
+**De score** (UC05 stap 1a) staat tussen de peddelknoppen als vier panels die elk
+een cel uit een cijfersheet kiezen. Geen gerenderde tekst: dat scheelt tekentijd,
+en vaste celbreedtes houden de score stil - met een proportioneel font verspringt
+hij zodra er een 1 in komt. `BallControl` meldt de kaatsing via het veld, alleen
+die op de peddel; tegen een wand kaatsen is geen verdienste.
+
+**De vuurkorven** (UC08) kwamen naast de present crates in een eigen `Depot<...,5>`.
+Het beslismoment van UC04 staat in een functie: kans op een vuurkorf evenredig met
+het aantal ballen, vanaf 40 altijd een. Dat is meteen de rem die het spel nodig
+had - elke geopende crate levert er tien bij.
+
+Daar hoorde een terugval bij die het ontwerp niet noemt: **zit de gekozen soort
+zijn depot vol, dan de andere.** Zonder dat ging de tik verloren - met een enkele
+bal valt de keuze in 39 van de 40 gevallen op een crate, en staan die alle vijf al
+in het veld, dan gebeurt er drie seconden lang niets, en daarna weer niet. En dat
+verklaarde meteen waarom er in het begin nooit een vuurkorf te zien was.
+
+**Een tweede fout die er vanaf het begin in zat:** niets ruimde de crates en
+korven op als een spel eindigde. Ze verdwijnen alleen op eigen voorwaarden - een
+crate als hij opengaat, een korf als hij uitbrandt - dus een crate die je niet had
+opengespeeld bleef in zijn slot zitten en stond er bij het volgende spel gewoon
+weer. `Depot::releaseAll()` erbij, en aangeroepen aan het **eind** van het spel:
+de standen bereiken de display pas bij de eerstvolgende beeldstap, en die valt
+precies tussen `showGamePage()` en de eerste hertekening in.
+
+**De brandende bal krimpt** terwijl hij opbrandt (UC05 stap 1d): een seconde op
+volle grootte, een seconde half, een seconde een kwart. De sheet ging van 6 naar
+16 cellen - een gewone bal plus drie stadia van vijf. Het stadium volgt uit de
+verstreken tijd, dus een bal die onder de doellijn door valt blijft vanzelf op
+volle grootte: die is na ~680 ms weg en komt niet aan het tweede stadium toe. Dat
+hoefde nergens apart geregeld te worden.
+
+### Het meetgereedschap staat nu uit
+
+`brandend:`, de beeldtijd met `overgeslagen`, en de spawn-regels zitten achter een
+uitgecommentarieerde `//#define PONG_MEASURE`, in dezelfde vorm als
+`PONG_FAST_GAME_OVER` en `CRT_ASYNCDISPLAY_COMMAND_TIMING`. Gecontroleerd dat het
+project zowel met de meting aan als uit schoon bouwt - een schakelaar die niet
+compileert als je hem aanzet is erger dan geen schakelaar.
+
+Die regels kosten geld waar ze het meten: bij 115200 baud is een logregel zo'n
+7 ms, en de spawn-regels lopen in de taak van de Handler - een kwart van een
+beeld.
+
 ## 2026-08-06 — Present crates, en de peddelstand die vijftig keer per beeld op slot ging
 
 UC07_PresentHandling erbij, langs dezelfde weg als de ballen: een

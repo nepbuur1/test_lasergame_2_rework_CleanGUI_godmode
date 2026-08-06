@@ -9,7 +9,7 @@
 
 #include "pdga_GameDisplayControl.h"
 #include "pdga_PaddleControl.h"
-#include "pdga_PresentCrateControl.h"
+#include "pdga_IBallField.h"
 
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
 // binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
@@ -47,7 +47,14 @@ namespace pong_cleangui_dg_adv
             // toestand en geen vlaggetje in STATE_RUNNING, omdat er hier niets
             // meer te botsen valt - er staan onder de doellijn geen wanden, en de
             // peddel ligt erboven.
-            STATE_BURNING
+            STATE_BURNING,
+
+            // Vlam gevat aan een vuurkorf (UC05 stap 1d). Hij blijft gewoon
+            // meespelen - kaatst tegen wanden, peddel en crates - maar brandt in
+            // BallBurnUpMs op en verdwijnt dan. Een andere toestand dan
+            // STATE_BURNING, want dat is de bal die onder de doellijn door valt en
+            // nergens meer tegenaan kan.
+            STATE_BURNING_UP
         };
 
 	private:
@@ -64,9 +71,9 @@ namespace pong_cleangui_dg_adv
         // vergrendelen. Alle ballen zien bovendien gegarandeerd dezelfde peddel.
         const int* pPaddlePosition;
 
-        // Waar de bal vraagt of hij een present crate raakt. Hij kent de crates
-        // zelf niet - zie IPresentCrateField.
-        IPresentCrateField* pCrateField;
+        // Waar de bal vraagt of hij ergens tegenaan zit. Hij kent de crates en
+        // vuurkorven zelf niet - zie IBallField.
+        IBallField* pBallField;
 
         // Het depot waar deze bal in ligt, en waar hij in ligt. Hij geeft zichzelf
         // vrij zodra hij het scherm uit is. Via IDepot en niet via Depot<...>:
@@ -82,16 +89,22 @@ namespace pong_cleangui_dg_adv
         int vY;
         State state;
 
+        // Wat er van BallBurnUpMs over is, in beeldstappen. Alleen van belang in
+        // STATE_BURNING_UP.
+        int32_t nofBurnUpStepsLeft;
+
         // Hoeveel stappen deze bal al brandt. De display maakt daar een cel van de
         // spritesheet van; hoeveel cellen die heeft is kennis van de display en
         // niet van de bal. Per bal, want met vijftig ballen kan elk zijn eigen
         // brandfase hebben.
         int32_t indexBurningStep;
 
+#ifdef PONG_MEASURE
         // Alleen voor de meting bij het verlaten van het scherm; zie daar.
         int64_t timeOfIgnitionUs;
         int posYAtIgnition;
         int32_t nofBurningSteps;
+#endif
 
         // posX/posY zijn het MIDDEN van de bal, in speelveldpixels met de
         // oorsprong linksonder. Alles hieronder rekent met de straal erbij, want
@@ -105,7 +118,7 @@ namespace pong_cleangui_dg_adv
 		BallControl() :
             pGameDisplayControl(nullptr),
             pPaddlePosition(nullptr),
-            pCrateField(nullptr),
+            pBallField(nullptr),
             pDepot(nullptr),
             indexSlot(-1),
             fieldWidth(0),
@@ -115,10 +128,13 @@ namespace pong_cleangui_dg_adv
             vX(0),
             vY(0),
             state(STATE_IDLE),
-            indexBurningStep(0),
-            timeOfIgnitionUs(0),
-            posYAtIgnition(0),
-            nofBurningSteps(0)
+            nofBurnUpStepsLeft(0),
+            indexBurningStep(0)
+#ifdef PONG_MEASURE
+            , timeOfIgnitionUs(0)
+            , posYAtIgnition(0)
+            , nofBurningSteps(0)
+#endif
 		{
 		}
 
@@ -127,11 +143,11 @@ namespace pong_cleangui_dg_adv
         // iets te wijzigen, en dat geldt hier niet - dit ligt vast zodra het spel
         // loopt.
         void init(IGameDisplayControl& gameDisplayControl, const int* pPaddlePosition,
-                  IPresentCrateField* pCrateField, IDepot* pDepot, int indexSlot)
+                  IBallField* pBallField, IDepot* pDepot, int indexSlot)
         {
             this->pGameDisplayControl = &gameDisplayControl;
             this->pPaddlePosition = pPaddlePosition;
-            this->pCrateField = pCrateField;
+            this->pBallField = pBallField;
             this->pDepot = pDepot;
             this->indexSlot = indexSlot;
 
@@ -199,7 +215,9 @@ namespace pong_cleangui_dg_adv
         // Pool::write() neemt zijn argument op waarde aan.
         BallState getBallState() const
         {
-            return BallState(posX, posY, (state == STATE_BURNING), indexBurningStep);
+            return BallState(posX, posY,
+                             (state == STATE_BURNING) || (state == STATE_BURNING_UP),
+                             indexBurningStep);
         }
 
         // Een stap. Aangeroepen door het depot, dat alleen uitgegeven exemplaren
@@ -224,11 +242,41 @@ namespace pong_cleangui_dg_adv
                     // bal zijn hele stap in een oogwenk - een schok die er precies
                     // bij het ontbranden uitzag als een versnelling.
                     //
+#ifdef PONG_MEASURE
                     nofBurningSteps = 0;
+#endif
                     state = STATE_BURNING;
                 }
                 else
                 {
+                    step();
+                    catchFireIfInFireBin();
+                }
+                break;
+
+            case STATE_BURNING_UP:
+                if (nofBurnUpStepsLeft <= 0)
+                {
+                    // Opgebrand. Hij is nooit bij de doellijn gekomen; hij is
+                    // gewoon op.
+                    state = STATE_IDLE;
+                    assert(pDepot != nullptr);
+                    pDepot->release(indexSlot);
+                }
+                else if (posY + ballRadius <= 0)
+                {
+                    // Toch nog onder de doellijn door voordat hij op was. Dan
+                    // geldt UC05 stap 1b: hij valt brandend het scherm uit, en de
+                    // opbrandklok doet er niet meer toe.
+#ifdef PONG_MEASURE
+                    nofBurningSteps = 0;
+#endif
+                    state = STATE_BURNING;
+                }
+                else
+                {
+                    nofBurnUpStepsLeft--;
+                    indexBurningStep++;
                     step();
                 }
                 break;
@@ -236,6 +284,7 @@ namespace pong_cleangui_dg_adv
             case STATE_BURNING:
                 if (posY <= pGameDisplayControl->getBallOffScreenY())
                 {
+#ifdef PONG_MEASURE
                     int32_t elapsedMs = (int32_t)((esp_timer_get_time() - timeOfIgnitionUs)/1000);
                     int32_t droppedPix = posYAtIgnition - posY;
                     ESP_LOGI("pong", "brandend: %d stappen, %d px in %d ms = %d px/s "
@@ -243,6 +292,7 @@ namespace pong_cleangui_dg_adv
                         (int)nofBurningSteps, (int)droppedPix, (int)elapsedMs,
                         (elapsedMs > 0) ? (int)(droppedPix*1000/elapsedMs) : 0,
                         (int)(BallSpeedPixPerFrame*1000/FrameIntervalMs));
+#endif
 
                     state = STATE_IDLE;
 
@@ -256,6 +306,7 @@ namespace pong_cleangui_dg_adv
                 }
                 else
                 {
+#ifdef PONG_MEASURE
                     // Meting: klopt het dat de bal tijdens het branden even snel
                     // valt als tijdens het spel? Verwacht wordt
                     // BallSpeedPixPerFrame pixels per FrameIntervalMs.
@@ -271,13 +322,14 @@ namespace pong_cleangui_dg_adv
                         timeOfIgnitionUs = esp_timer_get_time();
                         posYAtIgnition = posY;
                     }
+                    nofBurningSteps++;
+#endif
 
                     // Kaal doorvliegen: geen wanden, geen peddel. Wel op dezelfde
                     // beeldklok, zodat het vallen even snel gaat als het spelen en
                     // de vlamcyclus meeloopt.
                     posX += vX;
                     posY += vY;
-                    nofBurningSteps++;
                     indexBurningStep++;
                 }
                 break;
@@ -329,6 +381,14 @@ namespace pong_cleangui_dg_adv
                 // hij scherper weg dan in het midden. Zonder dit blijft de bal
                 // eeuwig onder 45 graden heen en weer gaan en valt er niets te
                 // spelen.
+                // UC05 stap 1a: de score gaat omhoog bij een kaatsing op de
+                // peddel. Hier en niet bij de wanden - alleen de peddel is een
+                // verdienste van de speler.
+                if (pBallField != nullptr)
+                {
+                    pBallField->reportPaddleBounce();
+                }
+
                 int offsetFromCentre = posX - paddlePosition;
                 vX = (offsetFromCentre * 2 * BallSpeedPixPerFrame) / (PaddleWidthPix/2);
                 if (vX == 0)
@@ -338,6 +398,21 @@ namespace pong_cleangui_dg_adv
             }
 
             bounceOffCrateIfHit();
+        }
+
+        // UC05 stap 1d: een bal die een vuurkorf raakt vliegt in brand en brandt
+        // op in BallBurnUpMs. Geen kaatsing - een korf is vuur en geen kist, dus
+        // hij vliegt er doorheen.
+        void catchFireIfInFireBin()
+        {
+            if ((pBallField == nullptr) || !pBallField->touchesFireBin(posX, posY, ballRadius))
+            {
+                return;
+            }
+
+            nofBurnUpStepsLeft = NofBallBurnUpSteps;
+            indexBurningStep = 0;
+            state = STATE_BURNING_UP;
         }
 
         // UC05_BallHandling stap 1c: raakt de bal een present crate, dan geeft hij
@@ -350,12 +425,12 @@ namespace pong_cleangui_dg_adv
         // is bovendien wat je van een kistje verwacht.
         void bounceOffCrateIfHit()
         {
-            if (pCrateField == nullptr)
+            if (pBallField == nullptr)
             {
                 return;
             }
 
-            CrateHit hit = pCrateField->reportBallHit(posX, posY, ballRadius);
+            CrateHit hit = pBallField->reportCrateHit(posX, posY, ballRadius);
             if (!hit.bHit)
             {
                 return;

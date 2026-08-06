@@ -46,10 +46,25 @@ namespace pong_cleangui_dg_adv
 		// Schermvullend, net als bij de andere twee pagina's. Daar leunt de
 		// paginawissel op: wie in beeld komt wist wat de vorige achterliet.
 		Panel<0> backgroundPanel;
+
+		// UC02 stap 1: de titel van het spel. Een plaatje en geen Text: de
+		// slagschaduw en de omlijning eromheen zijn met drawString niet te maken.
+		Panel<0> titlePanel;
+
+		// Het regeltje onder de titel. Ook een plaatje: de letterafstand die het
+		// zijn sci-fi-uiterlijk geeft, kent drawString niet.
+		Panel<0> creditsPanel;
+
 		PlayButton buttonStart;
+
+		// Twee brandende fakkels naast de knop. Hun cel schuift per tik van
+		// timerTorch een op; zie de toelichting bij TorchFrameIntervalMs.
+		Panel<0> arTorchPanels[2];
+		int32_t arIndexTorchFrame[2];
 
 		Flag flagShowStartPage;
 		Flag flagDeshowStartPage;
+		Timer timerTorch;
 
 		State state;
 
@@ -61,8 +76,10 @@ namespace pong_cleangui_dg_adv
 			freeFonts(freeFonts),
 			screenWidth(0),
 			screenHeight(0),
+			arIndexTorchFrame{0, 5},
 			flagShowStartPage(this),
 			flagDeshowStartPage(this),
+			timerTorch(this),
 			state (STATE_HIDDEN)
 		{
 			Vec2 screenSize = display.getScreenSize();
@@ -99,7 +116,25 @@ namespace pong_cleangui_dg_adv
 				/*size*/Vec2(screenWidth, screenHeight), /*cornerRadius*/0, CoordType::Pixels,
 				Alignment::TopLeft, /*colFg*/0x00000000, /*colBg*/0x00000000);
 
+			// Titel en regeltje samen boven de knop, die op PlayButtonTopPix (135)
+			// staat. De titel is 72 hoog, het regeltje 20: op y=32 begint de titel
+			// en eindigt het regeltje op 124, met elf pixels lucht tot de knop.
+			Vec2 titleSizePix(imageTitleSuperPong.width, imageTitleSuperPong.height);
+			titlePanel.setPanelProps("titlePanel",
+				/*locPos*/Vec2((screenWidth - titleSizePix.x)/2, 32), CoordType::Pixels,
+				/*size*/titleSizePix, /*cornerRadius*/0, CoordType::Pixels,
+				Alignment::MidMid, /*colFg*/0x0000FFFF, /*colBg*/0x00000000);
+			titlePanel.setImage(&imageTitleSuperPong);
+
+			Vec2 creditsSizePix(imageCreditsLine.width, imageCreditsLine.height);
+			creditsPanel.setPanelProps("creditsPanel",
+				/*locPos*/Vec2((screenWidth - creditsSizePix.x)/2, 104), CoordType::Pixels,
+				/*size*/creditsSizePix, /*cornerRadius*/0, CoordType::Pixels,
+				Alignment::MidMid, /*colFg*/0x0000B4C8, /*colBg*/0x00000000);
+			creditsPanel.setImage(&imageCreditsLine);
+
 			initPlayButton(buttonStart, screenWidth);
+			initTorches(arTorchPanels, screenWidth, PlayButtonTopPix, imageButtonPlay.height);
 		}
 
 		// Zie de toelichting bij GameDisplayControl::showPage/hidePage - dit is
@@ -131,7 +166,11 @@ namespace pong_cleangui_dg_adv
 
 			PageRoot<20> pageStart("rootStartPageDisplay",display);
 			pageStart.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
+			pageStart.addChildWidget(titlePanel);
+			pageStart.addChildWidget(creditsPanel);
 			pageStart.addChildWidget(buttonStart);
+			pageStart.addChildWidget(arTorchPanels[0]);
+			pageStart.addChildWidget(arTorchPanels[1]);
 
 			hidePage(pageStart);	// StartPageControl vraagt hem zo meteen zelf op.
 
@@ -139,7 +178,20 @@ namespace pong_cleangui_dg_adv
 			{
 				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-				waitAny(flagShowStartPage + flagDeshowStartPage);
+				waitAny(flagShowStartPage + flagDeshowStartPage + timerTorch);
+
+				if (hasFired(timerTorch))
+				{
+					// Alleen de cel verschuiven; het tekenen gebeurt daarna in een
+					// keer. Met een backbuffer is een gedeeltelijke hertekening
+					// toch niet goedkoper - zie GameDisplayControl.
+					stepTorches(arTorchPanels, arIndexTorchFrame);
+					pageStart.show(true);
+
+					// Meteen opnieuw zetten met een verse wachttijd: de timer is
+					// eenmalig, juist om die wachttijd elke stap te kunnen loten.
+					timerTorch.start(nextTorchIntervalUs());
+				}
 
 				switch(state)
 				{
@@ -147,6 +199,10 @@ namespace pong_cleangui_dg_adv
 						if(hasFired(flagShowStartPage))
 						{
 							showPage(pageStart);
+
+							// De fakkels flakkeren alleen zolang de pagina in beeld
+							// staat: elke tik is een volledige hertekening.
+							timerTorch.start(nextTorchIntervalUs());
 							state = STATE_SHOWN;
 						}
 						else if(hasFired(flagDeshowStartPage))
@@ -158,6 +214,7 @@ namespace pong_cleangui_dg_adv
 					case STATE_SHOWN:
 						if(hasFired(flagDeshowStartPage))
 						{
+							timerTorch.stop();
 							hidePage(pageStart);
 							state = STATE_HIDDEN;
 						}

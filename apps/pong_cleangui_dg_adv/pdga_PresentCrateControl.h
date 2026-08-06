@@ -5,6 +5,7 @@
 
 #include "pdga_IDepot.h"
 #include "pdga_GameDisplayControl.h"
+#include "pdga_IBallField.h"
 
 // UC07_PresentHandling: een present crate wordt door UC04 in het veld gezet,
 // verliest een teller bij elke balaanraking (die begint op NofCrateHits), en
@@ -16,33 +17,6 @@
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	// Wat de bal terugkrijgt als hij iets heeft geraakt. De maat en plek zitten
-	// erin omdat de bal ertegenaan moet kaatsen, en hij verder niets van crates
-	// weet.
-	struct CrateHit
-	{
-		CrateHit():bHit(false),posX(0),posY(0),sizePix(0){}
-		CrateHit(int posX, int posY, int sizePix)
-			:bHit(true),posX(posX),posY(posY),sizePix(sizePix){}
-
-		bool bHit;
-		int posX;
-		int posY;
-		int sizePix;
-	};
-
-	// Wat een bal van de crates hoeft te weten: of hij er een raakt.
-	//
-	// UC05_BallHandling stap 1c zegt dat de bal het doorgeeft aan het geraakte
-	// object, en dat is precies wat deze ene aanroep doet - hij meldt de treffer
-	// en vertelt terug waar het object stond. De bal kent daarmee geen crates, en
-	// de crates geen ballen.
-	class IPresentCrateField
-	{
-	public:
-		virtual CrateHit reportBallHit(int ballPosX, int ballPosY, int ballRadius) = 0;
-	};
-
 	class PresentCrateControl
 	{
 	private:
