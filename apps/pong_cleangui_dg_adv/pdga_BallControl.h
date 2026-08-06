@@ -4,17 +4,16 @@
 #include <stdlib.h>
 #include <esp_timer.h>
 #include <crt_CleanRTOS.h>
+#include "pdga_IDepot.h"
 #include <crt_Button.h>
 
 #include "pdga_GameDisplayControl.h"
 #include "pdga_PaddleControl.h"
 
-// This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
-
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
 // binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
 // honderden keren per minuut te beproeven is in plaats van twintig keer per
-// kwartier. Zie initialiseRandomStartPos().
+// kwartier. Zie spawn().
 //#define PONG_FAST_GAME_OVER
 
 using namespace crt;
@@ -36,11 +35,22 @@ namespace pong_cleangui_dg_adv
         virtual void ballLeftTheScreen() = 0;
     };
 
-	class BallControl : public Task
+	// Een bal is GEEN taak.
+	//
+	// Er kunnen er tot MaxNofBalls tegelijk in de lucht zijn (UC07 spawnt er tien
+	// ineens), en vijftig taken van 5000 bytes stack is 250 KB - meer DRAM dan dit
+	// bord heeft, zeker met een backbuffer van 76.800 bytes erbij. Daarom ligt hij
+	// in een Depot (zie pdga_Depot.h) en doet hij per beeld een stap in update(),
+	// aangedreven door een crt::Handler die de klok bezit.
+	//
+	// Dat past ook gewoon in deze codebase: GameControl, GameOverControl en
+	// StartPageControl zijn al kale control-objecten die in de taak van een ander
+	// meeliften.
+	class BallControl
 	{
         enum State
         {
-            STATE_STOPPED,
+            STATE_IDLE,		// ligt in het depot, wordt niet ge-update
             STATE_RUNNING,
 
             // Onder de doellijn door: de bal staat in brand en valt door tot hij
@@ -52,95 +62,94 @@ namespace pong_cleangui_dg_adv
         };
 
 	private:
-        Flag flagStart;
-        IGameDisplayControl& gameDisplayControl;
-        PaddleControl& paddleControl;
+        IGameDisplayControl* pGameDisplayControl;
+        PaddleControl* pPaddleControl;
         IBallControlListener* pBallControlListener;
-        int screenWidth;
-        int screenHeigth;
+
+        // Het depot waar deze bal in ligt, en waar hij in ligt. Hij geeft zichzelf
+        // vrij zodra hij het scherm uit is. Via IDepot en niet via Depot<...>:
+        // anders zou een bal het depot moeten kennen dat hemzelf bevat.
+        IDepot* pDepot;
+        int indexSlot;
+
+        int fieldWidth;
+        int fieldHeight;
         int posX;
         int posY;
         int vX;
         int vY;
         State state;
 
-        // De beeldklok van het spel.
-        //
-        // vTaskDelay(40) is een pauze VAN 40 ms en geen periode van 40 ms: de tijd
-        // die de lus zelf kost komt er bovenop. Gemeten kwam dat op 43,6 ms per
-        // stap uit - 9% te traag - en hoeveel het is hangt af van hoe druk de
-        // tekentaak het heeft, dus het is ook nog eens niet constant.
-        // xTaskDelayUntil rekent vanaf het vorige wekmoment en haalt dat eruit.
-        //
-        // Let op bij hervatten: staat timeOfNextStep nog op een moment van
-        // seconden geleden - en dat is zo na de game-over-pagina - dan haalt
-        // xTaskDelayUntil die achterstand in met een reeks stappen zonder pauze.
-        // Precies de schok die er net is uitgehaald. Vandaar dat hij bij het
-        // starten van een bal opnieuw wordt gezet.
-        TickType_t timeOfNextStep;
+        // Hoeveel stappen deze bal al brandt. De display maakt daar een cel van de
+        // spritesheet van; hoeveel cellen die heeft is kennis van de display en
+        // niet van de bal. Per bal, want met vijftig ballen kan elk zijn eigen
+        // brandfase hebben.
+        int32_t indexBurningStep;
 
-        // Doorlopend nummer van elke stap, zodat GameDisplayControl kan zien of er
-        // een aan zijn neus voorbij is gegaan. De Pool bewaart alleen de laatste
-        // stand: loopt het spel voor op het tekenen, dan wordt een positie
-        // overschreven voordat hij ooit op het scherm stond, en springt de bal.
-        // Zonder nummer is dat niet te onderscheiden van een bal die gewoon snel
-        // gaat.
-        int32_t indexStep;
-
-        // Alleen voor de meting in STATE_BURNING; zie daar.
+        // Alleen voor de meting bij het verlaten van het scherm; zie daar.
         int64_t timeOfIgnitionUs;
         int posYAtIgnition;
         int32_t nofBurningSteps;
 
-	public:
-		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& gameDisplayControl, PaddleControl& paddleControl) :
-			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
-            flagStart(this),
-            gameDisplayControl(gameDisplayControl),
-            paddleControl(paddleControl),
-            pBallControlListener(nullptr),
-			screenWidth(gameDisplayControl.getWidth()),
-            screenHeigth(gameDisplayControl.getHeight()),
-            posX(screenWidth/2),
-            posY(screenHeigth/2),
-            vX(1),
-            vY(1),
-            state(STATE_STOPPED),
-            timeOfNextStep(0),
-            indexStep(0),
-            timeOfIgnitionUs(0),
-            posYAtIgnition(0),
-            nofBurningSteps(0)
-		{
-            srand((unsigned int)esp_timer_get_time());  // anders elke boot dezelfde "willekeurige" richting.
-			start();
-		}
-
-        void setBallControlListener(IBallControlListener* pBallControlListener)
-        {
-            this->pBallControlListener = pBallControlListener;
-        }
-
-        void startBall()
-        {
-            flagStart.set();
-        }
-
-	private:
         // posX/posY zijn het MIDDEN van de bal, in speelveldpixels met de
         // oorsprong linksonder. Alles hieronder rekent met de straal erbij, want
         // een bal van 12 pixels kaatst met zijn rand tegen de wand, niet met zijn
         // middelpunt.
         static const int ballRadius = BallSizePix/2;
 
-        void initialiseRandomStartPos()
+	public:
+        // Default constructor, want Depot<BallControl,N> bouwt alle N exemplaren
+        // in een keer. Alles wat een bal verder nodig heeft komt via init().
+		BallControl() :
+            pGameDisplayControl(nullptr),
+            pPaddleControl(nullptr),
+            pBallControlListener(nullptr),
+            pDepot(nullptr),
+            indexSlot(-1),
+            fieldWidth(0),
+            fieldHeight(0),
+            posX(0),
+            posY(0),
+            vX(0),
+            vY(0),
+            state(STATE_IDLE),
+            indexBurningStep(0),
+            timeOfIgnitionUs(0),
+            posYAtIgnition(0),
+            nofBurningSteps(0)
+		{
+		}
+
+        // Eenmalige bedrading, vlak na het opstarten. Geen setBallProps(): die
+        // vorm zegt in deze codebase dat je hem later nog eens mag aanroepen om
+        // iets te wijzigen, en dat geldt hier niet - dit ligt vast zodra het spel
+        // loopt.
+        void init(IGameDisplayControl& gameDisplayControl, PaddleControl& paddleControl,
+                  IBallControlListener* pBallControlListener, IDepot* pDepot, int indexSlot)
+        {
+            this->pGameDisplayControl = &gameDisplayControl;
+            this->pPaddleControl = &paddleControl;
+            this->pBallControlListener = pBallControlListener;
+            this->pDepot = pDepot;
+            this->indexSlot = indexSlot;
+
+            fieldWidth  = gameDisplayControl.getWidth();
+            fieldHeight = gameDisplayControl.getHeight();
+
+            posX = fieldWidth/2;
+            posY = fieldHeight/2;
+        }
+
+        // In het spel zetten. Aan te roepen nadat het depot deze bal heeft
+        // uitgegeven - het depot begint hem daarna vanzelf te updaten.
+        void spawn()
         {
 #ifdef PONG_FAST_GAME_OVER
             // De bal begint vlak boven de doellijn, helemaal links, en gaat
             // meteen naar beneden. De peddel begint in het midden en
             // haalt dat niet, dus is het na een handvol beelden game over.
             //
-            // Bedoeld voor het beproeven van die overgang, waar drie taken
+            // Bedoeld voor het beproeven van die overgang, waar meerdere taken
             // tegelijk gaan tekenen en het dus stuk kan gaan.
             //
             // vX = 0 houdt hem bij de linkerwand vandaan: bij een botsing tegen
@@ -151,37 +160,113 @@ namespace pong_cleangui_dg_adv
             vX = 0;
             vY = -BallSpeedPixPerFrame;
 #else
-            posX = screenWidth/2;
-            posY = screenHeigth/2;
+            posX = fieldWidth/2;
+            posY = fieldHeight/2;
             vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
             vY = BallSpeedPixPerFrame;
 #endif
-
-            // Meteen doorgeven, anders staat de bal het eerste beeld van een
-            // nieuw spel nog op de plek waar het vorige spel verloren ging.
-            indexStep = 0;
-            gameDisplayControl.updateBallPosition(posX, posY, false, indexStep);
-
-            // De klok begint hier, en niet ergens in het vorige spel: zie de
-            // toelichting bij timeOfNextStep.
-            timeOfNextStep = xTaskGetTickCount();
-
-            // En dan een beeld wachten voordat STATE_RUNNING zijn eerste stap
-            // doet. Zonder dit volgen de beginstand en de eerste stap elkaar
-            // binnen enkele milliseconden op - dezelfde schok als bij het
-            // ontbranden, alleen bij het opstarten van een spel. Zichtbaar in de
-            // log als een beeldtijd van 1 ms tussen twee beelden die 40 ms uit
-            // elkaar horen te liggen.
-            waitForNextStep();
+            indexBurningStep = 0;
+            state = STATE_RUNNING;
         }
 
-        // Wachten tot het volgende beeldmoment op het vaste raster.
-        void waitForNextStep()
+        // Wat de display van deze bal moet weten. De bal schrijft nergens naartoe;
+        // hij wordt uitgelezen. Dat scheelt vijftig Pool-schrijfacties per beeld -
+        // Pool::write() neemt zijn argument op waarde aan.
+        BallState getBallState() const
         {
-            xTaskDelayUntil(&timeOfNextStep, pdMS_TO_TICKS(FrameIntervalMs));
+            return BallState(posX, posY, (state == STATE_BURNING), indexBurningStep);
         }
 
-        void updateBallPosition()
+        // Een stap. Aangeroepen door het depot, dat alleen uitgegeven exemplaren
+        // afloopt - vandaar dat er geen "sta ik wel aan"-toets in staat.
+        //
+        // Deze functie moet meteen terugkeren: hij draait in de taak van de
+        // Handler, samen met alles wat daar verder aan hangt. Vandaar geen enkele
+        // wacht- of slaapoproep, waar de oude taakversie een xTaskDelayUntil had.
+        void update()
+        {
+            switch (state)
+            {
+            case STATE_RUNNING:
+                if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
+                {
+                    // Nog niet afgelopen: hij vat vlam en valt door.
+                    //
+                    // Hier bewust geen stap en geen melding: het eerstvolgende
+                    // beeld toont hem brandend op zijn huidige plek. Toen hier nog
+                    // een positie werd doorgestuurd, kwam die op hetzelfde moment
+                    // aan als de gestapte van de volgende ronde, en versprong de
+                    // bal zijn hele stap in een oogwenk - een schok die er precies
+                    // bij het ontbranden uitzag als een versnelling.
+                    //
+                    nofBurningSteps = 0;
+                    state = STATE_BURNING;
+                }
+                else
+                {
+                    step();
+                }
+                break;
+
+            case STATE_BURNING:
+                if (posY <= pGameDisplayControl->getBallOffScreenY())
+                {
+                    int32_t elapsedMs = (int32_t)((esp_timer_get_time() - timeOfIgnitionUs)/1000);
+                    int32_t droppedPix = posYAtIgnition - posY;
+                    ESP_LOGI("pong", "brandend: %d stappen, %d px in %d ms = %d px/s "
+                        "(verwacht %d px/s)",
+                        (int)nofBurningSteps, (int)droppedPix, (int)elapsedMs,
+                        (elapsedMs > 0) ? (int)(droppedPix*1000/elapsedMs) : 0,
+                        (int)(BallSpeedPixPerFrame*1000/FrameIntervalMs));
+
+                    state = STATE_IDLE;
+
+                    assert(pBallControlListener != nullptr);
+                    pBallControlListener->ballLeftTheScreen();
+
+                    // En zichzelf teruggeven. Dit mag vanuit de eigen update():
+                    // een Depot perst zijn administratie niet samen, dus de lus
+                    // die ons aanroept raakt hier niet van in de war. Het panel
+                    // volgt vanzelf - de display tekent per beeld alleen de slots
+                    // die in gebruik zijn.
+                    assert(pDepot != nullptr);
+                    pDepot->release(indexSlot);
+                }
+                else
+                {
+                    // Meting: klopt het dat de bal tijdens het branden even snel
+                    // valt als tijdens het spel? Verwacht wordt
+                    // BallSpeedPixPerFrame pixels per FrameIntervalMs.
+                    //
+                    // De klok begint bij de EERSTE stap en niet bij het ontbranden.
+                    // Dat scheelde: tussen die twee zit een volle handler-periode,
+                    // dus met het ontbranden als nulpunt liep het venster over 18
+                    // perioden terwijl er 17 stappen in vielen - en dan meet je een
+                    // te lage snelheid die er als een echte vertraging uitziet.
+                    // Vanaf hier beslaan venster en stappen precies hetzelfde.
+                    if (nofBurningSteps == 0)
+                    {
+                        timeOfIgnitionUs = esp_timer_get_time();
+                        posYAtIgnition = posY;
+                    }
+
+                    // Kaal doorvliegen: geen wanden, geen peddel. Wel op dezelfde
+                    // beeldklok, zodat het vallen even snel gaat als het spelen en
+                    // de vlamcyclus meeloopt.
+                    posX += vX;
+                    posY += vY;
+                    nofBurningSteps++;
+                    indexBurningStep++;
+                }
+                break;
+
+            default:
+                break;
+            }
+        }
+
+	private:
+        void step()
         {
             posX += vX;
             posY += vY;
@@ -195,22 +280,22 @@ namespace pong_cleangui_dg_adv
                 posX = WallThicknessPix + ballRadius;
                 vX = (vX < 0) ? -vX : vX;
             }
-            else if (posX + ballRadius >= screenWidth - WallThicknessPix)
+            else if (posX + ballRadius >= fieldWidth - WallThicknessPix)
             {
-                posX = screenWidth - WallThicknessPix - ballRadius;
+                posX = fieldWidth - WallThicknessPix - ballRadius;
                 vX = (vX > 0) ? -vX : vX;
             }
 
-            if (posY + ballRadius >= screenHeigth - WallThicknessPix)
+            if (posY + ballRadius >= fieldHeight - WallThicknessPix)
             {
-                posY = screenHeigth - WallThicknessPix - ballRadius;
+                posY = fieldHeight - WallThicknessPix - ballRadius;
                 vY = (vY > 0) ? -vY : vY;
             }
 
             // De peddel: alleen als de bal daalt, en alleen als hij binnen de
             // breedte van de peddel valt.
-            int paddlePosition = paddleControl.getPaddlePos();
-            
+            int paddlePosition = pPaddleControl->getPaddlePos();
+
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
                 && (posX <= paddlePosition + PaddleWidthPix/2 + ballRadius))
@@ -229,97 +314,7 @@ namespace pong_cleangui_dg_adv
                     vX = (offsetFromCentre < 0) ? -1 : 1;	// nooit helemaal recht omhoog.
                 }
             }
-
-            indexStep++;
-            gameDisplayControl.updateBallPosition(posX, posY, false, indexStep);
         }
-
-		/*override keyword not supported*/
-		void main()
-		{
-			vTaskDelay(1000); // wait for other threads to have started up as well.
-
-			while (true)
-			{
-				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
-
-				switch (state)
-                {
-                case STATE_STOPPED:
-                    wait(flagStart);
-                    initialiseRandomStartPos();
-                    state = STATE_RUNNING;
-                    break;
-
-                case STATE_RUNNING:
-                    if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
-                    {
-                        // Nog niet afgelopen: hij vat vlam en valt door.
-                        //
-                        // Hier bewust GEEN updateBallPosition(): dat stuurde de
-                        // ongestapte positie door, waarna de eerstvolgende ronde
-                        // van STATE_BURNING op hetzelfde moment de gestapte stuurde.
-                        // Het scherm tekende dan twee beelden binnen enkele
-                        // milliseconden en de bal versprong zijn hele stap in een
-                        // oogwenk - een schok die er precies bij het ontbranden uit
-                        // zag als een versnelling. Gemeten als een beeldtijd van
-                        // 1..3 ms tussen twee beelden die 40 ms uit elkaar horen te
-                        // liggen. De vlammen verschijnen nu een beeld later, en dat
-                        // is precies goed: hij vat vlam terwijl hij de lijn passeert.
-                        //
-                        // Meting: klopt het dat de bal tijdens het branden even
-                        // snel valt als tijdens het spel? Verwacht wordt
-                        // BallSpeedPixPerFrame pixels per FrameIntervalMs. Wijkt
-                        // de gemeten pixels-per-seconde daarvan af, dan is het
-                        // geen gezichtsbedrog.
-                        timeOfIgnitionUs = esp_timer_get_time();
-                        posYAtIgnition = posY;
-                        nofBurningSteps = 0;
-
-                        state = STATE_BURNING;
-                    }
-                    else
-                    {
-                        updateBallPosition();
-                        waitForNextStep();	// de beeldklok van het spel: 25 keer per seconde
-                                            // een stap van BallSpeedPixPerFrame pixels.
-                    }
-                    break;
-
-                case STATE_BURNING:
-                    if (posY <= gameDisplayControl.getBallOffScreenY())
-                    {
-                        int32_t elapsedMs = (int32_t)((esp_timer_get_time() - timeOfIgnitionUs)/1000);
-                        int32_t droppedPix = posYAtIgnition - posY;
-                        ESP_LOGI("pong", "brandend: %d stappen, %d px in %d ms = %d px/s "
-                            "(verwacht %d px/s)",
-                            (int)nofBurningSteps, (int)droppedPix, (int)elapsedMs,
-                            (elapsedMs > 0) ? (int)(droppedPix*1000/elapsedMs) : 0,
-                            (int)(BallSpeedPixPerFrame*1000/FrameIntervalMs));
-
-                        assert(pBallControlListener!=nullptr);
-                        pBallControlListener->ballLeftTheScreen();
-                        state = STATE_STOPPED;
-                    }
-                    else
-                    {
-                        // Kaal doorvliegen: geen wanden, geen peddel. Wel op
-                        // dezelfde beeldklok, zodat het vallen even snel gaat als
-                        // het spelen en de vlamcyclus meeloopt.
-                        posX += vX;
-                        posY += vY;
-                        nofBurningSteps++;
-                        indexStep++;
-                        gameDisplayControl.updateBallPosition(posX, posY, true, indexStep);
-                        waitForNextStep();
-                    }
-                    break;
-
-                default:
-                    break;
-                }
-			}
-		}
 	}; // end class BallControl
 
-};// end namespace crt
+};// end namespace pong_cleangui_dg_adv

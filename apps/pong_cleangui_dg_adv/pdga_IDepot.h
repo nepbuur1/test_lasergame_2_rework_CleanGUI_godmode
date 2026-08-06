@@ -1,0 +1,23 @@
+// by Marius Versteegen, 2026
+
+#pragma once
+#include <crt_CleanRTOS.h>
+
+// Het stukje Depot dat een uitgegeven exemplaar zelf nodig heeft: zichzelf weer
+// vrijgeven.
+//
+// Waarom een interface en niet gewoon Depot<T,N>*: dat zou een cirkel opleveren.
+// Depot<Bal,50> bevat Bal-objecten, en een Bal die zichzelf wil vrijgeven zou dan
+// het volledige Depot<Bal,50> moeten kennen - inclusief zichzelf. Via IDepot kent
+// de Bal alleen de ene functie die hij gebruikt, en weet hij verder niets van het
+// depot waar hij in ligt.
+
+using namespace crt;
+namespace pong_cleangui_dg_adv
+{
+	class IDepot
+	{
+	public:
+		virtual void release(int index) = 0;
+	};
+};// end namespace pong_cleangui_dg_adv

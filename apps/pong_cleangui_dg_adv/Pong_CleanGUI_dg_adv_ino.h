@@ -27,6 +27,7 @@
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_BallControl.h"
+#include "pdga_BallsControl.h"
 #include "pdga_MainControl.h"
 
 using namespace crt;
@@ -98,9 +99,26 @@ namespace pong_cleangui_dg_adv
 	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 2 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
-	BallControl ballControl("BallControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl, paddleControl);
+
+	// De ballen zijn geen taken maar objecten in een depot: er kunnen er
+	// MaxNofBalls tegelijk zijn (UC07 spawnt er tien ineens), en vijftig taken van
+	// 5000 bytes stack is 250 KB - meer DRAM dan dit bord heeft, zeker met een
+	// backbuffer van 76.800 bytes erbij. Een Handler tikt ze aan; zie
+	// pdga_BallsControl.h en pdga_Depot.h.
+	BallDepot ballDepot("ballDepot");
+	BallsControl ballsControl(ballDepot, gameDisplayControl);
+
+	// Prioriteit 2, gelijk aan asyncDisplay en de DisplayControls. Deze taak
+	// tekent zelf niet, maar hij zet wel de balstanden klaar waar een beeld op
+	// wacht; onder de tekentaak zitten zou hem per beeld opzij laten schuiven.
+	//
+	// De periode is de beeldklok van het spel. Hij verving de xTaskDelayUntil die
+	// BallControl zelf had - Handler rekent zijn interval af vanaf het eind van de
+	// vorige ronde, dus de looptijd van het werk telt niet op bij de pauze.
+	Handler<4/*MaxNofListeners*/> handler("Handler", 2 /*priority*/, ARDUINO_RUNNING_CORE, FrameIntervalMs);
+
 	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
-	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl, ballControl, paddleControl);
+	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl, ballDepot, paddleControl);
 }
 
 void setup()
@@ -118,6 +136,11 @@ void setup()
 	// deze regel is er ruim binnen. Dat is de hele synchronisatie - er is geen
 	// moment waarop er al getekend wordt en het palet nog niet staat.
 	pong_cleangui_dg_adv::tft_eSPI_DisplayAdapter.setPalette(crt::arPalette);
+
+	// Aanmelden bij de Handler. Dit moet binnen 500 ms na het opstarten gebeuren:
+	// Handler::main() wacht zo lang voordat hij begint met tikken, juist zodat
+	// zijn luisteraars zich kunnen melden. setup() draait ruim binnen die tijd.
+	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::ballsControl);
 
 	ESP_LOGI("checkpoint", "start of main");vTaskDelay(1);
 }

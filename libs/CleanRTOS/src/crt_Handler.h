@@ -33,7 +33,14 @@ namespace crt
 	template<unsigned int MAXLISTENERCOUNT> class Handler : public Task, public IHandler
 	{
 	private: 
-		const uint64_t infiniteBatchSizeUs = 1000000000000; // 1e6 s means: infinite: no limitation in batchsize.
+		// static constexpr en niet een gewoon lid: de constructor met vier
+		// parameters delegeert naar die met vijf en geeft deze waarde als argument
+		// mee. Op dat moment is het object nog niet opgebouwd, dus een niet-statisch
+		// lid bestaat daar nog niet - het argument was dan een willekeurige waarde,
+		// waarmee batchSizeUs stilzwijgend iets anders werd dan "geen limiet" en er
+		// taskYIELD()s tussen de updates konden vallen. Als constante bestaat hij
+		// los van het object en is er niets om te vroeg te lezen.
+		static constexpr uint64_t infiniteBatchSizeUs = 1000000000000; // 1e6 s means: infinite: no limitation in batchsize.
 
 		// that converts LOGSIZE to stackSize in the initializer list of the constructor.
 		IHandlerListener* arHandlerListener[MAXLISTENERCOUNT] = {};
