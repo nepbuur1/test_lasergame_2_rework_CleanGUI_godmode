@@ -119,16 +119,17 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../apps/kopie_van_wifi_scan_example_van_esp_idf"
 "../libs/esp_http_client/main"
 
-# De _cg- en _dg-varianten dragen elk hun eigen headerprefix (pcg_ en pdg_)
-# en hun eigen namespace, dus die mogen samen in het includepad staan:
-# main.cpp kiest met zijn #include van de .ino welke van de twee er gebouwd
-# wordt. apps/pong/pong gebruikt nog de kale crt_-namen (crt_BallControl.h,
-# crt_GameControl.h, crt_PaddleControl.h, crt_SceneDisplayControl.h,
-# crt_CharMatrix.h) en botst daarmee wel; laat die uit staan tenzij je hem
-# nodig hebt.
+# De _cg-, _dg- en _dg_adv-varianten dragen elk hun eigen headerprefix
+# (pcg_, pdg_ en pdga_) en hun eigen namespace, dus die mogen samen in het
+# includepad staan: main.cpp kiest met zijn #include van de .ino welke ervan
+# er gebouwd wordt. apps/pong/pong gebruikt nog de kale crt_-namen
+# (crt_BallControl.h, crt_GameControl.h, crt_PaddleControl.h,
+# crt_SceneDisplayControl.h, crt_CharMatrix.h) en botst daarmee wel; laat die
+# uit staan tenzij je hem nodig hebt.
 #"../apps/pong/pong"
 "../apps/pong_cleangui_cg"
 "../apps/pong_cleangui_dg"
+"../apps/pong_cleangui_dg_adv"
 
 #"../apps/TestHwLibGlcOled"
 # Adafruit libs for driving SSD1306 OLED:
