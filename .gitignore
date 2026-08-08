@@ -1,6 +1,8 @@
 .cache
 compile_commands.json
 *.swp
+*.dtmp
+*.bkp
 
 # arduino ide component voor esp-idf 53
 components/arduino-esp32/

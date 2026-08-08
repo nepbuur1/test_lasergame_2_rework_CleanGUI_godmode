@@ -63,7 +63,7 @@ namespace pong_cleangui_dg_adv
 		int32_t arIndexTorchFrame[2];
 
 		Flag flagShowStartPage;
-		Flag flagDeshowStartPage;
+		Flag flagHideStartPage;
 		Timer timerTorch;
 
 		State state;
@@ -78,7 +78,7 @@ namespace pong_cleangui_dg_adv
 			screenHeight(0),
 			arIndexTorchFrame{0, 5},
 			flagShowStartPage(this),
-			flagDeshowStartPage(this),
+			flagHideStartPage(this),
 			timerTorch(this),
 			state (STATE_HIDDEN)
 		{
@@ -99,14 +99,14 @@ namespace pong_cleangui_dg_adv
 
 	void showStartPage()
 	{
-		flagDeshowStartPage.clear();	// alleen de laatste wens telt.
+		flagHideStartPage.clear();	// alleen de laatste wens telt.
 		flagShowStartPage.set();
 	}
 
 	void hideStartPage()
 	{
 		flagShowStartPage.clear();
-		flagDeshowStartPage.set();
+		flagHideStartPage.set();
 	}
 
 	private:
@@ -178,7 +178,7 @@ namespace pong_cleangui_dg_adv
 			{
 				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-				waitAny(flagShowStartPage + flagDeshowStartPage + timerTorch);
+				waitAny(flagShowStartPage + flagHideStartPage + timerTorch);
 
 				if (hasFired(timerTorch))
 				{
@@ -205,14 +205,14 @@ namespace pong_cleangui_dg_adv
 							timerTorch.start(nextTorchIntervalUs());
 							state = STATE_SHOWN;
 						}
-						else if(hasFired(flagDeshowStartPage))
+						else if(hasFired(flagHideStartPage))
 						{
 							// al uit beeld: niets te doen.
 						}
 						break;
 
 					case STATE_SHOWN:
-						if(hasFired(flagDeshowStartPage))
+						if(hasFired(flagHideStartPage))
 						{
 							timerTorch.stop();
 							hidePage(pageStart);

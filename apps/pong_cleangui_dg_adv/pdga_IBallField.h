@@ -22,29 +22,57 @@ namespace pong_cleangui_dg_adv
 	// crates weet.
 	struct CrateHit
 	{
-		CrateHit():bHit(false),posX(0),posY(0),sizePix(0){}
-		CrateHit(int posX, int posY, int sizePix)
-			:bHit(true),posX(posX),posY(posY),sizePix(sizePix){}
+		CrateHit():bHit(false),indexSlot(-1),posX(0),posY(0),sizePix(0){}
+		CrateHit(int indexSlot, int posX, int posY, int sizePix)
+			:bHit(true),indexSlot(indexSlot),posX(posX),posY(posY),sizePix(sizePix){}
 
 		bool bHit;
+		int indexSlot;		// welke crate het was, zodat de mededeling niet opnieuw zoekt
 		int posX;
 		int posY;
 		int sizePix;
 	};
 
+	// De naamgeving volgt de conventie van deze app: een booleaanse vraag begint met
+	// "is", een vraag die instantaan iets oplevert met "get", en een mededeling
+	// klinkt als een mededeling. Vragen veranderen niets - wie iets wil veranderen
+	// zegt het.
+	//
+	// Wat de bal aan het SPEL meldt zit hier niet in, maar in IBallListener: dat gaat
+	// niet over zijn omgeving maar over de score, en daar hoort het veld niet tussen.
 	class IBallField
 	{
 	public:
-		// Meldt een treffer aan de geraakte present crate en geeft terug waar die
-		// stond. bHit is onwaar als er niets is geraakt.
-		virtual CrateHit reportCrateHit(int ballPosX, int ballPosY, int ballRadius) = 0;
+		// Raakt de bal op deze plek een present crate, en zo ja: welke, waar, hoe
+		// groot? bHit is onwaar als er niets is geraakt.
+		//
+		// Verandert niets aan die crate. Dat de bal hem heeft geraakt is een aparte
+		// mededeling, hieronder - anders zou je niet kunnen kijken zonder te slopen.
+		virtual CrateHit getCrateHitAtPos(int ballPosX, int ballPosY, int ballRadius) = 0;
 
-		// Staat de bal in een vuurkorf? Geen kaatsing en geen melding terug: een
-		// korf is vuur en geen kist, dus de bal vliegt er doorheen en vat vlam.
-		virtual bool touchesFireBin(int ballPosX, int ballPosY, int ballRadius) = 0;
+		// De bal heeft de crate uit getCrateHitAtPos() geraakt (UC05 stap 1c). Wat
+		// dat betekent - de teller omlaag, en bij nul de crate open - is de zaak van
+		// het veld, niet van de bal.
+		virtual void crateWasHitAtPos(const CrateHit& hit) = 0;
 
-		// De bal is op de peddel gekaatst (UC05 stap 1a). De score is van het spel
-		// en niet van de bal, dus hij meldt het alleen.
-		virtual void reportPaddleBounce() = 0;
+		// Staat de bal in een vuurkorf? Geen kaatsing en geen mededeling achteraf:
+		// een korf is vuur en geen kist, dus de bal vliegt er doorheen en vat vlam.
+		// De korf ondergaat niets - vandaar dat hier een vraag genoeg is.
+		virtual bool isFireBinTouchedAtPos(int ballPosX, int ballPosY, int ballRadius) = 0;
+
+		// Waar de peddel staat in het beeld dat nu berekend wordt.
+		//
+		// Via het veld en niet rechtstreeks bij PaddleControl, en dat is geen
+		// stijlkeuze: PaddleControl::getPaddlePosition() gaat via een Pool, en die neemt
+		// een SimpleMutex. Met vijftig ballen waren dat vijftig slotoperaties per
+		// beeld op een slot dat ook door PaddleControl zelf wordt genomen - en die
+		// draait op een lagere prioriteit, dus de Handler kon daar op gaan staan
+		// wachten. Het veld leest de stand nu een keer per beeld, in dezelfde taak
+		// waarin de ballen daarna hun update() doen, en er valt niets meer te
+		// vergrendelen.
+		//
+		// Bijvangst, en niet de minste: alle ballen van een beeld zien gegarandeerd
+		// dezelfde peddel.
+		virtual int getPaddlePosition() = 0;
 	};
 };// end namespace pong_cleangui_dg_adv

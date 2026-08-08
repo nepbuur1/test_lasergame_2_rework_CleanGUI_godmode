@@ -1,5 +1,367 @@
 # Claude log
 
+## 2026-08-07 — GameObjectsControl uit elkaar: opslag, beeldklok, en drie interfaces van een regel
+
+`GameObjectsControl` deed vier dingen: het hield de depots vast, het beantwoordde de
+relatievragen van de ballen, het bewaarde de score, en het was de `IHandlerListener`
+die per beeld de volgorde bepaalde en publiceerde.
+
+Dat was aan de buitenkant te zien, en dat is de reden dat het opviel. `GameControl`
+praatte deels rechtstreeks tegen de depots (`ballDepot.obtain()`,
+`crateDepot.releaseAll()`, drie `init`-lussen in zijn constructor) en deels via
+`GameObjectsControl` (`spawnCrateAt`, `getNofBallsInUse`, `resetScore`). Wie iets aan
+een spelobject wilde, moest weten via welke van de twee.
+
+### De verdeling
+
+| | |
+|---|---|
+| `Spawnables` | bezit de drie depots en de States-arrays; beantwoordt de relatievragen (`IBallField`); publiceert de standen |
+| `SpawnablesHandler` | de beeldklok: de volgorde per beeld, en het signaleren van de overgang naar nul ballen |
+| `GameControl` | bezit de score |
+
+`GameControl` heeft nu geen enkele depot-verwijzing meer - grep op `ballDepot` daar
+geeft nul treffers - en de `init`-lussen staan bij de eigenaar van de depots, waar ze
+`this` meegeven in plaats van een doorgegeven pointer.
+
+Dat de beeldklok een eigen object werd en geen methode van `Spawnables`, is om de
+volgorde. Daar zitten afspraken in die je aan de losse depots niet kunt zien -
+peddelstand voor alles beweegt, korven en crates voordat de ballen kijken of ze er een
+raken - en zulke afspraken horen op een plek te staan waar ze te lezen zijn.
+
+De score naar `GameControl` had een addertje: `publishStates()` heeft hem elk beeld
+nodig, want hij gaat mee in hetzelfde beeldbericht als de standen. De handler haalt
+hem daarom op met `getScore()` en geeft hem als parameter mee aan `publishStates()`.
+Dat is bewust geen listener-aanroep binnen publishStates: een publiceerfunctie die
+zelf ergens een waarde gaat halen die de aanroeper al heeft, is een omweg.
+
+Het lid `score` woont daarmee in een object waarvan de eigen taak die van
+`MainControl` is, terwijl het wordt opgehoogd en gelezen vanuit de Handler-taak. Geen
+Pool nodig - een uitgelijnde `int32_t` is op de ESP32 ondeelbaar en een beeld verschil
+op het scherm is niet te zien - maar wel een opmerking bij het lid, want zonder uitleg
+leest het als een gewone member.
+
+### En daarna nog een slag: Spawnables was nog te veel
+
+Opslag met gemak eromheen, en niets meer - dat was het doel, en `crateWasHitAtPos()`
+haalde dat niet. Die telde de crate af, spawnde tien ballen en gaf het slot vrij.
+
+Dat werk zit nu in `CrateControl::wasHit()`, waar het hoort: een crate heeft zijn
+teller en zijn plek zelf, en zichzelf vrijgeven met `pDepot->release(indexSlot)` is
+hetzelfde patroon als een bal die het scherm verlaat. Voor de ballen die eruit komen
+is er `IBallSpawner`, want een crate hoort niet te weten dat er zoiets als een
+baldepot bestaat. Wat er bij `Spawnables` overblijft is opzoeken en doorgeven:
+
+```cpp
+/*override*/ void crateWasHitAtPos(const CrateHit& hit)
+{
+    if (!hit.bHit || !crateDepot.isInUse(hit.indexSlot)) { return; }
+    crateDepot.getItem(hit.indexSlot).wasHit();
+}
+```
+
+De bal meldt zijn peddelkaatsing nu rechtstreeks aan `GameControl`, via
+`IBallListener`, in plaats van via het veld waarin hij ligt. Daarmee is `IBallField`
+een methode korter en heeft `Spawnables` helemaal geen luisteraar meer: geen
+doorgeefwerk, want opslag hoort geen boodschappen te bezorgen.
+
+Drie nieuwe headers, elk met een methode: `IBallSpawner`, `IBallListener` en
+`IGameListener`. Die laatste moest los omdat hij eerst in `pdga_Spawnables.h` stond en
+`Spawnables` op zijn beurt `BallControl` includeert - een kringetje zodra de bal hem
+nodig heeft.
+
+Een ding dat het plan niet voorzag: de ballen worden bedraad in de constructor van
+`Spawnables`, en `GameControl` bestaat dan nog niet - die krijgt `Spawnables` juist
+mee. Vandaar `Spawnables::setBallListener()`, dat de lus over de ballen doet.
+Bedrading van eigen exemplaren, in dezelfde geest als de `init`-lussen ernaast, maar
+wel een setter meer dan bedacht.
+
+### Namen in de spawn-familie
+
+`BallControl` had `spawnAt(x,y)` terwijl crate en korf `spawn(x,y)` heetten, met net
+zo goed een plek erin. Nu heet alles waar een positie in gaat `spawnAt`, wat ook
+aansluit op `spawnCrateAt` / `spawnFireBinAt` / `spawnBallsAt` bij `Spawnables`.
+
+En `BallControl::spawn()` kon weg: die deed niets anders dan `spawnInTheMiddle()`
+aanroepen. Over blijven twee spawn-functies die allebei in hun naam zeggen waar de bal
+terechtkomt, en geen naamloze derde ertussen. Het commentaar erboven ("aan te roepen
+nadat het depot deze bal heeft uitgegeven") gold voor allebei en staat nu boven het
+paar.
+
+### Wat het bord ervan vond
+
+Twee testrondes, geen enkele `E`- of `W`-regel, geen assert.
+
+Na de splitsing: scores van 41 en 4 punten. De 41 zegt dat het spel niet te vroeg
+eindigde - dat is de nul-ballen-check die naar de handler verhuisde, en had die de
+*stand* gemeten in plaats van de *overgang*, dan was elk potje afgelopen voor de eerste
+bal. En 4 na 41 zegt dat `score = 0` bij het begin van een spel werkt.
+
+Na de tweede slag werd het overtuigender:
+
+```
+I (59003) Depot: crateDepot: alle 5 exemplaren zijn in gebruik.
+I (60562) Depot: ballDepot: alle 50 exemplaren zijn in gebruik.
+I (61274) pong: 26 fps
+I (73606) pong: top-5: 'hhh' met 69 punten opgeslagen
+```
+
+Een uitgeput baldepot betekent minstens vijf crates die hun hele `wasHit()` hebben
+doorlopen - aftellen, tien ballen, zichzelf vrijgeven - en dat een laag dieper dan
+waar die code stond. Was het vrijgeven blijven hangen, dan waren de crateslots vol
+gebleven en had het baldepot nooit vijftig hoeven uitgeven.
+
+En 26 fps dwars door vijftig ballen heen: over de hele capture 133 metingen van 26,
+een van 27 (meetjitter) en een van 13, en die laatste is de eerste meting na het
+opstarten. Geen inzakking tijdens het spel.
+
+### Nog open
+
+- `models/pong_dg_adv.drawio` is niet meegegaan. Daar staat nog `GameObjectsControl`
+  met `qualifies(score)`, en na twee dagen hernoemen loopt dat verder achter dan die
+  ene pijl.
+- `Widget::enable(bool)` neemt `bIncludeChildren` en geen aan/uit; zie de entry
+  hieronder.
+- De andere twee apps (`pong_cleangui_dg`, `pong_cleangui_cg`) hebben van dit alles
+  niets meegekregen.
+
+## 2026-08-07 — Van een rauwe aanwijzer naar een naamgevingsconventie
+
+Begonnen met een vraag over een aanwijzer, geeindigd met een regel voor de hele app.
+Die volgorde is geen toeval: de tweede vraag kwam pas boven omdat de eerste het
+patroon zichtbaar maakte.
+
+### De peddelstand loopt nu via IBallField
+
+`BallControl` las de peddelstand via `const int* pPaddlePosition`, een aanwijzer naar
+een lid van `GameObjectsControl` dat werd uitgedeeld door `getPaddlePositionPtr()`.
+
+De reden om via het veld te gaan en niet rechtstreeks naar `PaddleControl` blijft
+overeind, en die is niet klein: `getPaddlePosition()` daar gaat via een `Pool` met een
+SimpleMutex, dus met vijftig ballen waren dat vijftig slotoperaties per beeld op een
+slot dat PaddleControl (prioriteit 1) zelf ook neemt - de Handler (prioriteit 2) kon
+daarop gaan wachten. Het veld haalt de stand daarom een keer per beeld op, in dezelfde
+taak waarin de ballen daarna hun `update()` doen.
+
+Alleen verklaarde dat de *aanwijzer* niet. De bal houdt `GameObjectsControl` al vast,
+als `IBallField*`. Een getter op die interface levert precies hetzelfde - geen mutex,
+een waarde per beeld, alle ballen dezelfde peddel - en kost een virtuele aanroep per
+bal per beeld, zo'n 1300 per seconde bij 26 fps. Dat is een andere orde dan vijftig
+mutexen, en het scheelt een rauwe aanwijzer naar andermans lid waarvan de header moest
+beloven dat hij geldig bleef.
+
+De redenering hierboven is meeverhuisd naar `IBallField::getPaddlePosition()`. Dat was
+het punt om op te letten: die uitleg is het waardevolste in dit hoekje van de code en
+mocht niet met de aanwijzer meeverdwijnen.
+
+### De conventie
+
+| soort | vorm | voorbeeld |
+|---|---|---|
+| booleaanse vraag | `is...` | `isFireBinTouchedAtPos(x, y, r)` |
+| vraag, instantaan antwoord | `get...` | `getCrateHitAtPos(x, y, r)` |
+| vraag die op iets moet wachten | `query...` | `queryName` |
+| idem, synchrone communicatie | `do...` | `doQueryName()` |
+| mededeling | klinkt als een mededeling | `crateWasHitAtPos(hit)` |
+
+Aanleiding: `overlaps()`, `touchesFireBin()` en `qualifies()` waren drie booleaanse
+vragen in drie vormen. De `do`-vorm stond er al goed op (`doGame`, `doStartPage`,
+`doGameOver`, `doQueryName`) en `get` klopte bijna overal.
+
+Een keuze die de conventie niet zelf maakt: **een opdracht die alleen slaagt-of-niet
+teruggeeft is geen vraag.** `spawnCrateAt()`, `spawnFireBinAt()` en
+`beginFileSystem()` retourneren `bool` maar vragen niets - je laat iets doen en hoort
+of het lukte. Die blijven gebiedend; `isSpawnCrateAt()` zou een leugen zijn.
+
+### reportCrateHit was geen naam maar twee functies
+
+De vraag die dit losmaakte: waarom is `reportCrateHit` anders van vorm dan
+`touchesFireBin`? Twee redenen deugden - de bal moet tegen een crate kaatsen en heeft
+daar plek en maat voor nodig, en een crate-treffer verandert de crate terwijl een korf
+niets ondergaat. Maar er was een derde, en die was de echte: `reportCrateHit` muteerde
+*en* antwoordde. Vandaar dat geen enkele naam paste, en dat de aanroepplek als een
+vraag las terwijl de declaratie `report` zei.
+
+Uit elkaar getrokken valt elke helft onder een regel:
+
+```cpp
+virtual CrateHit getCrateHitAtPos(int x, int y, int r) = 0;  // zoekt, verandert niets
+virtual void     crateWasHitAtPos(const CrateHit& hit) = 0;  // telt af, opent bij nul
+```
+
+`CrateHit` kreeg het slotnummer erbij, zodat de mededeling de crate niet voor de
+tweede keer hoeft te zoeken. Twee stukken commentaar konden daardoor weg of verhuizen:
+"de plek onthouden voordat de crate wordt vrijgegeven" is overbodig geworden - de
+vraag geeft de bal al een kopie voordat er iets vrijgegeven kan worden - en de uitleg
+over herentrantie is mee naar `crateWasHitAtPos()`, waar de mutatie nu zit. Allebei
+bestonden ze alleen omdat vragen en veranderen in een aanroep zaten.
+
+Verder hernoemd: `overlaps` werd `isHitAtPos` op de crate en `isTouchedAtPos` op de
+korf (dat onderscheid zit al in UC05 stap 1c tegen 1d), `registerHit` werd `wasHit`,
+`reportPaddleBounce` werd `ballBouncedOnPaddle`, `qualifies` werd `isQualifyingScore`,
+en `PaddleControl::getPaddlePos` heet nu net als zijn tegenhanger `getPaddlePosition`.
+
+`ballBouncedOnPaddle()` is als enige zonder coordinaten, en dat verdient uitleg in
+plaats van dat het als slordigheid leest: de bal doet de peddelmeetkunde zelf, met
+`getPaddlePosition()`, dus hij meldt wat hij al weet.
+
+Buiten bereik bleven de namen die uit `libs/` komen - `buttonPressed`, `inputNewKey`,
+`IHandlerListener::update()`, `IDepot::release()` - want die hernoemen raakt de
+bibliotheek en alle andere apps. `buttonPressed` en `buttonReleased` voldoen toevallig
+al.
+
+### Wat het bord ervan vond
+
+Twee testrondes, geen enkele `E`- of `W`-regel, geen assert, geen herstart.
+
+Voor de peddelwijziging: scores van 2, 2 en 5 punten. Score komt uitsluitend van
+peddelkaatsingen, dus negen keer vond de bal de peddel waar die stond - was de
+bedrading stuk geweest, dan was `paddlePosition` nul en had geen enkel potje een punt
+opgeleverd.
+
+Voor de splitsing: `top-5: 'gg' met 52 punten`. Zo'n score haal je niet zonder een
+crate open te spelen, en dat levert tien ballen ineens. Beide helften werken dus:
+zonder de mededeling zou er nooit een crate opengaan, en telde hij dubbel dan waren de
+kistjes na de helft van de treffers al opengesprongen.
+
+En het punt waar de aanwijzer ooit voor bestond: `Depot: crateDepot: alle 5 exemplaren
+zijn in gebruik`, met 26 fps ervoor, eromheen en erna. 78 van de 84 fps-metingen waren
+26; de rest zit bij het opstarten en de eerste beeldmeting na een paginawissel, die
+altijd laag uitvalt.
+
+### Nog open
+
+- `models/pong_dg_adv.drawio` noemt nog `qualifies(score)` in de pijl naar
+  `HallOfFame`, en waarschijnlijk meer namen die nu verschoven zijn. Het diagram is
+  niet aangeraakt.
+- De andere twee apps (`pong_cleangui_dg`, `pong_cleangui_cg`) houden hun oude namen;
+  de conventie geldt voorlopig alleen hier.
+- `Widget::enable(bool)` neemt `bIncludeChildren` en geen aan/uit - zie de entry
+  hieronder.
+
+## 2026-08-07 — NameInputControl: het invoerveld meldt aan wie de logica heeft
+
+`GameOverDisplayControl` deed meer dan een DisplayControl hoort te doen. Naast de
+pagina zat er ook in wat een toetsaanslag betekende, wanneer de invoer compleet was
+en waar de ingetypte naam bleef tot iemand erom vroeg.
+
+### Twee keer de verkeerde scheidslijn
+
+Eerst is dat een `HallOfFameInput` geworden: een object dat de invoerwidgets én hun
+gedrag bezat, samengevoegd met de taak van de DisplayControl omdat het diens
+`PageRoot` deelt. Het werkte, maar er was niets gescheiden - dezelfde mengeling van
+beeld en gedrag stond alleen in een ander bestand.
+
+Toen een `NameInputControl` dat via een eigen `IGameOverDisplayListener` te horen
+kreeg dat de naam er was. Beter, maar er zat een omweg in: de DisplayControl herkende
+ENTER, en had daarna een interface nodig om te vertellen wat ze net had gezien. Twee
+plekken die van dezelfde toets moesten weten.
+
+### De scheidslijn die er al lag
+
+Het patroon stond al in de app. `GameControl` is zelf `IButtonListener` en meldt zich
+via `gameDisplayControl.addGameOverLabelListener(this)` rechtstreeks aan bij het GAME
+OVER-label. De knop is van de DisplayControl; wat een druk erop betekent niet.
+
+`NameInputControl` doet dat nu net zo, met `IInputfieldListener`:
+
+```cpp
+IInputfield* addNameInputfieldListener(IInputfieldListener* pInputfieldListener)
+{
+    inputfield.addInputfieldListener(pInputfieldListener);
+    return &inputfield;
+}
+```
+
+Het veld komt terug, want daar staat de tekst in. Daarmee valt de hele terugweg weg:
+`IGameOverDisplayListener`, `getEnteredName()`, `poolEnteredName` en het uitpakken
+van de tekst in de tekenlus zijn allemaal verdwenen. De DisplayControl luistert nog
+wel mee, maar alleen om te weten dát er iets veranderd is - elke toets behalve ENTER
+vraagt met een backbuffer om een hertekening van de hele pagina.
+
+De aanroepkant is één functie geworden:
+
+```cpp
+void doQueryName(char* strName, int nofCharsMax)
+{
+    flagNameEntered.clear();
+    gameOverDisplayControl.showNameInput();
+    pTask->wait(flagNameEntered);          // UC03 stap 1b
+    pNameInputfield->getTextValue(strFieldContent);
+    ...
+}
+```
+
+Een control-object, geen taak: `doQueryName()` draait in de taak van de aanroeper -
+zoals `doStartPage`, `doGame` en `doGameOver` - en blokkeert die tot de naam er is,
+terwijl de taak van de DisplayControl gewoon doorloopt en het toetsenbord in beeld
+schuift. `inputNewKey()` draait weer in de taak die de aanraking opmerkt; vandaar een
+Flag en niets anders.
+
+De tekst wordt pas na het wachten uitgelezen en niet in `inputNewKey()`. Dat scheelt
+een pool: hij staat al veilig in het veld, en `Inputfield::getTextValue()` zet hem
+zelf via een pool over naar de vragende taak.
+
+Verder:
+
+- `GameOverControl::doGameOver()` heeft van de hele naaminvoer nog twee regels over,
+  en is `IGameOverDisplayListener` en `flagNameEntered` kwijt. Die hadden daar niets
+  te zoeken: het wachten op ENTER lag drie regels van het bijwerken van de top-5.
+- `MainControl` meldt de luisteraar niet meer aan. `NameInputControl` doet dat in
+  zijn eigen constructor, net als `StartPageControl` en `GameControl` met hun knop.
+
+### Timer heeft nu clear(), net als Flag
+
+In `GameControl::showGameOverLabel()` stond dit na de `waitAny`:
+
+```cpp
+pTask->hasFired(flagGameOverLabelPressed);
+pTask->hasFired(timerGameOverLabel);
+```
+
+Twee aanroepen waarvan de returnwaarde wordt weggegooid, puur om het bijeffect: het
+wissen van het event-bit. Dat werkt, maar het staat er als een vraag terwijl het een
+opdracht is.
+
+`flagGameOverLabelPressed.clear()` was de duidelijke vorm, en die bestond al -
+`timerGameOverLabel.clear()` niet. `Timer` had alleen `stop()`, en die wist het bit
+juist *niet*: hij stopt de hardwaretimer, maar een bit dat al gezet was blijft staan.
+Precies de val waar de oude opmerking over ging.
+
+Dus `clear()` toegevoegd aan `crt_Timer.h`, met dezelfde body als `Flag::clear()`.
+Puur een toevoeging, dus de rest van de bibliotheek en de voorbeelden merken er
+niets van. Nu leest de functie symmetrisch: hij opent met een `clear()` van wat er
+van voor deze pagina nog kon staan, en sluit af met een `clear()` van wat er net is
+gebeurd, plus een `stop()` van de klok zelf.
+
+`stop()` zelf het bit laten wissen was de andere optie, en dan was die val
+helemaal weg. Niet gedaan: dat verandert bestaand gedrag, en code die `stop()`
+gevolgd door `hasFired()` doet zou er stil op stuklopen.
+
+### En passant: PresentCrate heet nu Crate
+
+`PresentCrate` -> `Crate` en `presentCrate` -> `crate`, overal. Dat raakt drie
+bestandsnamen (`pdga_CrateControl.h`, `images/crate-ssh_1x5.png` en de
+`_pal8`-header ernaast) en de identifiers `CrateControl`, `imageCrate` en
+`arCrateIndices`. Geen botsingen: `CrateDepot` en `crateDepot` heetten al zo.
+
+De png-naam telt hier mee als broncode. `tools/img2rgb565.py` leidt `image=` en
+`array=` af uit de bestandsnaam van het plaatje, dus `crate-ssh_1x5.png` levert bij
+een volgende hergeneratie vanzelf weer `imageCrate` en `arCrateIndices` op - de
+handmatige rename in de header en in `_allImages.h` blijft daarmee staan.
+
+Twee dingen zijn met opzet blijven staan: `UC07_PresentHandling` is de naam van de
+use case, en "een present crate" in de kopregel van `pdga_CrateControl.h` is gewoon
+wat er in het kistje zit.
+
+### Nog niet aangeraakt
+
+`Widget::enable(bool)` neemt geen "aan of uit" maar `bIncludeChildren`. Op drie
+plaatsen in `GameOverDisplayControl::applyPhase` staat het alsof het het eerste is
+(`buttonStart.enable(!bName)`), en die regels *enablen* dus altijd. Bij de knop is
+dat gemaskeerd doordat `GameOverControl` `flagStartPressed` toch wist voordat hij
+erop gaat wachten, en bij het toetsenbord doordat het buiten beeld staat.
+
 ## 2026-08-06 — Fakkels, en de derde keer dat de auto-present een half beeld liet zien
 
 Brandende fakkels naast de PLAY-knop en naast PLAY AGAIN: een spritesheet van

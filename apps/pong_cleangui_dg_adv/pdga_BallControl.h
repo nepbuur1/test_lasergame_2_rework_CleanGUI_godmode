@@ -10,6 +10,7 @@
 #include "pdga_GameDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_IBallField.h"
+#include "pdga_IBallListener.h"
 
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
 // binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
@@ -42,38 +43,37 @@ namespace pong_cleangui_dg_adv
             STATE_IDLE,		// ligt in het depot, wordt niet ge-update
             STATE_RUNNING,
 
-            // Onder de doellijn door: de bal staat in brand en valt door tot hij
-            // het scherm uit is. Zie UC05_BallHandling stap 1b. Een eigen
-            // toestand en geen vlaggetje in STATE_RUNNING, omdat er hier niets
-            // meer te botsen valt - er staan onder de doellijn geen wanden, en de
-            // peddel ligt erboven.
-            STATE_BURNING,
+            // Onder de doellijn door en dus verloren: hij staat in brand en valt
+            // kaal door tot het scherm uit. Zie UC05_BallHandling stap 1b.
+            //
+            // Kaal is hier het punt: geen step(), dus geen botsingen. Zou hij die
+            // wel doen, dan sloeg de peddel hem terug het veld in - de peddeltoets
+            // in step() is (vY < 0 && posY - ballRadius <= PaddleHeightPix), en
+            // onder de doellijn is dat allebei altijd waar.
+            STATE_FALLING_OUT,
 
-            // Vlam gevat aan een vuurkorf (UC05 stap 1d). Hij blijft gewoon
-            // meespelen - kaatst tegen wanden, peddel en crates - maar brandt in
-            // BallBurnUpMs op en verdwijnt dan. Een andere toestand dan
-            // STATE_BURNING, want dat is de bal die onder de doellijn door valt en
-            // nergens meer tegenaan kan.
+            // Vlam gevat aan een vuurkorf (UC05 stap 1d), maar nog volop in het
+            // spel: hij kaatst gewoon tegen wanden, peddel en crates, en brandt
+            // ondertussen in BallBurnUpMs op.
+            //
+            // Allebei branden ze - getBallState() meldt voor allebei bBurning - en
+            // toch zijn het twee toestanden, want ze verschillen op twee assen:
+            // botsingen aan of uit, en aflopen door de klok of door het scherm te
+            // verlaten. Zie de switch in update().
             STATE_BURNING_UP
         };
 
 	private:
         IGameDisplayControl* pGameDisplayControl;
 
-        // De peddelstand van dit beeld, eigendom van GameObjectsControl. Een
-        // aanwijzer en geen PaddleControl&, en dat is geen stijlkeuze:
-        // PaddleControl::getPaddlePos() gaat via een Pool, en die neemt een
-        // SimpleMutex. Met vijftig ballen waren dat vijftig slotoperaties per
-        // beeld op een slot dat ook door PaddleControl zelf wordt genomen - en die
-        // draait op een lágere prioriteit, dus de Handler kon daar op gaan staan
-        // wachten. Nu leest GameObjectsControl de stand een keer per beeld, in
-        // dezelfde taak waarin deze update() draait, en is er niets meer te
-        // vergrendelen. Alle ballen zien bovendien gegarandeerd dezelfde peddel.
-        const int* pPaddlePosition;
-
-        // Waar de bal vraagt of hij ergens tegenaan zit. Hij kent de crates en
-        // vuurkorven zelf niet - zie IBallField.
+        // Waar de bal vraagt of hij ergens tegenaan zit, en waar de peddel staat.
+        // Hij kent de crates, vuurkorven en de peddel zelf niet - zie IBallField.
         IBallField* pBallField;
+
+        // Wie er iets doet met wat de bal meldt: het spel, want de score is daarvan.
+        // Rechtstreeks en niet via pBallField, want het veld heeft er niets mee te
+        // maken - zie pdga_IBallListener.h.
+        IBallListener* pBallListener;
 
         // Het depot waar deze bal in ligt, en waar hij in ligt. Hij geeft zichzelf
         // vrij zodra hij het scherm uit is. Via IDepot en niet via Depot<...>:
@@ -117,8 +117,8 @@ namespace pong_cleangui_dg_adv
         // in een keer. Alles wat een bal verder nodig heeft komt via init().
 		BallControl() :
             pGameDisplayControl(nullptr),
-            pPaddlePosition(nullptr),
             pBallField(nullptr),
+            pBallListener(nullptr),
             pDepot(nullptr),
             indexSlot(-1),
             fieldWidth(0),
@@ -138,15 +138,10 @@ namespace pong_cleangui_dg_adv
 		{
 		}
 
-        // Eenmalige bedrading, vlak na het opstarten. Geen setBallProps(): die
-        // vorm zegt in deze codebase dat je hem later nog eens mag aanroepen om
-        // iets te wijzigen, en dat geldt hier niet - dit ligt vast zodra het spel
-        // loopt.
-        void init(IGameDisplayControl& gameDisplayControl, const int* pPaddlePosition,
+        void init(IGameDisplayControl& gameDisplayControl,
                   IBallField* pBallField, IDepot* pDepot, int indexSlot)
         {
             this->pGameDisplayControl = &gameDisplayControl;
-            this->pPaddlePosition = pPaddlePosition;
             this->pBallField = pBallField;
             this->pDepot = pDepot;
             this->indexSlot = indexSlot;
@@ -158,12 +153,15 @@ namespace pong_cleangui_dg_adv
             posY = fieldHeight/2;
         }
 
-        // In het spel zetten. Aan te roepen nadat het depot deze bal heeft
-        // uitgegeven - het depot begint hem daarna vanzelf te updaten.
-        void spawn()
+        // Apart van init(), want het spel bestaat nog niet als de depots worden
+        // gebouwd. Zie Spawnables::setBallListener().
+        void setBallListener(IBallListener* pBallListener)
         {
-            spawnInTheMiddle();
+            this->pBallListener = pBallListener;
         }
+
+        // De twee manieren om in het spel te komen. Allebei aan te roepen nadat het
+        // depot deze bal heeft uitgegeven - het begint hem daarna vanzelf te updaten.
 
         // Op een opgegeven plek, met een willekeurige richting. Zo komen de
         // ballen uit een geopende present crate (UC07 stap 3) daar vandaan in
@@ -216,7 +214,7 @@ namespace pong_cleangui_dg_adv
         BallState getBallState() const
         {
             return BallState(posX, posY,
-                             (state == STATE_BURNING) || (state == STATE_BURNING_UP),
+                             (state == STATE_FALLING_OUT) || (state == STATE_BURNING_UP),
                              indexBurningStep);
         }
 
@@ -245,7 +243,7 @@ namespace pong_cleangui_dg_adv
 #ifdef PONG_MEASURE
                     nofBurningSteps = 0;
 #endif
-                    state = STATE_BURNING;
+                    state = STATE_FALLING_OUT;
                 }
                 else
                 {
@@ -271,7 +269,7 @@ namespace pong_cleangui_dg_adv
 #ifdef PONG_MEASURE
                     nofBurningSteps = 0;
 #endif
-                    state = STATE_BURNING;
+                    state = STATE_FALLING_OUT;
                 }
                 else
                 {
@@ -281,7 +279,7 @@ namespace pong_cleangui_dg_adv
                 }
                 break;
 
-            case STATE_BURNING:
+            case STATE_FALLING_OUT:
                 if (posY <= pGameDisplayControl->getBallOffScreenY())
                 {
 #ifdef PONG_MEASURE
@@ -368,7 +366,7 @@ namespace pong_cleangui_dg_adv
 
             // De peddel: alleen als de bal daalt, en alleen als hij binnen de
             // breedte van de peddel valt.
-            int paddlePosition = (pPaddlePosition != nullptr) ? *pPaddlePosition : 0;
+            int paddlePosition = (pBallField != nullptr) ? pBallField->getPaddlePosition() : 0;
 
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
@@ -384,9 +382,9 @@ namespace pong_cleangui_dg_adv
                 // UC05 stap 1a: de score gaat omhoog bij een kaatsing op de
                 // peddel. Hier en niet bij de wanden - alleen de peddel is een
                 // verdienste van de speler.
-                if (pBallField != nullptr)
+                if (pBallListener != nullptr)
                 {
-                    pBallField->reportPaddleBounce();
+                    pBallListener->ballBouncedOnPaddle();
                 }
 
                 int offsetFromCentre = posX - paddlePosition;
@@ -405,7 +403,7 @@ namespace pong_cleangui_dg_adv
         // hij vliegt er doorheen.
         void catchFireIfInFireBin()
         {
-            if ((pBallField == nullptr) || !pBallField->touchesFireBin(posX, posY, ballRadius))
+            if ((pBallField == nullptr) || !pBallField->isFireBinTouchedAtPos(posX, posY, ballRadius))
             {
                 return;
             }
@@ -430,11 +428,16 @@ namespace pong_cleangui_dg_adv
                 return;
             }
 
-            CrateHit hit = pBallField->reportCrateHit(posX, posY, ballRadius);
+            CrateHit hit = pBallField->getCrateHitAtPos(posX, posY, ballRadius);
             if (!hit.bHit)
             {
                 return;
             }
+
+            // Eerst melden, dan kaatsen. De plek en de maat zitten al in hit, dus
+            // dat de crate hierdoor kan opengaan en verdwijnen maakt voor de
+            // berekening hieronder niets uit.
+            pBallField->crateWasHitAtPos(hit);
 
             // Terugduwen langs de as waar hij het minst diep in zit: dat is de
             // kant waar hij binnenkwam. Zou je altijd verticaal kaatsen, dan

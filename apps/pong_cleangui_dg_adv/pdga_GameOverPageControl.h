@@ -5,6 +5,7 @@
 
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_HallOfFame.h"
+#include "pdga_NameInputControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
@@ -13,52 +14,51 @@ namespace pong_cleangui_dg_adv
 {
 	// UC03_GameOverHandling. De volgorde staat hier en niet in de DisplayControl:
 	// die weet hoe de pagina eruitziet, deze weet wat er moet gebeuren.
-	class GameOverControl : public IButtonListener, public IGameOverDisplayListener
+	class GameOverControl : public IButtonListener
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
 		IGameOverDisplayControl& gameOverDisplayControl;
 		HallOfFame& hallOfFame;
+
+		// De naaminvoer van stap 1 als een enkele aanroep. Ook samengevoegd met de
+		// taak van pTask, dus doQueryName() draait in dezelfde taak als doGameOver.
+		NameInputControl nameInputControl;
+
 		IButton* pGameOverPageStartButton;
 		Flag flagStartPressed;
-		Flag flagNameEntered;
 
 	public:
 		GameOverControl(Task* pTask, IGameOverDisplayControl& gameOverDisplayControl, HallOfFame& hallOfFame) :
 			pTask(pTask),
 			gameOverDisplayControl(gameOverDisplayControl),
 			hallOfFame(hallOfFame),
+			nameInputControl(pTask, gameOverDisplayControl),
 			pGameOverPageStartButton(nullptr),
-			flagStartPressed(pTask),
-			flagNameEntered(pTask)
+			flagStartPressed(pTask)
 		{
 			pGameOverPageStartButton = gameOverDisplayControl.addGameOverPageStartButtonListener(this);
 		}
 
-    void buttonPressed(IButton* pButton)
-    {
-		logger.logText(pButton->getButtonName());
-
-		if(pButton == pGameOverPageStartButton)
+		void buttonPressed(IButton* pButton)
 		{
-        	flagStartPressed.set();
+			logger.logText(pButton->getButtonName());
+
+			if(pButton == pGameOverPageStartButton)
+			{
+				flagStartPressed.set();
+			}
+			else
+			{
+				;// not interested.
+			}
 		}
-		else
+
+		// must override pure virtual function
+		void buttonReleased(IButton* pButton)
 		{
-			;// not interested.
-		}
-    }
-
-	// must override pure virtual function
-	void buttonReleased(IButton* pButton)
-	{
-		// do nothing
-	};
-
-	/*override*/ void nameEntered()
-	{
-		flagNameEntered.set();
-	}
+			// do nothing
+		};
 
 		// Zie GameControl::doGame(): tonen aan het begin, verbergen aan het eind.
 		// Dat MainControl deze functies strikt na elkaar aanroept is wat
@@ -73,14 +73,10 @@ namespace pong_cleangui_dg_adv
 			flagStartPressed.clear();
 
 			// UC03 stap 1: alleen als de score een plek verdient.
-			if (hallOfFame.qualifies(score))
+			if (hallOfFame.isQualifyingScore(score))
 			{
-				flagNameEntered.clear();
-				gameOverDisplayControl.showNameInput();
-				pTask->wait(flagNameEntered);
-
 				char strName[MaxNofNameChars + 1];
-				gameOverDisplayControl.getEnteredName(strName, sizeof(strName));
+				nameInputControl.doQueryName(strName, sizeof(strName));
 
 				hallOfFame.insert(strName, score);
 				hallOfFame.save();		// UC03 stap 1c.

@@ -47,19 +47,19 @@ namespace pong_cleangui_dg_adv
 		// moet weten - GameControl kent de startpagina niet en andersom.
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 					IStartPageDisplayControl& startPageDisplayControl, IGameDisplayControl& gameDisplayControl,
-					IGameOverDisplayControl& gameOverDisplayControl, BallDepot& ballDepot, CrateDepot& crateDepot,
-					FireBinDepot& fireBinDepot, GameObjectsControl& gameObjectsControl, PaddleControl& paddleControl,
+					IGameOverDisplayControl& gameOverDisplayControl, Spawnables& spawnables,
+					SpawnablesHandler& spawnablesHandler, PaddleControl& paddleControl,
 					HallOfFame& hallOfFame) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
-			gameControl(this, gameDisplayControl, ballDepot, crateDepot, fireBinDepot, gameObjectsControl, paddleControl),
+			gameControl(this, gameDisplayControl, spawnables, spawnablesHandler, paddleControl),
 			gameOverControl(this, gameOverDisplayControl, hallOfFame),
 			startPageControl(this, startPageDisplayControl)
 		{
-			// De game-over-pagina meldt bij dit object dat de naam is ingetypt
-			// (UC03 stap 1b). Hier en niet in de ino: gameOverControl is van
-			// MainControl, en een aanroeper zou er niet bij hoeven kunnen.
-			gameOverDisplayControl.setGameOverDisplayListener(&gameOverControl);
+			// Dat de game-over-pagina meldt wanneer de naam is ingetypt (UC03 stap
+			// 1b) regelt NameInputControl zelf: die wacht erop, dus die vraagt het
+			// aan. Hier stond daar een regel voor, en dat was een derde plek die van
+			// die melding moest weten.
 
 			start();
 		}

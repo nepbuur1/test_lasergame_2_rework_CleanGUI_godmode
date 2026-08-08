@@ -80,9 +80,22 @@ namespace crt
             pTask->wait(*this);
         }
 
+        // Note: the timer may have fired already.
+        // If you do not want that result to propagate, call clear() as well.
         inline void stop()
         {
             esp_timer_stop(hTimer);
+        }
+
+        // Discards a firing that has already happened, exactly like Flag::clear().
+        //
+        // Note that stop() does NOT do this: it stops the hardware timer, but a bit
+        // that was set before that stays set, and the next waitAny would return on
+        // it immediately. After a waitAny (which leaves the bits alone - see the
+        // pdFALSE for xClearOnExit), a one-shot timer that fired needs this.
+        void clear()
+        {
+            pTask->clearEventBits(Waitable::getBitMask());
         }
 
         inline void start(uint64_t duration_us)

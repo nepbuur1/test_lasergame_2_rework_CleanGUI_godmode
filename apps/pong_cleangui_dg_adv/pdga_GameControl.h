@@ -7,10 +7,10 @@
 #include <esp_timer.h>
 
 #include "pdga_GameDisplayControl.h"
-#include "pdga_BallControl.h"
-#include "pdga_PresentCrateControl.h"
-#include "pdga_FireBinControl.h"
-#include "pdga_GameObjectsControl.h"
+#include "pdga_Spawnables.h"
+#include "pdga_SpawnablesHandler.h"
+#include "pdga_IBallListener.h"
+#include "pdga_IGameListener.h"
 #include "pdga_PaddleControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
@@ -26,16 +26,26 @@ namespace pong_cleangui_dg_adv
 	// tik erop gaat voor.
 	const int GameOverLabelTimeoutMs = 3000;
 
-	class GameControl : public IGameObjectsListener, public IButtonListener
+	class GameControl : public IBallListener, public IGameListener, public IButtonListener
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
 		IGameDisplayControl& gameDisplayControl;
-		BallDepot& ballDepot;
-		CrateDepot& crateDepot;
-		FireBinDepot& fireBinDepot;
-		GameObjectsControl& gameObjectsControl;
+		Spawnables& spawnables;
+		SpawnablesHandler& spawnablesHandler;
 		PaddleControl& paddleControl;
+
+		// De score van het lopende spel (UC05 stap 1a). Hij woont hier omdat hij bij
+		// het spel hoort en niet bij de objecten die hem verdienen.
+		//
+		// Let op de taken: opgehoogd en uitgelezen vanuit de Handler-taak - een bal
+		// die kaatst meldt dat, en publishStates() vraagt hem elk beeld op - terwijl
+		// dit object in de taak van MainControl woont. Geen Pool nodig: een
+		// uitgelijnde int32_t is op de ESP32 ondeelbaar, en een beeld verschil in
+		// wat het scherm toont is niet te zien. De lezer die er wel om geeft is
+		// MainControl, via getScore(), en die leest pas nadat doGame() is
+		// teruggekeerd - dus als er niets meer aan telt.
+		int32_t score;
 
 		Flag flagAllBallsGone;
 		Flag flagGameOverLabelPressed;
@@ -51,15 +61,14 @@ namespace pong_cleangui_dg_adv
 
 	public:
 		GameControl(Task* pTask, IGameDisplayControl& gameDisplayControl,
-					BallDepot& ballDepot, CrateDepot& crateDepot, FireBinDepot& fireBinDepot,
-					GameObjectsControl& gameObjectsControl, PaddleControl& paddleControl) :
+					Spawnables& spawnables, SpawnablesHandler& spawnablesHandler,
+					PaddleControl& paddleControl) :
 			pTask(pTask),
 			gameDisplayControl(gameDisplayControl),
-			ballDepot(ballDepot),
-			crateDepot(crateDepot),
-			fireBinDepot(fireBinDepot),
-			gameObjectsControl(gameObjectsControl),
+			spawnables(spawnables),
+			spawnablesHandler(spawnablesHandler),
 			paddleControl(paddleControl),
+			score(0),
 			flagAllBallsGone(pTask),
 			flagGameOverLabelPressed(pTask),
 			pGameOverLabel(nullptr),
@@ -71,35 +80,32 @@ namespace pong_cleangui_dg_adv
 			// klokstand levert juist minder toeval op.
 			srand((unsigned int)esp_timer_get_time());
 
-			gameObjectsControl.setGameObjectsListener(this);
+			// Twee aparte bedradingen, want het zijn twee verschillende rollen. De
+			// ballen melden hun peddelkaatsingen (IBallListener) en gaan daarvoor
+			// niet meer langs hun veld; de beeldklok meldt dat de laatste bal weg is
+			// en vraagt elk beeld de score op (IGameListener).
+			spawnables.setBallListener(this);
+			spawnablesHandler.setGameListener(this);
+
 			pGameOverLabel = gameDisplayControl.addGameOverLabelListener(this);
-
-			// Alle ballen en crates bedraden, ook die voorlopig niets doen. Ze
-			// bestaan al - het depot bouwt ze in een keer - en een object dat pas
-			// bij het spawnen zijn verwijzingen zou krijgen, zou die bedrading
-			// telkens opnieuw moeten doen.
-			for (int i = 0; i < MaxNofBalls; i++)
-			{
-				ballDepot.getItem(i).init(gameDisplayControl, gameObjectsControl.getPaddlePositionPtr(),
-				                          &gameObjectsControl, &ballDepot, i);
-			}
-
-			for (int i = 0; i < MaxNofCrates; i++)
-			{
-				crateDepot.getItem(i).init(&crateDepot, i);
-			}
-
-			for (int i = 0; i < MaxNofFireBins; i++)
-			{
-				fireBinDepot.getItem(i).init(&fireBinDepot, i);
-			}
 		}
 
-		// De score van het zojuist gespeelde spel, voor UC03. Uitgelezen nadat
-		// doGame() is teruggekeerd, dus als er niets meer aan telt.
-		int32_t getScore()
+		// --- IBallListener: wat een bal meldt ---
+
+		// UC05 stap 1a: alleen een kaatsing op de peddel is een verdienste van de
+		// speler. De wanden en de crates leveren niets op.
+		/*override*/ void ballBouncedOnPaddle()
 		{
-			return gameObjectsControl.getScore();
+			score++;
+		}
+
+		// --- IGameListener: wat de beeldklok meldt en vraagt ---
+
+		// De score van het zojuist gespeelde spel, voor UC03. Ook elk beeld gevraagd
+		// door de beeldklok, om hem op het scherm te zetten.
+		/*override*/ int32_t getScore()
+		{
+			return score;
 		}
 
 		/*override*/ void allBallsGone()
@@ -132,19 +138,15 @@ namespace pong_cleangui_dg_adv
 
 			pTask->dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-			// Elk spel begint op nul (UC05 stap 1a telt hem omhoog).
-			gameObjectsControl.resetScore();
+			// Elk spel begint op nul (ballBouncedOnPaddle telt hem omhoog).
+			score = 0;
 
 			// De peddel eerst: die moet er staan voordat de bal eraan komt.
 			paddleControl.enable();
 
-			// Een bal uit het depot halen en in het spel zetten. Een leeg depot is
-			// geen fout maar een uitkomst - het depot meldt het zelf.
-			int indexBall = ballDepot.obtain();
-			if (indexBall != BallDepot::InvalidIndex)
-			{
-				ballDepot.getItem(indexBall).spawn();
-			}
+			// De eerste bal in het spel zetten. Een leeg depot is geen fout maar een
+			// uitkomst - het depot meldt het zelf - dus de uitkomst boeit hier niet.
+			spawnables.spawnBallInTheMiddle();
 
 			// One and only state for now:
 			// STATE_GAME_RUNNING:
@@ -169,21 +171,14 @@ namespace pong_cleangui_dg_adv
 
 			timerSpawn.stop();
 
-			// Het veld leegmaken. Crates en vuurkorven verdwijnen alleen op hun
-			// eigen voorwaarden - een crate als hij opengaat, een korf als hij
-			// uitbrandt - dus een crate die niet is opengespeeld blijft in zijn
-			// slot zitten. Zonder dit stonden de kistjes van het vorige spel er bij
-			// het volgende gewoon weer, want het depot was ze nooit kwijtgeraakt.
+			// Het veld leegmaken; waarom dat nodig is staat bij
+			// Spawnables::releaseCratesAndFireBins().
 			//
 			// Hier en niet bij het begin van het volgende spel: de standen gaan pas
 			// bij de eerstvolgende beeldstap naar de display, en die valt tussen
 			// showGamePage() en de eerste hertekening in. Opruimen aan deze kant
 			// geeft de game-over-pagina ruim de tijd om dat door te laten lopen.
-			//
-			// De ballen hoeven niet: die zijn op, dat was juist de reden dat we hier
-			// staan.
-			crateDepot.releaseAll();
-			fireBinDepot.releaseAll();
+			spawnables.releaseCratesAndFireBins();
 
 			// De peddelknoppen horen bij het spel, niet bij de game-over-pagina.
 			paddleControl.disable();
@@ -205,14 +200,16 @@ namespace pong_cleangui_dg_adv
 			timerGameOverLabel.start(GameOverLabelTimeoutMs * 1000);
 			pTask->waitAny(flagGameOverLabelPressed + timerGameOverLabel);
 
-			// Allebei aflezen, ook al doen we met de uitkomst niets: hasFired() is
-			// wat het event-bit wist. Zonder dit blijft het bit van de timer na de
-			// eerste keer staan, en komt elke volgende waitAny meteen terug - dan
-			// flitst het vignet voorbij in plaats van drie seconden te blijven.
-			pTask->hasFired(flagGameOverLabelPressed);
-			pTask->hasFired(timerGameOverLabel);
+			// Welke van de twee het was maakt niet uit - het vignet gaat zo weg. Maar
+			// gebeurd is gebeurd, en dat moet weg: waitAny laat de event-bits staan
+			// (xClearOnExit is pdFALSE), dus zonder dit blijft het bit van de timer
+			// na de eerste keer staan en komt elke volgende waitAny meteen terug -
+			// dan flitst het vignet voorbij in plaats van drie seconden te blijven.
+			flagGameOverLabelPressed.clear();
 
+			// Stop de klok, anders tikt hij straks middenin het volgende spel.
 			timerGameOverLabel.stop();
+			timerGameOverLabel.clear();
 
 			gameDisplayControl.hideGameOverLabel();
 		}
@@ -229,7 +226,7 @@ namespace pong_cleangui_dg_adv
 			int posX, posY;
 			pickSpawnPosition(posX, posY);
 
-			int nofBalls = gameObjectsControl.getNofBallsInUse();
+			int nofBalls = spawnables.getNofBallsInUse();
 			bool bFireBin = (nofBalls >= NofBallsForCertainFireBin) ||
 			                ((int)(rand() % NofBallsForCertainFireBin) < nofBalls);
 
@@ -253,14 +250,14 @@ namespace pong_cleangui_dg_adv
 
 		bool spawnFireBin(int posX, int posY, int nofBalls)
 		{
-			if (!gameObjectsControl.spawnFireBinAt(posX, posY))
+			if (!spawnables.spawnFireBinAt(posX, posY))
 			{
 				return false;		// vol depot meldt zichzelf.
 			}
 
 #ifdef PONG_MEASURE
 			ESP_LOGI("pong", "vuurkorf op (%d,%d) bij %d ballen, nu %d in het veld",
-				posX, posY, nofBalls, fireBinDepot.getNofInUse());
+				posX, posY, nofBalls, spawnables.getNofFireBinsInUse());
 #else
 			(void)nofBalls;
 #endif
@@ -269,14 +266,14 @@ namespace pong_cleangui_dg_adv
 
 		bool spawnCrate(int posX, int posY, int nofBalls)
 		{
-			if (!gameObjectsControl.spawnCrateAt(posX, posY))
+			if (!spawnables.spawnCrateAt(posX, posY))
 			{
 				return false;
 			}
 
 #ifdef PONG_MEASURE
 			ESP_LOGI("pong", "present crate op (%d,%d) bij %d ballen, nu %d in het veld",
-				posX, posY, nofBalls, crateDepot.getNofInUse());
+				posX, posY, nofBalls, spawnables.getNofCratesInUse());
 #else
 			(void)nofBalls;
 #endif

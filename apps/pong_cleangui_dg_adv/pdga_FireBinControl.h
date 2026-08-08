@@ -46,7 +46,7 @@ namespace pong_cleangui_dg_adv
 			this->indexSlot = indexSlot;
 		}
 
-		void spawn(int posX, int posY)
+		void spawnAt(int posX, int posY)
 		{
 			this->posX = posX;
 			this->posY = posY;
@@ -76,7 +76,7 @@ namespace pong_cleangui_dg_adv
 		// Vierkant tegen vierkant, net als bij de crate: de bal is rond, maar op
 		// twaalf pixels is het verschil met zijn omhullende vierkant een pixel of
 		// twee, en dat is bij een korf van achtentwintig niet te zien.
-		bool overlaps(int ballPosX, int ballPosY, int ballRadius) const
+		bool isTouchedAtPos(int ballPosX, int ballPosY, int ballRadius) const
 		{
 			int halfSize = FireBinSizePix/2;
 			int dx = (ballPosX > posX) ? (ballPosX - posX) : (posX - ballPosX);

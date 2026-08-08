@@ -47,23 +47,23 @@ namespace pong_cleangui_dg_adv
 	const int HallOfFameTopPix        = HallOfFameSpaceTopPix +
 		(PlayAgainButtonTopPix - HallOfFameSpaceTopPix - HallOfFameListHeightPix)/2;
 
-	class IGameOverDisplayListener
-	{
-	public:
-		// De speler heeft ENTER gedrukt (UC03 stap 1b).
-		virtual void nameEntered() = 0;
-	};
+	// Hoeveel er in het invoerveld past. Ruimer dan de naam die eruit komt; wie
+	// doortypt raakt de rest kwijt, en dat is nog altijd duidelijker dan een veld
+	// dat halverwege niet meer reageert.
+	const int MaxNofNameFieldChars = MaxNofNameChars + 4;
 
 	class IGameOverDisplayControl
 	{
 		public:
 			virtual IButton* addGameOverPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void setGameOverDisplayListener(IGameOverDisplayListener* pListener) = 0;
 
-			// De naaminvoer van UC03 stap 1. De aanroeper krijgt de ingetypte naam
-			// pas als de speler ENTER heeft gedrukt; tot die tijd blijft hij hier.
+			// De naaminvoer van UC03 stap 1. Deze pagina toont het veld en schuift
+			// het toetsenbord in beeld; wat de toetsen betekenen beslist de
+			// luisteraar, net als bij het GAME OVER-label van GameDisplayControl.
+			// Vandaar dat het veld zelf wordt teruggegeven: daar staat de ingetypte
+			// tekst in.
+			virtual IInputfield* addNameInputfieldListener(IInputfieldListener* pInputfieldListener) = 0;
 			virtual void showNameInput() = 0;
-			virtual void getEnteredName(char* strName, int nofCharsMax) = 0;
 
 			// UC03 stap 2: de lijst, met de knop eronder.
 			virtual void showHallOfFame(const HallOfFame& hallOfFame) = 0;
@@ -103,7 +103,6 @@ namespace pong_cleangui_dg_adv
 	private:
 		IDisplay& display;
 		TFT_eSPI_IFreeFonts& freeFonts;
-		IGameOverDisplayListener* pListener;
 
 		int screenWidth;
 		int screenHeight;
@@ -123,7 +122,9 @@ namespace pong_cleangui_dg_adv
 		using TOUCHSCREENKEYBOARD = TouchscreenKeyboard<0 /*MaxNofChildren*/, 1 /*MaxNofKeyboardListeners*/>;
 		TOUCHSCREENKEYBOARD touchscreenKeyboard;
 
-		using INPUTFIELD = Inputfield<0 /*MaxNofChildren*/, 2 /*MaxNofInputfieldListeners*/, MaxNofNameChars + 4>;
+		// Twee luisteraars: deze pagina zelf, die op elke aanslag opnieuw tekent, en
+		// NameInputControl, die beslist wat de aanslagen betekenen.
+		using INPUTFIELD = Inputfield<0 /*MaxNofChildren*/, 2 /*MaxNofInputfieldListeners*/, MaxNofNameFieldChars>;
 		INPUTFIELD inputfield;
 
 		// --- fase LIJST ---
@@ -147,15 +148,6 @@ namespace pong_cleangui_dg_adv
 		Timer timerTorch;
 		Pool<const char*> poolNewKey;
 
-		// De ingetypte naam. Een Pool omdat hij door een andere taak wordt
-		// uitgelezen dan die hem schrijft.
-		struct EnteredName
-		{
-			EnteredName() { str[0] = '\0'; }
-			char str[MaxNofNameChars + 1];
-		};
-		Pool<EnteredName> poolEnteredName;
-
 		// De lijst die getoond moet worden. Ook via een Pool: showHallOfFame()
 		// wordt vanuit MainControl aangeroepen en de opbouw gebeurt hier.
 		Pool<HallOfFameSnapshot> poolHallOfFame;
@@ -174,7 +166,6 @@ namespace pong_cleangui_dg_adv
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			display(display),
 			freeFonts(freeFonts),
-			pListener(nullptr),
 			screenWidth(0),
 			screenHeight(0),
 
@@ -210,15 +201,18 @@ namespace pong_cleangui_dg_adv
 			start();
 		}
 
-		/*override*/ void setGameOverDisplayListener(IGameOverDisplayListener* pListener)
-		{
-			this->pListener = pListener;
-		}
-
 	IButton* addGameOverPageStartButtonListener(IButtonListener* pButtonListener)
 	{
 		buttonStart.addButtonListener(pButtonListener);
 		return &buttonStart;
+	}
+
+	// Net als addGameOverLabelListener bij GameDisplayControl: de widget is van de
+	// pagina, de betekenis van zijn gebeurtenissen niet.
+	IInputfield* addNameInputfieldListener(IInputfieldListener* pInputfieldListener)
+	{
+		inputfield.addInputfieldListener(pInputfieldListener);
+		return &inputfield;
 	}
 
 	void showGameOverPage()
@@ -249,15 +243,9 @@ namespace pong_cleangui_dg_adv
 		flagShowHallOfFame.set();
 	}
 
-	void getEnteredName(char* strName, int nofCharsMax)
-	{
-		EnteredName enteredName;
-		poolEnteredName.read(enteredName);
-		strncpy(strName, enteredName.str, nofCharsMax - 1);
-		strName[nofCharsMax - 1] = '\0';
-	}
-
 	// --- IInputfieldListener ---
+	// Deze pagina luistert alleen mee om te weten dat er iets veranderd is; wat er
+	// getypt wordt gaat langs haar heen naar NameInputControl.
 	/* override */ void inputNewKey(IInputfield* pInputfield, const char* strKey)
 	{
 		poolNewKey.write(strKey);
@@ -566,7 +554,7 @@ namespace pong_cleangui_dg_adv
 					// dezelfde weg als het toetsenbord: DEL tot er niets meer staat.
 					// Dat zet onze eigen flagNewKey, en die halen we er meteen weer
 					// af - anders tekent de lus hieronder de pagina nog een keer.
-					for (int i = 0; i < MaxNofNameChars + 4; i++)
+					for (int i = 0; i < MaxNofNameFieldChars; i++)
 					{
 						inputfield.keyPressed("DEL");
 					}
@@ -596,25 +584,13 @@ namespace pong_cleangui_dg_adv
 					const char* strKey;
 					poolNewKey.read(strKey);
 
-					if (strncmp(strKey, "ENTER", 5) == 0)
+					// Wat ENTER betekent gaat deze pagina niet aan - dat is UC03
+					// stap 1b, en die zit in NameInputControl. Hier telt alleen dat
+					// Inputfield::keyPressed er niets mee doet, dus dat er ook niets
+					// te hertekenen valt. Elke andere toets verandert het veld wel,
+					// en dan moet met een backbuffer de hele pagina opnieuw.
+					if (strncmp(strKey, "ENTER", 5) != 0)
 					{
-						// UC03 stap 1b: de invoer is compleet.
-						EnteredName enteredName;
-						crt::std::string<MaxNofNameChars + 4> strFieldContent;
-						inputfield.getTextValue(strFieldContent);
-						strncpy(enteredName.str, strFieldContent.begin(), MaxNofNameChars);
-						enteredName.str[MaxNofNameChars] = '\0';
-						poolEnteredName.write(enteredName);
-
-						if (pListener != nullptr)
-						{
-							pListener->nameEntered();
-						}
-					}
-					else
-					{
-						// Elke andere toets verandert het veld; met een backbuffer
-						// moet de pagina dan opnieuw.
 						pageGameOver.show(true);
 					}
 				}

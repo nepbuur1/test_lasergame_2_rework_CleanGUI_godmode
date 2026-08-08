@@ -27,10 +27,11 @@
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_BallControl.h"
-#include "pdga_PresentCrateControl.h"
+#include "pdga_CrateControl.h"
 #include "pdga_FireBinControl.h"
 #include "pdga_HallOfFame.h"
-#include "pdga_GameObjectsControl.h"
+#include "pdga_Spawnables.h"
+#include "pdga_SpawnablesHandler.h"
 #include "pdga_MainControl.h"
 
 using namespace crt;
@@ -123,10 +124,11 @@ namespace pong_cleangui_dg_adv
 	// 5000 bytes stack is 250 KB - meer DRAM dan dit bord heeft, zeker met een
 	// backbuffer van 76.800 bytes erbij. Een Handler tikt ze aan; zie
 	// pdga_BallsControl.h en pdga_Depot.h.
-	BallDepot ballDepot("ballDepot");
-	CrateDepot crateDepot("crateDepot");
-	FireBinDepot fireBinDepot("fireBinDepot");
-	GameObjectsControl gameObjectsControl(ballDepot, crateDepot, fireBinDepot, gameDisplayControl, paddleControl);
+	Spawnables spawnables(gameDisplayControl);
+
+	// De beeldklok van het spel: de volgorde waarin de depots per beeld worden
+	// bijgewerkt, en het publiceren van de standen. Zie pdga_SpawnablesHandler.h.
+	SpawnablesHandler spawnablesHandler(spawnables, paddleControl);
 
 	// Prioriteit 2, gelijk aan asyncDisplay en de DisplayControls. Deze taak
 	// tekent zelf niet, maar hij zet wel de balstanden klaar waar een beeld op
@@ -139,7 +141,7 @@ namespace pong_cleangui_dg_adv
 
 	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
 	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl,
-	                        ballDepot, crateDepot, fireBinDepot, gameObjectsControl, paddleControl,
+	                        spawnables, spawnablesHandler, paddleControl,
 	                        hallOfFame);
 }
 
@@ -162,7 +164,7 @@ void setup()
 	// Aanmelden bij de Handler. Dit moet binnen 500 ms na het opstarten gebeuren:
 	// Handler::main() wacht zo lang voordat hij begint met tikken, juist zodat
 	// zijn luisteraars zich kunnen melden. setup() draait ruim binnen die tijd.
-	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::gameObjectsControl);
+	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::spawnablesHandler);
 
 	// De top-5 uit de spiffs-partitie halen. Hier en niet in een constructor:
 	// LITTLEFS moet aangekoppeld zijn, en dat gebeurt pas als er iets om vraagt.

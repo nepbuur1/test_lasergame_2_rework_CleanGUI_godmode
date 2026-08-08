@@ -66,7 +66,7 @@ namespace pong_cleangui_dg_adv
 		// Verdient deze score een plek? De lijst staat aflopend, dus alleen de
 		// laatste telt. Een score van nul nooit - dan zou elk spel waarin je niets
 		// raakt om een naam vragen.
-		bool qualifies(int32_t score) const
+		bool isQualifyingScore(int32_t score) const
 		{
 			return (score > 0) && (score > arEntry[NofHallOfFameEntries - 1].score);
 		}
@@ -93,6 +93,16 @@ namespace pong_cleangui_dg_adv
 			{
 				strncpy(entry.strName, "anoniem", MaxNofNameChars);
 				entry.strName[MaxNofNameChars] = '\0';
+			}
+		}
+
+		// De lijst terug naar leeg. Alleen in het geheugen; wie het ook op de
+		// spiffs-partitie wil, roept er save() achteraan aan.
+		void clear()
+		{
+			for (int i = 0; i < NofHallOfFameEntries; i++)
+			{
+				arEntry[i] = HallOfFameEntry();
 			}
 		}
 
@@ -148,10 +158,7 @@ namespace pong_cleangui_dg_adv
 			{
 				ESP_LOGE("hallOfFame", "%s is onleesbaar of van een andere versie; "
 					"de lijst begint leeg.", strFilename);
-				for (int i = 0; i < NofHallOfFameEntries; i++)
-				{
-					arEntry[i] = HallOfFameEntry();
-				}
+				clear();
 			}
 		}
 

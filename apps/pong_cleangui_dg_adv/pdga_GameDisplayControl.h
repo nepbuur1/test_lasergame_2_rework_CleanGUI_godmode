@@ -580,7 +580,7 @@ namespace pong_cleangui_dg_adv
 				panel.setPanelProps("cratePanel", /*locPos*/Vec2(0, 0), CoordType::Pixels,
 					/*size*/crateSizePix(), /*cornerRadius*/0, CoordType::Pixels,
 					Alignment::MidMid, /*colFg*/0x00A87038, /*colBg*/0x00000000);
-				setImageChecked(panel, imagePresentCrate, crateSizePix(), "cratePanel");
+				setImageChecked(panel, imageCrate, crateSizePix(), "cratePanel");
 				panel.setImageFrame(0, 0);
 				panel.setDrawable(false, true);
 			}
@@ -877,7 +877,7 @@ namespace pong_cleangui_dg_adv
 				// op. Het aftellen zit dus in het plaatje en niet in losse tekst.
 				int indexFrame = NofCrateHits - crateState.nofHitsLeft;
 				if (indexFrame < 0) { indexFrame = 0; }
-				if (indexFrame >= imagePresentCrate.nofCols) { indexFrame = (int)imagePresentCrate.nofCols - 1; }
+				if (indexFrame >= imageCrate.nofCols) { indexFrame = (int)imageCrate.nofCols - 1; }
 				panel.setImageFrame(0, indexFrame);
 			}
 		}

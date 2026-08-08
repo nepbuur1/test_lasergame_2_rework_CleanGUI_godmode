@@ -20,7 +20,7 @@
 #include "gameOver-trcolor_FF00FF.h"
 #include "goalLine.h"
 #include "paddle-trcolor_FF00FF.h"
-#include "presentCrate-ssh_1x5.h"
+#include "crate-ssh_1x5.h"
 #include "scoreDigits-trcolor_FF00FF-ssh_1x10.h"
 #include "titleHallOfFame-trcolor_FF00FF.h"
 #include "titleSuperPong-trcolor_FF00FF.h"
@@ -41,7 +41,7 @@ namespace crt
 	constexpr Image imageGameOver(arGameOverIndices, 256, 64, arPalette, true);
 	constexpr Image imageGoalLine(arGoalLineIndices, 320, 2, arPalette);
 	constexpr Image imagePaddle(arPaddleIndices, 50, 12, arPalette, true);
-	constexpr Image imagePresentCrate(arPresentCrateIndices, 140, 28, arPalette, false, 1, 5);
+	constexpr Image imageCrate(arCrateIndices, 140, 28, arPalette, false, 1, 5);
 	constexpr Image imageScoreDigits(arScoreDigitsIndices, 280, 36, arPalette, true, 1, 10);
 	constexpr Image imageTitleHallOfFame(arTitleHallOfFameIndices, 272, 44, arPalette, true);
 	constexpr Image imageTitleSuperPong(arTitleSuperPongIndices, 288, 72, arPalette, true);
@@ -66,7 +66,7 @@ namespace crt
 		&imageGameOver,
 		&imageGoalLine,
 		&imagePaddle,
-		&imagePresentCrate,
+		&imageCrate,
 		&imageScoreDigits,
 		&imageTitleHallOfFame,
 		&imageTitleSuperPong,
@@ -88,7 +88,7 @@ namespace crt
 		"imageGameOver",
 		"imageGoalLine",
 		"imagePaddle",
-		"imagePresentCrate",
+		"imageCrate",
 		"imageScoreDigits",
 		"imageTitleHallOfFame",
 		"imageTitleSuperPong",

@@ -405,7 +405,7 @@ def make_present_crate(size, nof_states):
     # levert alleen een waarschuwing van de converter op ("heeft een alpha-kanaal
     # maar geen -trcolor") en geen enkel voordeel. Opaak blitten is bovendien een
     # memcpy per beeldregel in plaats van een per zichtbaar stuk.
-    save(sheet.convert("RGB"), "presentCrate-ssh_1x%d.png" % len(cells))
+    save(sheet.convert("RGB"), "crate-ssh_1x%d.png" % len(cells))
 
 
 # --- de fakkels ------------------------------------------------------------

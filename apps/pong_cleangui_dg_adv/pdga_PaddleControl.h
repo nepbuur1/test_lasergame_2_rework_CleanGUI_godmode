@@ -67,7 +67,7 @@ namespace pong_cleangui_dg_adv
 			start();
 		}
 
-	int getPaddlePos()
+	int getPaddlePosition()
 	{
 		int tempPaddlePos;
 		poolPaddlePos.read(tempPaddlePos);
@@ -136,9 +136,10 @@ namespace pong_cleangui_dg_adv
 			displayControl.updatePaddlePosition(paddlePosition);
 
 			// De bal krijgt de positie niet meer toegeschoven, hij haalt hem zelf
-			// op met getPaddlePos(). Deze pool is dus de enige koppeling die
+			// op - via Spawnables, dat hem een keer per beeld met
+			// getPaddlePosition() ophaalt. Deze pool is dus de enige koppeling die
 			// daarvoor nodig is.
-			poolPaddlePos.write(paddlePosition);		// facilitatie getPaddlePos()
+			poolPaddlePos.write(paddlePosition);		// facilitatie getPaddlePosition()
 		}
 
 		void stopMoving()
