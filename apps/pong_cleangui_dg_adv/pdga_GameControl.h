@@ -2,6 +2,7 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
+#include <crt_Logger.h>
 
 #include <stdlib.h>
 #include <esp_timer.h>
@@ -10,7 +11,7 @@
 #include "pdga_Spawnables.h"
 #include "pdga_SpawnablesHandler.h"
 #include "pdga_IBallListener.h"
-#include "pdga_IGameListener.h"
+#include "pdga_ISpawnablesHandlerListener.h"
 #include "pdga_PaddleControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
@@ -26,7 +27,7 @@ namespace pong_cleangui_dg_adv
 	// tik erop gaat voor.
 	const int GameOverLabelTimeoutMs = 3000;
 
-	class GameControl : public IBallListener, public IGameListener, public IButtonListener
+	class GameControl : public IBallListener, public ISpawnablesHandlerListener, public IButtonListener
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
@@ -83,9 +84,9 @@ namespace pong_cleangui_dg_adv
 			// Twee aparte bedradingen, want het zijn twee verschillende rollen. De
 			// ballen melden hun peddelkaatsingen (IBallListener) en gaan daarvoor
 			// niet meer langs hun veld; de beeldklok meldt dat de laatste bal weg is
-			// en vraagt elk beeld de score op (IGameListener).
+			// en vraagt elk beeld de score op (ISpawnablesHandlerListener).
 			spawnables.setBallListener(this);
-			spawnablesHandler.setGameListener(this);
+			spawnablesHandler.setListener(this);
 
 			pGameOverLabel = gameDisplayControl.addGameOverLabelListener(this);
 		}
@@ -99,7 +100,7 @@ namespace pong_cleangui_dg_adv
 			score++;
 		}
 
-		// --- IGameListener: wat de beeldklok meldt en vraagt ---
+		// --- ISpawnablesHandlerListener: wat de beeldklok meldt en vraagt ---
 
 		// De score van het zojuist gespeelde spel, voor UC03. Ook elk beeld gevraagd
 		// door de beeldklok, om hem op het scherm te zetten.

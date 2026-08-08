@@ -5,7 +5,6 @@
 
 #include <crt_CleanGUI.h>
 #include <crt_AsyncDisplay.h>
-#include <crt_TouchscreenButton.h>
 #include <crt_TFT_eSPI_DisplayAdapter.h>
 #include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 
@@ -21,14 +20,10 @@
 // All Tasks should be created in this main file.
 #include <crt_Logger.h>
 #include <crt_Handler.h>
-#include <crt_Button.h>
 #include "pdga_StartPageDisplayControl.h"
 #include "pdga_GameDisplayControl.h"
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_PaddleControl.h"
-#include "pdga_BallControl.h"
-#include "pdga_CrateControl.h"
-#include "pdga_FireBinControl.h"
 #include "pdga_HallOfFame.h"
 #include "pdga_Spawnables.h"
 #include "pdga_SpawnablesHandler.h"

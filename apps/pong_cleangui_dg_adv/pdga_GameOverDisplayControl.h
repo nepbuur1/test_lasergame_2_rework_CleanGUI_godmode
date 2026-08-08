@@ -3,6 +3,8 @@
 #pragma once
 #include <crt_CleanRTOS.h>
 #include <crt_CleanGUI.h>
+// Hier en niet in crt_TouchscreenKeyboard.h, waar hij hoort: die header noemt
+// IKeyboardListener wel maar includet hem niet, dus hij moet ervoor staan.
 #include <crt_IKeyboardListener.h>
 #include <crt_TouchscreenKeyboard.h>
 #include <crt_InputField.h>
@@ -14,7 +16,8 @@
 
 #include <crt_TFT_eSPI_FreeFonts.h>
 
-#include "pdga_PlayButton.h"
+#include "images/_pal8/_allImages.h"
+#include "pdga_TorchesDisplayHelpers.h"
 #include "pdga_HallOfFame.h"
 
 // De DisplayControl van de game-over-pagina, met een eigen PageRoot en een eigen
@@ -34,6 +37,12 @@ using namespace crt;
 namespace pong_cleangui_dg_adv
 {
 	// Zie pdga_BallControl.h: logger komt uit namespace crt, niet uit deze.
+
+	typedef TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> PlayAgainButton;
+
+	// Waar de "Play Again"-knop staat: onder de hall of fame. Een eigen hoogte en
+	// niet die van de startpagina, want deze pagina heeft er meer boven staan.
+	const int PlayAgainButtonTopPix = 176;
 
 	// De verticale indeling van de hall of fame, uitgerekend in plaats van
 	// opgeschreven: de titel bovenaan, de knop onderaan, en de lijst precies
@@ -133,7 +142,7 @@ namespace pong_cleangui_dg_adv
 		char arNameText[NofHallOfFameEntries][MaxNofNameLineChars + 1];
 		char arScoreText[NofHallOfFameEntries][MaxNofScoreLineChars + 1];
 
-		PlayButton buttonStart;
+		PlayAgainButton buttonStart;
 
 		// Fakkels naast de "Play Again"-knop, net als op de startpagina. Ze horen
 		// bij de lijstfase; tijdens het intypen staan ze uit.
@@ -303,8 +312,39 @@ namespace pong_cleangui_dg_adv
 					arScoreText[i], HallOfFameFont, /*color*/0x0000FFFF, /*fontScale*/1);
 			}
 
-			initPlayAgainButton(buttonStart, screenWidth);
-			initTorches(arTorchPanels, screenWidth, PlayAgainButtonTopPix, imageButtonPlayAgain.height);
+			initPlayAgainButton();
+			TorchesDisplayHelpers::initTorches(arTorchPanels, screenWidth, PlayAgainButtonTopPix, imageButtonPlayAgain.height);
+		}
+
+		// Dezelfde knop als op de startpagina, maar met "PLAY AGAIN" erop en lager
+		// op het scherm - UC03 stap 2a. Een eigen plaatje omdat het woord langer
+		// is; de letters blijven even groot als op de startpagina.
+		void initPlayAgainButton()
+		{
+			// Alles in pixels en niet in promillage. Bij een knop die uit een plaatje
+			// bestaat is dat geen smaak: promillage wordt naar hele pixels afgerond,
+			// en een panel dat daardoor een pixel groter uitvalt dan het plaatje laat
+			// Panel::needsBackground() de vlakke colPanel-kleur er alsnog onder
+			// schilderen. Die rand van een pixel is precies zichtbaar genoeg om lelijk
+			// te zijn.
+			Vec2 sizePix(imageButtonPlayAgain.width, imageButtonPlayAgain.height);
+
+			// Het label is leeg omdat de tekst in het plaatje zit - met de schuine
+			// kant en het verloop eromheen, die geen enkele fillRect kan maken.
+			// colPanel en colFont blijven wel ingevuld: het plaatje is transparant
+			// rond zijn afgeronde hoeken, dus zodra iemand de setImage() hieronder
+			// weghaalt is er weer een gewone rode knop met tekst.
+			buttonStart.setTouchScreenButtonProps
+				("playAgain",/*locPos*/Vec2((screenWidth - sizePix.x)/2, PlayAgainButtonTopPix), CoordType::Pixels,
+				/*size*/sizePix, /*cornerRadius*/0, CoordType::Pixels,
+				Alignment::MidMid, /*colPanel*/0x00FF0000, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF,
+				/*fontScale*/ 1, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
+
+			// fontScale 1 en niet 0: bij 0 zoekt TouchscreenButton de grootste schaal
+			// die past, en dat is werk zonder betekenis voor een leeg label.
+			buttonStart.setImage(&imageButtonPlayAgain);
 		}
 
 		// Alleen de widgets van de gevraagde fase tekenbaar maken. setDrawable en
@@ -343,7 +383,7 @@ namespace pong_cleangui_dg_adv
 			}
 			else
 			{
-				timerTorch.start(nextTorchIntervalUs());
+				timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 			}
 
 			inputfield.enable(bName);
@@ -524,9 +564,9 @@ namespace pong_cleangui_dg_adv
 
 				if (hasFired(timerTorch))
 				{
-					stepTorches(arTorchPanels, arIndexTorchFrame);
+					TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
 					pageGameOver.show(true);
-					timerTorch.start(nextTorchIntervalUs());
+					timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 				}
 
 				if(hasFired(flagDeshowGameOverPage))

@@ -5,11 +5,9 @@
 #include <esp_timer.h>
 #include <crt_CleanRTOS.h>
 #include "pdga_IDepot.h"
-#include <crt_Button.h>
 
 #include "pdga_GameDisplayControl.h"
-#include "pdga_PaddleControl.h"
-#include "pdga_IBallField.h"
+#include "pdga_IBallCollisionCheck.h"
 #include "pdga_IBallListener.h"
 
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
@@ -67,11 +65,11 @@ namespace pong_cleangui_dg_adv
         IGameDisplayControl* pGameDisplayControl;
 
         // Waar de bal vraagt of hij ergens tegenaan zit, en waar de peddel staat.
-        // Hij kent de crates, vuurkorven en de peddel zelf niet - zie IBallField.
-        IBallField* pBallField;
+        // Hij kent de crates, vuurkorven en de peddel zelf niet - zie IBallCollisionCheck.
+        IBallCollisionCheck* pBallCollisionCheck;
 
         // Wie er iets doet met wat de bal meldt: het spel, want de score is daarvan.
-        // Rechtstreeks en niet via pBallField, want het veld heeft er niets mee te
+        // Rechtstreeks en niet via pBallCollisionCheck, want het veld heeft er niets mee te
         // maken - zie pdga_IBallListener.h.
         IBallListener* pBallListener;
 
@@ -117,7 +115,7 @@ namespace pong_cleangui_dg_adv
         // in een keer. Alles wat een bal verder nodig heeft komt via init().
 		BallControl() :
             pGameDisplayControl(nullptr),
-            pBallField(nullptr),
+            pBallCollisionCheck(nullptr),
             pBallListener(nullptr),
             pDepot(nullptr),
             indexSlot(-1),
@@ -139,10 +137,10 @@ namespace pong_cleangui_dg_adv
 		}
 
         void init(IGameDisplayControl& gameDisplayControl,
-                  IBallField* pBallField, IDepot* pDepot, int indexSlot)
+                  IBallCollisionCheck* pBallCollisionCheck, IDepot* pDepot, int indexSlot)
         {
             this->pGameDisplayControl = &gameDisplayControl;
-            this->pBallField = pBallField;
+            this->pBallCollisionCheck = pBallCollisionCheck;
             this->pDepot = pDepot;
             this->indexSlot = indexSlot;
 
@@ -366,7 +364,7 @@ namespace pong_cleangui_dg_adv
 
             // De peddel: alleen als de bal daalt, en alleen als hij binnen de
             // breedte van de peddel valt.
-            int paddlePosition = (pBallField != nullptr) ? pBallField->getPaddlePosition() : 0;
+            int paddlePosition = (pBallCollisionCheck != nullptr) ? pBallCollisionCheck->getPaddlePosition() : 0;
 
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
@@ -403,7 +401,7 @@ namespace pong_cleangui_dg_adv
         // hij vliegt er doorheen.
         void catchFireIfInFireBin()
         {
-            if ((pBallField == nullptr) || !pBallField->isFireBinTouchedAtPos(posX, posY, ballRadius))
+            if ((pBallCollisionCheck == nullptr) || !pBallCollisionCheck->isFireBinTouchedAtPos(posX, posY, ballRadius))
             {
                 return;
             }
@@ -423,12 +421,12 @@ namespace pong_cleangui_dg_adv
         // is bovendien wat je van een kistje verwacht.
         void bounceOffCrateIfHit()
         {
-            if (pBallField == nullptr)
+            if (pBallCollisionCheck == nullptr)
             {
                 return;
             }
 
-            CrateHit hit = pBallField->getCrateHitAtPos(posX, posY, ballRadius);
+            CrateHit hit = pBallCollisionCheck->getCrateHitAtPos(posX, posY, ballRadius);
             if (!hit.bHit)
             {
                 return;
@@ -437,7 +435,7 @@ namespace pong_cleangui_dg_adv
             // Eerst melden, dan kaatsen. De plek en de maat zitten al in hit, dus
             // dat de crate hierdoor kan opengaan en verdwijnen maakt voor de
             // berekening hieronder niets uit.
-            pBallField->crateWasHitAtPos(hit);
+            pBallCollisionCheck->crateWasHitAtPos(hit);
 
             // Terugduwen langs de as waar hij het minst diep in zit: dat is de
             // kant waar hij binnenkwam. Zou je altijd verticaal kaatsen, dan

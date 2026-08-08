@@ -3,7 +3,7 @@
 #pragma once
 #include <crt_CleanRTOS.h>
 
-// Het speelveld zoals de bal het ervaart.
+// Waar de bal tegenaan zit, en wat dat betekent.
 //
 // UC05_BallHandling: raakt de bal een present crate, dan geeft hij dat door aan
 // dat object (1c); raakt hij een vuurkorf, dan vliegt hij in brand (1d); kaatst
@@ -11,8 +11,14 @@
 // interface, zodat de bal geen enkel ander spelobject bij naam kent, en die
 // objecten geen ballen.
 //
-// Heette eerder IObstacleField, maar dat dekte de lading niet meer: een vuurkorf
-// is geen obstakel (je vliegt er doorheen) en de peddel al helemaal niet.
+// Heette eerder IObstacleField en daarna IBallField. Het eerste dekte de lading
+// niet: een vuurkorf is geen obstakel (je vliegt er doorheen). Het tweede zei
+// alleen dat er een veld was, en niet wat de bal eraan heeft.
+//
+// getPaddlePosition() valt buiten de naam - dat is een vraag en geen botsing.
+// Hij staat hier omdat de bal hem in dezelfde ademtocht stelt, en om de reden
+// die er verderop bij staat: elke bal die het rechtstreeks aan PaddleControl
+// vraagt kost een slotoperatie per beeld.
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
@@ -40,7 +46,7 @@ namespace pong_cleangui_dg_adv
 	//
 	// Wat de bal aan het SPEL meldt zit hier niet in, maar in IBallListener: dat gaat
 	// niet over zijn omgeving maar over de score, en daar hoort het veld niet tussen.
-	class IBallField
+	class IBallCollisionCheck
 	{
 	public:
 		// Raakt de bal op deze plek een present crate, en zo ja: welke, waar, hoe

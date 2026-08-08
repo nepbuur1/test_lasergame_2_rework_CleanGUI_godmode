@@ -2,6 +2,7 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
+#include <crt_Logger.h>
 
 #include "pdga_StartPageDisplayControl.h"
 

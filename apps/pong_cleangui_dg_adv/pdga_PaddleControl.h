@@ -2,6 +2,7 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
+#include <crt_Logger.h>
 #include "pdga_GameDisplayControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.

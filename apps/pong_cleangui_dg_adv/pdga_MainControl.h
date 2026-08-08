@@ -2,15 +2,6 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
-#include <crt_CleanGUI.h>
-
-//#include <crt_TFT_eSPI_DisplayAdapter.h>
-
-#ifdef LOAD_GFXFF
-#include <Free_Fonts.h>
-#endif
-
-#include <crt_TFT_eSPI_FreeFonts.h>
 
 #include "pdga_HallOfFame.h"
 #include "pdga_StartPageControl.h"

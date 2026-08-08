@@ -5,7 +5,7 @@
 #include <crt_IHandlerListener.h>
 
 #include "pdga_Spawnables.h"
-#include "pdga_IGameListener.h"
+#include "pdga_ISpawnablesHandlerListener.h"
 #include "pdga_PaddleControl.h"
 
 // De beeldklok van het spel: wat er per beeld met de spelobjecten gebeurt, en in
@@ -31,7 +31,7 @@ namespace pong_cleangui_dg_adv
 	private:
 		Spawnables& spawnables;
 		PaddleControl& paddleControl;
-		IGameListener* pListener;
+		ISpawnablesHandlerListener* pListener;
 
 		// Om de overgang naar nul te kunnen zien. Alleen "er zijn er nul" is niet
 		// genoeg: voordat de eerste bal wordt gespawnd is dat ook zo, en dan zou
@@ -47,7 +47,7 @@ namespace pong_cleangui_dg_adv
 		{
 		}
 
-		void setGameListener(IGameListener* pListener)
+		void setListener(ISpawnablesHandlerListener* pListener)
 		{
 			this->pListener = pListener;
 		}

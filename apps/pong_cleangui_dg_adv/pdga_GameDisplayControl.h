@@ -632,7 +632,8 @@ namespace pong_cleangui_dg_adv
 			// plek van de knop zelf.
 			//
 			// In pixels en niet meer in promillage, om dezelfde reden als bij de
-			// PLAY-knop - zie initPlayButton() in pdga_PlayButton.h: 190 promille
+			// PLAY-knop - zie initPlayButton() in pdga_StartPageDisplayControl.h:
+			// 190 promille
 			// van 240 is 45,6 pixel, en een panel dat daardoor een pixel groter
 			// uitvalt dan het plaatje krijgt van Panel::needsBackground() de vlakke
 			// rode kleur er alsnog onder geschilderd. Het label is leeg omdat de

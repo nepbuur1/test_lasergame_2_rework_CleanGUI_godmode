@@ -5,7 +5,6 @@
 
 #include "pdga_IDepot.h"
 #include "pdga_GameDisplayControl.h"
-#include "pdga_IBallField.h"
 #include "pdga_IBallSpawner.h"
 
 // UC07_PresentHandling: een present crate wordt door UC04 in het veld gezet,

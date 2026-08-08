@@ -10,11 +10,24 @@
 // gaan en dus alleen bekend zijn bij wie het per beeld afloopt.
 //
 // GameControl implementeert allebei.
+//
+// Waarom een interface en niet gewoon een GameControl& in de handler: dan zou
+// pdga_SpawnablesHandler.h pdga_GameControl.h moeten includen, terwijl die
+// andersom al de handler includet - en in een header-only app is er geen .cpp
+// waar je die knoop mee doorhakt. Bovendien bestaat de handler eerder dan zijn
+// luisteraar: GameControl krijgt hem als constructorargument mee, dus de
+// bedrading kan alleen achteraf via setListener().
+//
+// De tweede reden weegt zwaarder dan de eerste. SpawnablesHandler::update()
+// draait in de Handler-taak en GameControl woont in die van MainControl. Deze
+// twee methodes zijn precies wat er over die grens heen mag - zie de
+// toelichting bij score in pdga_GameControl.h. Met een volle GameControl& in
+// handen zou doGame() er net zo goed bij staan.
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	class IGameListener
+	class ISpawnablesHandlerListener
 	{
 	public:
 		// UC04 stap 4: het spel loopt tot er geen ballen meer in het spel zijn. Wie

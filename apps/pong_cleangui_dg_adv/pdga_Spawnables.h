@@ -8,7 +8,7 @@
 #include "pdga_BallControl.h"
 #include "pdga_CrateControl.h"
 #include "pdga_FireBinControl.h"
-#include "pdga_IBallField.h"
+#include "pdga_IBallCollisionCheck.h"
 #include "pdga_IBallSpawner.h"
 #include "pdga_IBallListener.h"
 
@@ -39,7 +39,7 @@ namespace pong_cleangui_dg_adv
 	typedef Depot<CrateControl, MaxNofCrates> CrateDepot;
 	typedef Depot<FireBinControl, MaxNofFireBins> FireBinDepot;
 
-	class Spawnables : public IBallField, public IBallSpawner
+	class Spawnables : public IBallCollisionCheck, public IBallSpawner
 	{
 	private:
 		// Eigendom, geen verwijzingen. Ze staan in BSS zolang dit object een global
@@ -60,7 +60,7 @@ namespace pong_cleangui_dg_adv
 
 		// De peddelstand van het beeld dat nu berekend wordt. Een keer per beeld
 		// gezet door SpawnablesHandler en daarna door alle ballen gelezen - zie de
-		// toelichting bij IBallField::getPaddlePosition().
+		// toelichting bij IBallCollisionCheck::getPaddlePosition().
 		int paddlePositionThisFrame;
 
 	public:
@@ -110,9 +110,9 @@ namespace pong_cleangui_dg_adv
 			}
 		}
 
-		// --- IBallField: wat een bal aan zijn omgeving vraagt ---
+		// --- IBallCollisionCheck: wat een bal aan zijn omgeving vraagt ---
 
-		// Een bal vraagt of hij ergens tegenaan zit. Zie IBallField.
+		// Een bal vraagt of hij ergens tegenaan zit. Zie IBallCollisionCheck.
 		//
 		// Zoekt en antwoordt, meer niet. Het slotnummer gaat mee zodat de
 		// mededeling hieronder er niet nog een keer voor hoeft te zoeken.
@@ -171,7 +171,7 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Waar de ballen hun peddelstand vandaan halen; zie
-		// IBallField::getPaddlePosition() voor waarom het zo loopt en niet elke bal
+		// IBallCollisionCheck::getPaddlePosition() voor waarom het zo loopt en niet elke bal
 		// het zelf bij PaddleControl ophaalt.
 		/*override*/ int getPaddlePosition()
 		{

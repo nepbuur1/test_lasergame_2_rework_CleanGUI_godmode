@@ -10,7 +10,8 @@
 
 #include <crt_TFT_eSPI_FreeFonts.h>
 
-#include "pdga_PlayButton.h"
+#include "images/_pal8/_allImages.h"
+#include "pdga_TorchesDisplayHelpers.h"
 
 // De DisplayControl van de startpagina, met een eigen PageRoot en een eigen
 // taak. Zie pdga_GameDisplayControl.h voor waarom het verbergen niets tekent.
@@ -19,6 +20,12 @@ using namespace crt;
 namespace pong_cleangui_dg_adv
 {
 	// Zie pdga_BallControl.h: logger komt uit namespace crt, niet uit deze.
+
+	typedef TouchscreenButton<0 /*MaxNofChildren*/, 10/*MaxButtonListenerCount*/> PlayButton;
+
+	// Gecentreerd tussen het regeltje onder de titel (dat op y=124 eindigt) en de
+	// onderkant van het scherm: (124+240)/2 = 182, en de knop is 54 hoog.
+	const int PlayButtonTopPix = 155;
 
 	class IStartPageDisplayControl
 	{
@@ -133,8 +140,36 @@ namespace pong_cleangui_dg_adv
 				Alignment::MidMid, /*colFg*/0x0000B4C8, /*colBg*/0x00000000);
 			creditsPanel.setImage(&imageCreditsLine);
 
-			initPlayButton(buttonStart, screenWidth);
-			initTorches(arTorchPanels, screenWidth, PlayButtonTopPix, imageButtonPlay.height);
+			initPlayButton();
+			TorchesDisplayHelpers::initTorches(arTorchPanels, screenWidth, PlayButtonTopPix, imageButtonPlay.height);
+		}
+
+		void initPlayButton()
+		{
+			// Alles in pixels en niet in promillage. Bij een knop die uit een plaatje
+			// bestaat is dat geen smaak: promillage wordt naar hele pixels afgerond,
+			// en een panel dat daardoor een pixel groter uitvalt dan het plaatje laat
+			// Panel::needsBackground() de vlakke colPanel-kleur er alsnog onder
+			// schilderen. Die rand van een pixel is precies zichtbaar genoeg om lelijk
+			// te zijn.
+			Vec2 sizePix(imageButtonPlay.width, imageButtonPlay.height);
+
+			// Het label is leeg omdat "PLAY" in het plaatje zit - met de schuine kant
+			// en het verloop eromheen, die geen enkele fillRect kan maken. colPanel en
+			// colFont blijven wel ingevuld: het plaatje is transparant rond zijn
+			// afgeronde hoeken, dus zodra iemand de setImage() hieronder weghaalt is
+			// er weer een gewone rode knop met tekst.
+			buttonStart.setTouchScreenButtonProps
+				("play",/*locPos*/Vec2((screenWidth - sizePix.x)/2, PlayButtonTopPix), CoordType::Pixels,
+				/*size*/sizePix, /*cornerRadius*/0, CoordType::Pixels,
+				Alignment::MidMid, /*colPanel*/0x00FF0000, /*colBg*/0x00000000,
+				/*bInvertedArea*/false, "", /*buttonFont*/ 2, /*colFont*/ 0x00FFFFFF,
+				/*fontScale*/ 1, Alignment::MidMid,
+				/*lowerCaseOffsetY*/0, /*upperCaseOffsetY*/0);
+
+			// fontScale 1 en niet 0: bij 0 zoekt TouchscreenButton de grootste schaal
+			// die past, en dat is werk zonder betekenis voor een leeg label.
+			buttonStart.setImage(&imageButtonPlay);
 		}
 
 		// Zie de toelichting bij GameDisplayControl::showPage/hidePage - dit is
@@ -185,12 +220,12 @@ namespace pong_cleangui_dg_adv
 					// Alleen de cel verschuiven; het tekenen gebeurt daarna in een
 					// keer. Met een backbuffer is een gedeeltelijke hertekening
 					// toch niet goedkoper - zie GameDisplayControl.
-					stepTorches(arTorchPanels, arIndexTorchFrame);
+					TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
 					pageStart.show(true);
 
 					// Meteen opnieuw zetten met een verse wachttijd: de timer is
 					// eenmalig, juist om die wachttijd elke stap te kunnen loten.
-					timerTorch.start(nextTorchIntervalUs());
+					timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 				}
 
 				switch(state)
@@ -202,7 +237,7 @@ namespace pong_cleangui_dg_adv
 
 							// De fakkels flakkeren alleen zolang de pagina in beeld
 							// staat: elke tik is een volledige hertekening.
-							timerTorch.start(nextTorchIntervalUs());
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 							state = STATE_SHOWN;
 						}
 						else if(hasFired(flagHideStartPage))
