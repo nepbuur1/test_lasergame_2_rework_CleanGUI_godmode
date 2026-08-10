@@ -27,7 +27,7 @@ namespace pong_cleangui_dg_adv
 
 	private:
 		State state;
-		IGameDisplayControl& displayControl;
+		IGameDisplayControl& gameDisplayControl;
 		Pool<int> poolPaddlePos;
 		Flag flagEnable;
 		Flag flagDisable;
@@ -35,7 +35,7 @@ namespace pong_cleangui_dg_adv
 		Flag flagRightPressed;
 		Flag flagLeftReleased;
 		Flag flagRightReleased;
-		Timer repeatTimer;			// tikt door zolang een knop wordt vastgehouden.
+		Timer moveStepTimer;			// tikt door zolang een knop wordt vastgehouden.
 		int screenWidth;
 		int paddlePosition;
 		int paddleWidth;
@@ -44,18 +44,18 @@ namespace pong_cleangui_dg_adv
 		IButton* pButtonRight;
 
 	public:
-		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& displayControl) :	
+		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& gameDisplayControl) :	
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
 			state(STATE_DISABLED),
-			displayControl(displayControl),
+			gameDisplayControl(gameDisplayControl),
 			flagEnable(this),
 			flagDisable(this),
 			flagLeftPressed(this),
 			flagRightPressed(this),
 			flagLeftReleased(this),
 			flagRightReleased(this),
-			repeatTimer(this),
-			screenWidth(displayControl.getWidth()),
+			moveStepTimer(this),
+			screenWidth(gameDisplayControl.getWidth()),
 			paddlePosition(screenWidth/2),
 			paddleWidth(PaddleWidthPix),
 			paddleDirection(0),
@@ -63,8 +63,8 @@ namespace pong_cleangui_dg_adv
 			pButtonRight(nullptr)
 		{
 			poolPaddlePos.write(paddlePosition);
-			pButtonLeft = displayControl.addLeftButtonListener(this);
-			pButtonRight = displayControl.addRightButtonListener(this);
+			pButtonLeft = gameDisplayControl.addLeftButtonListener(this);
+			pButtonRight = gameDisplayControl.addRightButtonListener(this);
 			start();
 		}
 
@@ -124,7 +124,7 @@ namespace pong_cleangui_dg_adv
 	private:
 		// Een stap in de gevraagde richting, tegen de randen aan begrensd, en
 		// meteen doorgegeven aan wie er iets aan heeft.
-		void movePaddle(int direction)
+		int calcNewPaddlePosition(int paddlePosition, int direction)
 		{
 			int minPosition = WallThicknessPix + paddleWidth/2;
 			int maxPosition = screenWidth - WallThicknessPix - paddleWidth/2;
@@ -133,21 +133,22 @@ namespace pong_cleangui_dg_adv
 
 			if (paddlePosition < minPosition) { paddlePosition = minPosition; }
 			if (paddlePosition > maxPosition) { paddlePosition = maxPosition; }
-
-			displayControl.updatePaddlePosition(paddlePosition);
-
-			// De bal krijgt de positie niet meer toegeschoven, hij haalt hem zelf
-			// op - via Spawnables, dat hem een keer per beeld met
-			// getPaddlePosition() ophaalt. Deze pool is dus de enige koppeling die
-			// daarvoor nodig is.
-			poolPaddlePos.write(paddlePosition);		// facilitatie getPaddlePosition()
+			
+			return  paddlePosition;
 		}
 
 		void stopMoving()
 		{
-			repeatTimer.stop();
+			moveStepTimer.stop();
 			paddleDirection = 0;
 			state = State::STATE_ENABLED;
+		}
+
+		void movePaddle()
+		{
+			paddlePosition=calcNewPaddlePosition(paddlePosition,paddleDirection);
+			poolPaddlePos.write(paddlePosition);		// facilitatie getPaddlePosition()
+			gameDisplayControl.updatePaddlePosition(paddlePosition);
 		}
 
 		/*override keyword not supported*/
@@ -169,11 +170,9 @@ namespace pong_cleangui_dg_adv
 						// staan, mogen de peddel niet meteen op weg sturen.
 						flagLeftPressed.clear();
 						flagRightPressed.clear();
-						flagLeftReleased.clear();
-						flagRightReleased.clear();
 						// Tekenen doet DisplayControl - dat is de hele reden dat de
 						// peddelknoppen daar wonen en niet hier.
-						displayControl.showPaddle();
+						gameDisplayControl.showPaddle();
 						state = State::STATE_ENABLED;
 					break;
 
@@ -181,8 +180,9 @@ namespace pong_cleangui_dg_adv
 						waitAny(flagLeftPressed + flagRightPressed + flagDisable);
 						if (hasFired(flagDisable))
 						{
-							displayControl.hidePaddle();
+							gameDisplayControl.hidePaddle();
 							state = State::STATE_DISABLED;
+							break;
 						}
 						else if(hasFired(flagLeftPressed))
 						{
@@ -197,33 +197,28 @@ namespace pong_cleangui_dg_adv
 							assert(false);
 						}
 
-						if (paddleDirection != 0)
-						{
-							// Meteen een stap, zodat een korte tik ook aankomt, en
-							// daarna doortikken zolang de vinger blijft liggen.
-							movePaddle(paddleDirection);
-							flagLeftReleased.clear();	// een loslaten van voor deze druk telt niet mee.
-							flagRightReleased.clear();
-							repeatTimer.start_periodic(repeatPeriodUs);
-							state = State::STATE_MOVING;
-						}
+						movePaddle();
+						flagLeftReleased.clear();	// een loslaten van voor deze druk telt niet mee.
+						flagRightReleased.clear();
+						moveStepTimer.start_periodic(repeatPeriodUs);
+						state = State::STATE_MOVING;
 					break;
 
 					case State::STATE_MOVING:
-						waitAny(flagLeftReleased + flagRightReleased + flagDisable + repeatTimer);
+						waitAny(flagLeftReleased + flagRightReleased + flagDisable + moveStepTimer);
 						if (hasFired(flagDisable))
 						{
 							stopMoving();
-							displayControl.hidePaddle();
+							gameDisplayControl.hidePaddle();
 							state = State::STATE_DISABLED;
 						}
 						else if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))
 						{
 							stopMoving();
 						}
-						else if (hasFired(repeatTimer))
+						else if (hasFired(moveStepTimer))
 						{
-							movePaddle(paddleDirection);
+							movePaddle();
 						}
 						else
 						{

@@ -58,11 +58,6 @@ namespace pong_cleangui_dg_adv
 		// over twee taken heen; die is niet meer nodig.
 		int32_t score;
 
-		// Om de overgang naar nul ballen te kunnen zien. Alleen "er zijn er nul" is
-		// niet genoeg: voordat de eerste bal wordt gespawnd is dat ook zo, en dan zou
-		// het spel meteen aflopen.
-		int nofBallsInUsePrev;
-
 		Flag flagGameOverLabelPressed;
 		IButton* pGameOverLabel;
 
@@ -82,9 +77,9 @@ namespace pong_cleangui_dg_adv
 		// taken aangeraakt, en moest het goedgaan op impliciete invarianten. Nu doet
 		// een taak alles en is er niets meer om over te redeneren.
 		//
-		// Gevolg voor wie hier iets bijbouwt: ELKE waitAny in dit object moet
-		// timerFrame meenemen. Een wacht die dat niet doet, zet het spelbord stil
-		// zolang hij duurt.
+		// Hij loopt alleen tijdens de spellus in doGame(), en daarbuiten staat het
+		// spelbord dus stil - wat mag, want daarbuiten is er geen bal meer om te
+		// bewegen. Wie hier een wacht bijbouwt hoeft er daarom niets voor te doen.
 		Timer timerFrame;
 
 	public:
@@ -95,7 +90,6 @@ namespace pong_cleangui_dg_adv
 			paddleControl(paddleControl),
 			spawnables(gameDisplayControl),
 			score(0),
-			nofBallsInUsePrev(0),
 			flagGameOverLabelPressed(pTask),
 			pGameOverLabel(nullptr),
 			timerGameOverLabel(pTask),
@@ -157,13 +151,10 @@ namespace pong_cleangui_dg_adv
 
 			pTask->dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-			// Alles wat per spel opnieuw begint, bij elkaar. De score telt omhoog
-			// vanaf nul (ballBouncedOnPaddle), de spawnklok begint vol, en de
-			// balteller op nul - anders zou de eerste beeldstap de overgang naar nul
-			// zien die het spel meteen beeindigt.
+			// Alles wat per spel opnieuw begint, bij elkaar: de score telt omhoog
+			// vanaf nul (ballBouncedOnPaddle) en de spawnklok begint vol.
 			score = 0;
 			nofFramesUntilSpawn = NofFramesPerSpawnInterval;
-			nofBallsInUsePrev = 0;
 
 			// De peddel eerst: die moet er staan voordat de bal eraan komt.
 			paddleControl.enable();
@@ -203,14 +194,24 @@ namespace pong_cleangui_dg_adv
 				}
 			}
 
+			// De beeldklok uit. Alles hierna gebeurt op eigen initiatief, niet meer op
+			// een tik - zie het enkele publishStates() hieronder.
+			timerFrame.stop();
+			timerFrame.clear();
+
 			// Het veld leegmaken; waarom dat nodig is staat bij
 			// Spawnables::releaseCratesAndFireBins().
 			//
-			// Hier en niet bij het begin van het volgende spel: de standen gaan pas
-			// bij de eerstvolgende beeldstap naar de display, en die valt tussen
-			// showGamePage() en de eerste hertekening in. Opruimen aan deze kant
-			// geeft de game-over-pagina ruim de tijd om dat door te laten lopen.
+			// Hier en niet bij het begin van het volgende spel: dan zou het opruimen
+			// tussen showGamePage() en de eerste hertekening in vallen, en flitsten de
+			// kistjes van het vorige spel nog een beeld lang mee.
 			spawnables.releaseCratesAndFireBins();
+
+			// Een keer publiceren, want releaseCratesAndFireBins() haalt ze alleen uit
+			// de depots - het scherm weet er pas van bij de eerstvolgende
+			// publishStates(). Een keer is genoeg: er is geen bal meer in het veld en
+			// dus niets dat nog animeert, dus een tweede beeld zou hetzelfde tonen.
+			spawnables.publishStates(score);
 
 			// De peddelknoppen horen bij het spel, niet bij de game-over-pagina.
 			paddleControl.disable();
@@ -219,14 +220,6 @@ namespace pong_cleangui_dg_adv
 			// een tik of drie seconden - wat het eerst komt. Het spelbord blijft
 			// eronder staan; pas daarna gaat de pagina uit.
 			showGameOverLabel();
-
-			// Pas hier de beeldklok uit: showGameOverLabel() heeft hem nog nodig om
-			// het opgeruimde veld naar het scherm te krijgen. Buiten doGame() hoeft
-			// hij niet te lopen - de spelpagina gaat zo uit, en de displaytaak is
-			// puur vlagsturend, dus zonder nieuw bericht blijft simpelweg het laatste
-			// beeld staan.
-			timerFrame.stop();
-			timerFrame.clear();
 
 			gameDisplayControl.hideGamePage();
 		}
@@ -253,10 +246,10 @@ namespace pong_cleangui_dg_adv
 		// doGame() aan de andere - en moest het goedgaan op invarianten die nergens
 		// waren afgedwongen.
 		//
-		// Geeft true als deze beeldstap de laatste bal uit het veld zag verdwijnen
-		// (UC04 stap 4). Een returnwaarde en geen vlag: een vlag zou toestand zijn die
-		// doGame() bij elk spel moet wissen, en die er dus ook een keer kan blijven
-		// staan.
+		// Geeft true als er na deze beeldstap geen bal meer in het veld is, en het
+		// spel dus afgelopen is (UC04 stap 4). Een returnwaarde en geen vlag: een vlag
+		// zou toestand zijn die doGame() bij elk spel moet wissen, en die er dus ook
+		// een keer kan blijven staan.
 		//
 		// NB: deze functie staat niet in Spawnables zelf.
 		// Reden: Spawnables zie ik als een entity, een datacontainer met
@@ -286,49 +279,31 @@ namespace pong_cleangui_dg_adv
 			// berichten zouden twee hertekeningen kunnen opleveren.
 			spawnables.publishStates(score);
 
-			// UC04 stap 4. De overgang telt, niet de stand: voor de eerste spawn
-			// staat de teller ook op nul.
-			int nofBallsInUse = spawnables.getNofBallsInUse();
-			bool bAllBallsGone = (nofBallsInUsePrev > 0) && (nofBallsInUse == 0);
-			nofBallsInUsePrev = nofBallsInUse;
-			return bAllBallsGone;
+			// UC04 stap 4. De kale stand volstaat, want doGame() zet de eerste bal in
+			// het veld voordat hij de beeldklok start: draait deze functie, dan is er
+			// al een bal geweest. Verplaats die spawn dus niet naar achteren.
+			//
+			// Hier stond een toets op de OVERGANG naar nul, met een vorige stand
+			// erbij. Die was nodig toen de beeldklok een eigen taak had en eeuwig
+			// doortikte, ook waar nul ballen de ruststand is. Nu is hij niet alleen
+			// overbodig maar ronduit ongewenst: mocht de eerste spawn ooit mislukken,
+			// dan zou de overgang nooit komen en zou de lus in doGame() nooit meer
+			// afbreken.
+			return (spawnables.getNofBallsInUse() == 0);
 		}
 
 		void showGameOverLabel()
 		{
+			logger.logText("STATE_SHOW_GAME_OVER_LABEL");
+
 			flagGameOverLabelPressed.clear();
 			gameDisplayControl.showGameOverLabel();
 
-			// Een lus en geen enkele waitAny, want de beeldklok moet hier doortikken.
-			// De aanroeper heeft net releaseCratesAndFireBins() gedaan, en die lege
-			// standen bereiken het scherm pas bij de eerstvolgende publishStates() -
-			// precies wat het commentaar daar belooft. Zonder timerFrame erbij staat
-			// het spelbord drie seconden stil met de kistjes van het vorige spel er
-			// nog op.
+			// Geen beeldklok nodig: het spelbord staat hier stil. Het is al in zijn
+			// eindstand gepubliceerd door de aanroeper, en zonder ballen valt er niets
+			// meer te animeren.
 			timerGameOverLabel.start(GameOverLabelTimeoutMs * 1000);
-			while (true)
-			{
-				pTask->waitAny(flagGameOverLabelPressed + timerGameOverLabel + timerFrame);
-
-				if (pTask->hasFired(timerFrame))
-				{
-					// De uitkomst telt hier niet: het veld is al leeg, dus de overgang
-					// naar nul ballen is allang geweest. Het gaat om het tekenen.
-					(void)updateSpawnables();
-					continue;
-				}
-
-				// Welke van de twee het vignet wegneemt maakt niet uit.
-				if (pTask->hasFired(flagGameOverLabelPressed))
-				{
-					break;
-				}
-
-				if (pTask->hasFired(timerGameOverLabel))
-				{
-					break;
-				}
-			}
+			pTask->waitAny(flagGameOverLabelPressed + timerGameOverLabel);
 
 			// Welke van de twee het was maakt niet uit - het vignet gaat zo weg. Maar
 			// gebeurd is gebeurd, en dat moet weg: waitAny laat de event-bits staan
@@ -354,7 +329,7 @@ namespace pong_cleangui_dg_adv
 		void spawnObject()
 		{
 			int posX, posY;
-			pickSpawnPosition(posX, posY);
+			pickRandomSpawnPosition(posX, posY);
 
 			int nofBalls = spawnables.getNofBallsInUse();
 			bool bFireBin = (nofBalls >= NofBallsForCertainFireBin) ||
@@ -372,21 +347,11 @@ namespace pong_cleangui_dg_adv
 			// vergeten.
 			if (bFireBin)
 			{
-				bool bFireBinSpawned = spawnFireBin(posX, posY, nofBalls);
-				if (bFireBinSpawned)
-				{
-					return;
-				}
-				(void)spawnCrate(posX, posY, nofBalls);
+				(void)spawnFireBin(posX, posY, nofBalls);
 			}
 			else
 			{
-				bool bCrateSpawned = spawnCrate(posX, posY, nofBalls);
-				if (bCrateSpawned)
-				{
-					return;
-				}
-				(void)spawnFireBin(posX, posY, nofBalls);
+				(void)spawnCrate(posX, posY, nofBalls);
 			}
 		}
 
@@ -430,7 +395,7 @@ namespace pong_cleangui_dg_adv
 		// "Ergens in de bovenste helft van het spel" (UC04). Met de halve crate
 		// marge aan alle kanten, zodat hij niet half in een wand of half boven de
 		// helft komt te staan.
-		void pickSpawnPosition(int& posX, int& posY)
+		void pickRandomSpawnPosition(int& posX, int& posY)
 		{
 			int fieldWidth  = gameDisplayControl.getWidth();
 			int fieldHeight = gameDisplayControl.getHeight();
