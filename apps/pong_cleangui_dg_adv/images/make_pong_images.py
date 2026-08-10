@@ -457,10 +457,19 @@ def draw_torch(draw, w, h, phase, colour_layer):
         rx = bodyHalfW * (1.0 - 0.55 * t)
         ry = (handleTop - bodyTop) * 0.55 * (1.0 - 0.25 * t) + 0.4 * SS
         yc = handleTop - (handleTop - bodyTop) * t * 0.85
-        if colour_layer:
-            draw.ellipse([cx - rx, yc - ry, cx + rx, yc + ry], fill=flame_colour(t * 0.45))
-        else:
-            draw.ellipse([cx - rx, yc - ry, cx + rx, yc + ry], fill=255)
+
+        # De voet niet onder de kop laten uitkomen. De onderste ellips is ruim twee
+        # keer zo breed als de steel (0.26w tegen 0.11w) en heeft zijn middelpunt op
+        # handleTop, dus zijn onderste helft stak eronder uit. De steel dekte daar
+        # alleen het midden van af, en wat er links en rechts naast bleef staan las
+        # als een lichtgele boog - het enige aan deze fakkel dat er niet uitzag als
+        # vuur. Afplatten kan niet opvallen: de band loopt door tot
+        # handleTop + h*0.04 en wordt hierna getekend, dus die dekt de rechte
+        # onderrand af.
+        yBottom = min(yc + ry, handleTop)
+
+        draw.ellipse([cx - rx, yc - ry, cx + rx, yBottom],
+                     fill=flame_colour(t * 0.45) if colour_layer else 255)
 
     # 2. De tongen: bijna rechtop, elk met een eigen fase zodat ze om beurten
     #    oplaaien. De x-variatie is klein en met opzet - meer wordt gezwiep.
