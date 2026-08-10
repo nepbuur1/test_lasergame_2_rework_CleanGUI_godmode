@@ -19,14 +19,11 @@
 
 // All Tasks should be created in this main file.
 #include <crt_Logger.h>
-#include <crt_Handler.h>
 #include "pdga_StartPageDisplayControl.h"
 #include "pdga_GameDisplayControl.h"
 #include "pdga_GameOverDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_HallOfFame.h"
-#include "pdga_Spawnables.h"
-#include "pdga_SpawnablesHandler.h"
 #include "pdga_MainControl.h"
 
 using namespace crt;
@@ -102,8 +99,7 @@ namespace pong_cleangui_dg_adv
 	// vol, dan blokkeert de schrijver daarop en komt de tekentaak alsnog aan de
 	// beurt.
 	//
-	// Alleen de taken die niet tekenen (Ball, Paddle, Main, Handler) blijven
-	// eronder.
+	// Alleen de taken die niet tekenen (Paddle, Main) blijven eronder.
 	// De top-5 leeft in de spiffs-partitie, naast de touchkalibratie. Zie
 	// pdga_HallOfFame.h.
 	HallOfFame hallOfFame("/hallOfFame");
@@ -114,30 +110,17 @@ namespace pong_cleangui_dg_adv
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
 
-	// De ballen zijn geen taken maar objecten in een depot: er kunnen er
-	// MaxNofBalls tegelijk zijn (UC07 spawnt er tien ineens), en vijftig taken van
-	// 5000 bytes stack is 250 KB - meer DRAM dan dit bord heeft, zeker met een
-	// backbuffer van 76.800 bytes erbij. Een Handler tikt ze aan; zie
-	// pdga_BallsControl.h en pdga_Depot.h.
-	Spawnables spawnables(gameDisplayControl);
-
-	// De beeldklok van het spel: de volgorde waarin de depots per beeld worden
-	// bijgewerkt, en het publiceren van de standen. Zie pdga_SpawnablesHandler.h.
-	SpawnablesHandler spawnablesHandler(spawnables, paddleControl);
-
-	// Prioriteit 2, gelijk aan asyncDisplay en de DisplayControls. Deze taak
-	// tekent zelf niet, maar hij zet wel de balstanden klaar waar een beeld op
-	// wacht; onder de tekentaak zitten zou hem per beeld opzij laten schuiven.
+	// Hier stonden de spawnables en hun beeldklok als losse globals. Ze zitten nu in
+	// GameControl: dat drijft de klok aan, dus dat hoort ze ook te bezitten. Het
+	// geheugen is niet verhuisd - het staat nog steeds in BSS, alleen binnen
+	// mainControl hieronder.
 	//
-	// De periode is de beeldklok van het spel. Hij verving de xTaskDelayUntil die
-	// BallControl zelf had - Handler rekent zijn interval af vanaf het eind van de
-	// vorige ronde, dus de looptijd van het werk telt niet op bij de pauze.
-	Handler<4/*MaxNofListeners*/> handler("Handler", 2 /*priority*/, ARDUINO_RUNNING_CORE, FrameIntervalMs);
-
-	MainControl mainControl("MainControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE,
+	// De stack van die taak draagt de hele beeldstap: doGame() roept
+	// updateSpawnables() aan, en daar hangt de balketen tot en met publishStates()
+	// onder. De Handler-taak die dat eerder deed had daar zijn eigen ~5,5 KB voor.
+	MainControl mainControl("MainControl", 1 /*priority*/, 9000 /*stack size*/, ARDUINO_RUNNING_CORE,
 	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl,
-	                        spawnables, spawnablesHandler, paddleControl,
-	                        hallOfFame);
+	                        paddleControl, hallOfFame);
 }
 
 void setup()
@@ -155,11 +138,6 @@ void setup()
 	// deze regel is er ruim binnen. Dat is de hele synchronisatie - er is geen
 	// moment waarop er al getekend wordt en het palet nog niet staat.
 	pong_cleangui_dg_adv::tft_eSPI_DisplayAdapter.setPalette(crt::arPalette);
-
-	// Aanmelden bij de Handler. Dit moet binnen 500 ms na het opstarten gebeuren:
-	// Handler::main() wacht zo lang voordat hij begint met tikken, juist zodat
-	// zijn luisteraars zich kunnen melden. setup() draait ruim binnen die tijd.
-	pong_cleangui_dg_adv::handler.addHandlerListener(&pong_cleangui_dg_adv::spawnablesHandler);
 
 	// De top-5 uit de spiffs-partitie halen. Hier en niet in een constructor:
 	// LITTLEFS moet aangekoppeld zijn, en dat gebeurt pas als er iets om vraagt.

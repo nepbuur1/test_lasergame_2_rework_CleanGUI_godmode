@@ -22,7 +22,7 @@
 //
 // Wat er NIET in zit - dit is opslag met wat gemak eromheen, en niets meer:
 // - De beeldklok. De volgorde waarin de depots per beeld worden bijgewerkt is een
-//   zaak op zich; die staat in SpawnablesHandler.
+//   zaak op zich; die staat in GameControl::updateSpawnables().
 // - De score. Die hoort bij het spel - zie GameControl. Een bal die op de peddel
 //   kaatst meldt dat daar rechtstreeks, niet hierlangs (pdga_IBallListener.h).
 // - Wat een treffer op een crate betekent. Dat staat in CrateControl::wasHit(); hier
@@ -42,8 +42,9 @@ namespace pong_cleangui_dg_adv
 	class Spawnables : public IBallCollisionCheck, public IBallSpawner
 	{
 	private:
-		// Eigendom, geen verwijzingen. Ze staan in BSS zolang dit object een global
-		// is - een Spawnables op een stack zou er meteen door omvallen.
+		// Eigendom, geen verwijzingen. Ze staan in BSS zolang dit object dat doet -
+		// het is een lid van GameControl, dat in MainControl zit, dat een global is in
+		// de ino. Een Spawnables op een stack zou er meteen door omvallen.
 		BallDepot    ballDepot;
 		CrateDepot   crateDepot;
 		FireBinDepot fireBinDepot;
@@ -52,15 +53,15 @@ namespace pong_cleangui_dg_adv
 
 		// Worden elk beeld opnieuw gevuld en daarna weggeschreven. Als lid en niet
 		// als lokale variabele: samen zijn ze bijna een kilobyte, en dat elk beeld
-		// op de stack van de Handler-taak zetten is precies het soort ding waar een
-		// stack-overflow uit voortkomt.
+		// op de stack van de aanroepende taak zetten is precies het soort ding waar
+		// een stack-overflow uit voortkomt.
 		BallStates ballStates;
 		CrateStates crateStates;
 		FireBinStates fireBinStates;
 
-		// De peddelstand van het beeld dat nu berekend wordt. Een keer per beeld
-		// gezet door SpawnablesHandler en daarna door alle ballen gelezen - zie de
-		// toelichting bij IBallCollisionCheck::getPaddlePosition().
+		// De peddelstand van het beeld dat nu berekend wordt. Een keer per beeld gezet
+		// door GameControl::updateSpawnables() en daarna door alle ballen gelezen -
+		// zie de toelichting bij IBallCollisionCheck::getPaddlePosition().
 		int paddlePositionThisFrame;
 
 	public:
@@ -194,10 +195,11 @@ namespace pong_cleangui_dg_adv
 			return true;
 		}
 
-		// Een crate in het veld zetten. Aangeroepen vanuit GameControl (UC04), dus
-		// vanuit een andere taak dan waarin de beeldklok draait. Het gaat om het
-		// vullen van een slot dat nog van niemand was, dus daar zit geen race in die
-		// kwaad kan.
+		// Een crate in het veld zetten. Aangeroepen vanuit GameControl (UC04) - net
+		// als de beeldklok, en dus uit dezelfde taak. Dat is geen toeval maar het
+		// hele punt van de opzet: obtain() en release() zijn lock-vrij, dus alles wat
+		// aan de depots komt hoort in een taak te zitten. Zie
+		// GameControl::updateSpawnables().
 		bool spawnCrateAt(int posX, int posY)
 		{
 			int indexCrate = crateDepot.obtain();
@@ -243,7 +245,7 @@ namespace pong_cleangui_dg_adv
 		int getNofCratesInUse()   { return crateDepot.getNofInUse(); }
 		int getNofFireBinsInUse() { return fireBinDepot.getNofInUse(); }
 
-		// --- per beeld; de volgorde staat in SpawnablesHandler ---
+		// --- per beeld; de volgorde staat in GameControl::updateSpawnables() ---
 
 		void setPaddlePosition(int paddlePosition)
 		{

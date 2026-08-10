@@ -71,11 +71,14 @@ namespace pong_cleangui_dg_adv
 		// Via het veld en niet rechtstreeks bij PaddleControl, en dat is geen
 		// stijlkeuze: PaddleControl::getPaddlePosition() gaat via een Pool, en die neemt
 		// een SimpleMutex. Met vijftig ballen waren dat vijftig slotoperaties per
-		// beeld op een slot dat ook door PaddleControl zelf wordt genomen - en die
-		// draait op een lagere prioriteit, dus de Handler kon daar op gaan staan
-		// wachten. Het veld leest de stand nu een keer per beeld, in dezelfde taak
-		// waarin de ballen daarna hun update() doen, en er valt niets meer te
-		// vergrendelen.
+		// beeld op een slot dat ook door PaddleControl zelf wordt genomen - een eigen
+		// taak, dus daar viel echt op te wachten. Het veld leest de stand nu een keer
+		// per beeld, in dezelfde taak waarin de ballen daarna hun update() doen, en
+		// er valt niets meer te vergrendelen.
+		//
+		// Dit is de enige plek waar de beeldstap nog een taakgrens oversteekt. Al het
+		// andere - de depots, de standen, de score - zit sinds de beeldklok bij
+		// GameControl woont in een taak; zie pdga_GameControl.h.
 		//
 		// Bijvangst, en niet de minste: alle ballen van een beeld zien gegarandeerd
 		// dezelfde peddel.

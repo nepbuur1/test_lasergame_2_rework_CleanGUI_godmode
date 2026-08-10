@@ -110,7 +110,8 @@ namespace pong_cleangui_dg_adv
 		// dan blijft de lijst leeg - dat is geen fout maar een eerste keer.
 		void load()
 		{
-			if (!beginFileSystem())
+			bool bFileSystemReady = beginFileSystem();
+			if (!bFileSystemReady)
 			{
 				return;
 			}
@@ -164,7 +165,8 @@ namespace pong_cleangui_dg_adv
 
 		void save()
 		{
-			if (!beginFileSystem())
+			bool bFileSystemReady = beginFileSystem();
+			if (!bFileSystemReady)
 			{
 				return;
 			}
@@ -198,7 +200,8 @@ namespace pong_cleangui_dg_adv
 		// eerder was.
 		bool beginFileSystem()
 		{
-			if (LITTLEFS.begin())
+			bool bFileSystemStarted = LITTLEFS.begin();
+			if (bFileSystemStarted)
 			{
 				return true;
 			}

@@ -9,9 +9,7 @@
 
 #include "pdga_GameDisplayControl.h"
 #include "pdga_Spawnables.h"
-#include "pdga_SpawnablesHandler.h"
 #include "pdga_IBallListener.h"
-#include "pdga_ISpawnablesHandlerListener.h"
 #include "pdga_PaddleControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
@@ -23,70 +21,98 @@ namespace pong_cleangui_dg_adv
 	// onderlijn, dan komt er een object bij.
 	const int SpawnIntervalMs = 3000;
 
+	// Diezelfde invariant, uitgedrukt in beeldstappen. Geteld op de beeldklok in
+	// plaats van op een eigen Timer: dat scheelt een esp_timer en een event-bit, en
+	// het haalt een valkuil weg. Een timertik die vlak voor het einde van een spel
+	// valt en niet meer wordt getoetst, blijft als bit staan en zet in het volgende
+	// spel meteen een object neer; een teller die doGame() bij het begin zet, kan
+	// dat niet.
+	const int NofFramesPerSpawnInterval = SpawnIntervalMs / FrameIntervalMs;
+
 	// UC04, uitzondering: het GAME OVER-vignet blijft hooguit zo lang staan. Een
 	// tik erop gaat voor.
 	const int GameOverLabelTimeoutMs = 3000;
 
-	class GameControl : public IBallListener, public ISpawnablesHandlerListener, public IButtonListener
+	class GameControl : public IBallListener, public IButtonListener
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
 		IGameDisplayControl& gameDisplayControl;
-		Spawnables& spawnables;
-		SpawnablesHandler& spawnablesHandler;
 		PaddleControl& paddleControl;
+
+		// Eigendom, geen verwijzing: dit object bezit de depots en dus de vijftig
+		// ballen, de crates en de vuurkorven. Het bezit hoort hier omdat de beeldklok
+		// hier draait - zie updateSpawnables(). Zolang GameControl in BSS staat, staat
+		// dit dat ook: het zit in MainControl, en dat is een global in de ino. Op een
+		// stack zou het er meteen door omvallen.
+		Spawnables spawnables;
 
 		// De score van het lopende spel (UC05 stap 1a). Hij woont hier omdat hij bij
 		// het spel hoort en niet bij de objecten die hem verdienen.
 		//
-		// Let op de taken: opgehoogd en uitgelezen vanuit de Handler-taak - een bal
-		// die kaatst meldt dat, en publishStates() vraagt hem elk beeld op - terwijl
-		// dit object in de taak van MainControl woont. Geen Pool nodig: een
-		// uitgelijnde int32_t is op de ESP32 ondeelbaar, en een beeld verschil in
-		// wat het scherm toont is niet te zien. De lezer die er wel om geeft is
-		// MainControl, via getScore(), en die leest pas nadat doGame() is
-		// teruggekeerd - dus als er niets meer aan telt.
+		// Geen Pool nodig, en sinds de beeldklok hier woont ook niet meer om een
+		// subtiele reden: ophogen en uitlezen gebeuren allebei in deze taak. Een bal
+		// die kaatst meldt het via ballBouncedOnPaddle(), en publishStates() leest hem
+		// elk beeld - allebei binnen de updateSpawnables() die de lus van doGame()
+		// zelf aanroept. Hier stond eerder een redenering over een ondeelbare int32_t
+		// over twee taken heen; die is niet meer nodig.
 		int32_t score;
 
-		Flag flagAllBallsGone;
+		// Om de overgang naar nul ballen te kunnen zien. Alleen "er zijn er nul" is
+		// niet genoeg: voordat de eerste bal wordt gespawnd is dat ook zo, en dan zou
+		// het spel meteen aflopen.
+		int nofBallsInUsePrev;
+
 		Flag flagGameOverLabelPressed;
 		IButton* pGameOverLabel;
 
 		// Eenmalig, voor de uitzondering van UC04.
 		Timer timerGameOverLabel;
 
-		// De invariant-klok van UC04. Een Timer en geen vTaskDelay: er moet
-		// tegelijk op het einde van het spel gewacht kunnen worden, en dat gaat
-		// alleen in dezelfde waitAny.
-		Timer timerSpawn;
+		// De invariant-klok van UC04, afgeteld in beeldstappen; zie
+		// NofFramesPerSpawnInterval.
+		int nofFramesUntilSpawn;
+
+		// De beeldklok van het spel: FrameIntervalMs, 25 beelden per seconde.
+		//
+		// Deze woont hier, en niet meer in een eigen Handler-taak, om een reden die
+		// niets met beeld te maken heeft: Depot::obtain() en release() zijn
+		// lock-vrij (zie pdga_Depot.h). Zolang de beeldklok in een andere taak liep
+		// dan de spawns hieronder, werden Spawnables en de drie depots door twee
+		// taken aangeraakt, en moest het goedgaan op impliciete invarianten. Nu doet
+		// een taak alles en is er niets meer om over te redeneren.
+		//
+		// Gevolg voor wie hier iets bijbouwt: ELKE waitAny in dit object moet
+		// timerFrame meenemen. Een wacht die dat niet doet, zet het spelbord stil
+		// zolang hij duurt.
+		Timer timerFrame;
 
 	public:
 		GameControl(Task* pTask, IGameDisplayControl& gameDisplayControl,
-					Spawnables& spawnables, SpawnablesHandler& spawnablesHandler,
 					PaddleControl& paddleControl) :
 			pTask(pTask),
 			gameDisplayControl(gameDisplayControl),
-			spawnables(spawnables),
-			spawnablesHandler(spawnablesHandler),
 			paddleControl(paddleControl),
+			spawnables(gameDisplayControl),
 			score(0),
-			flagAllBallsGone(pTask),
+			nofBallsInUsePrev(0),
 			flagGameOverLabelPressed(pTask),
 			pGameOverLabel(nullptr),
 			timerGameOverLabel(pTask),
-			timerSpawn(pTask)
+			nofFramesUntilSpawn(NofFramesPerSpawnInterval),
+			timerFrame(pTask)
 		{
 			// Eenmalig zaaien, hier en niet in elk spelobject: srand() zet de reeks
 			// terug, dus vijftig keer achter elkaar zaaien met vrijwel dezelfde
 			// klokstand levert juist minder toeval op.
 			srand((unsigned int)esp_timer_get_time());
 
-			// Twee aparte bedradingen, want het zijn twee verschillende rollen. De
-			// ballen melden hun peddelkaatsingen (IBallListener) en gaan daarvoor
-			// niet meer langs hun veld; de beeldklok meldt dat de laatste bal weg is
-			// en vraagt elk beeld de score op (ISpawnablesHandlerListener).
+			// De ballen melden hun peddelkaatsingen rechtstreeks aan het spel en gaan
+			// daarvoor niet langs hun veld; zie pdga_IBallListener.h. Dat blijft een
+			// interface, want een bal mag GameControl niet kennen. Hier stond ook nog
+			// een setListener() voor de beeldklok - die melding is nu de returnwaarde
+			// van updateSpawnables(), want die functie staat in deze klasse zelf.
 			spawnables.setBallListener(this);
-			spawnablesHandler.setListener(this);
 
 			pGameOverLabel = gameDisplayControl.addGameOverLabelListener(this);
 		}
@@ -100,18 +126,11 @@ namespace pong_cleangui_dg_adv
 			score++;
 		}
 
-		// --- ISpawnablesHandlerListener: wat de beeldklok meldt en vraagt ---
-
-		// De score van het zojuist gespeelde spel, voor UC03. Ook elk beeld gevraagd
-		// door de beeldklok, om hem op het scherm te zetten.
-		/*override*/ int32_t getScore()
+		// De score van het zojuist gespeelde spel, voor UC03. Gelezen door
+		// MainControl, nadat doGame() is teruggekeerd.
+		int32_t getScore()
 		{
 			return score;
-		}
-
-		/*override*/ void allBallsGone()
-		{
-			flagAllBallsGone.set();
 		}
 
 		/*override*/ void buttonPressed(IButton* pButton)
@@ -135,42 +154,54 @@ namespace pong_cleangui_dg_adv
 		void doGame()
 		{
 			gameDisplayControl.showGamePage();
-			flagAllBallsGone.clear();	// een afgelopen spel mag dit spel niet meteen beeindigen.
 
 			pTask->dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-			// Elk spel begint op nul (ballBouncedOnPaddle telt hem omhoog).
+			// Alles wat per spel opnieuw begint, bij elkaar. De score telt omhoog
+			// vanaf nul (ballBouncedOnPaddle), de spawnklok begint vol, en de
+			// balteller op nul - anders zou de eerste beeldstap de overgang naar nul
+			// zien die het spel meteen beeindigt.
 			score = 0;
+			nofFramesUntilSpawn = NofFramesPerSpawnInterval;
+			nofBallsInUsePrev = 0;
 
 			// De peddel eerst: die moet er staan voordat de bal eraan komt.
 			paddleControl.enable();
 
 			// De eerste bal in het spel zetten. Een leeg depot is geen fout maar een
 			// uitkomst - het depot meldt het zelf - dus de uitkomst boeit hier niet.
-			spawnables.spawnBallInTheMiddle();
+			(void)spawnables.spawnBallInTheMiddle();
 
 			// One and only state for now:
 			// STATE_GAME_RUNNING:
 			logger.logText("STATE_GAME_RUNNING");
 
-			timerSpawn.start_periodic(SpawnIntervalMs * 1000);
+			// De beeldklok aan. Vanaf hier draait de hele spelupdate in deze taak, in
+			// de lus hieronder, en hangt alles aan deze ene tik: het bewegen, het
+			// tekenen, het einde van het spel en de invariant van UC04.
+			timerFrame.start_periodic(FrameIntervalMs * 1000);
 
 			while (true)
 			{
-				pTask->waitAny(flagAllBallsGone + timerSpawn);
+				// NB: door te wachten op een periodieke timer krijg je 
+				// strakker reproduceerbare timing dan met vTaskDelay
+				// (omdat bij laatsgenoemde je ook afhankelijk bent van hoeveel
+				//  tijd is doorgebracht tijdens updateSpawnables)
+				pTask->wait(timerFrame);
 
-				if (pTask->hasFired(flagAllBallsGone))
+				bool bAllBallsGone = updateSpawnables();
+				if (bAllBallsGone)
 				{
-					break;
+					break;		// UC04 stap 4: de laatste bal is weg.
 				}
 
-				if (pTask->hasFired(timerSpawn))
+				nofFramesUntilSpawn--;
+				if (nofFramesUntilSpawn <= 0)
 				{
+					nofFramesUntilSpawn = NofFramesPerSpawnInterval;
 					spawnObject();
 				}
 			}
-
-			timerSpawn.stop();
 
 			// Het veld leegmaken; waarom dat nodig is staat bij
 			// Spawnables::releaseCratesAndFireBins().
@@ -189,17 +220,115 @@ namespace pong_cleangui_dg_adv
 			// eronder staan; pas daarna gaat de pagina uit.
 			showGameOverLabel();
 
+			// Pas hier de beeldklok uit: showGameOverLabel() heeft hem nog nodig om
+			// het opgeruimde veld naar het scherm te krijgen. Buiten doGame() hoeft
+			// hij niet te lopen - de spelpagina gaat zo uit, en de displaytaak is
+			// puur vlagsturend, dus zonder nieuw bericht blijft simpelweg het laatste
+			// beeld staan.
+			timerFrame.stop();
+			timerFrame.clear();
+
 			gameDisplayControl.hideGamePage();
 		}
 
 	private:
+		// De beeldklok van het spel: wat er per beeld met de spelobjecten gebeurt, en
+		// in welke volgorde. Aangeroepen op elke tik van timerFrame.
+		//
+		// Dat dit een functie op zich is en niet los in de lus hierboven staat, is
+		// precies om die volgorde. Die is geen implementatiedetail - er zitten drie
+		// afspraken in die je aan de losse depots niet kunt zien - en zulke afspraken
+		// horen op een plek te staan waar ze te lezen zijn in plaats van verspreid
+		// over de objecten die eraan meedoen.
+		//
+		// De depots zijn ook niet zelf aan de klok te hangen, en dat is met opzet: dan
+		// bepaalt de registratievolgorde of het beeld klopt, en dat is het soort
+		// afhankelijkheid dat stilzwijgend stukgaat zodra iemand een regel verplaatst.
+		//
+		// Dat dit hier staat en niet in een eigen klasse met een eigen taak, is geen
+		// beeldkwestie maar een taakkwestie: Depot::obtain() en release() zijn
+		// lock-vrij (zie pdga_Depot.h), dus Spawnables en de drie depots horen door
+		// precies een taak aangeraakt te worden. Zolang de beeldklok elders liep waren
+		// dat er twee - deze functie aan de ene kant, de spawns en het opruimen in
+		// doGame() aan de andere - en moest het goedgaan op invarianten die nergens
+		// waren afgedwongen.
+		//
+		// Geeft true als deze beeldstap de laatste bal uit het veld zag verdwijnen
+		// (UC04 stap 4). Een returnwaarde en geen vlag: een vlag zou toestand zijn die
+		// doGame() bij elk spel moet wissen, en die er dus ook een keer kan blijven
+		// staan.
+		//
+		// NB: deze functie staat niet in Spawnables zelf.
+		// Reden: Spawnables zie ik als een entity, een datacontainer met
+		// eenvoudige convenience functies - voor massa aanroepen, setten en getten.
+		// Hier, in GameControl wordt bepaald of en wanneer ze worden aangeroepen.
+		bool updateSpawnables()
+		{
+			// De peddelstand een keer ophalen, voordat er iets beweegt. Daarmee
+			// rekenen alle ballen van dit beeld met dezelfde peddel, en gaat het
+			// slot van de Pool een keer om in plaats van vijftig keer.
+			spawnables.setPaddlePosition(paddleControl.getPaddlePosition());
+
+			// Crates en vuurkorven eerst. De korven tellen hun levensduur af en
+			// geven zichzelf terug als ze op zijn (UC08); dat moet gebeurd zijn
+			// voordat de ballen kijken of ze er een raken.
+			spawnables.updateCratesAndFireBins();
+
+			// Dan de ballen. Een bal die daarbij het scherm verlaat geeft zichzelf
+			// terug aan het depot, en een bal die een crate opent laat er tien
+			// bijkomen. Allebei mag midden in die lus: een Depot perst zijn
+			// administratie niet samen. Een bal die in een hoger slot bijkomt doet
+			// dit beeld nog een stap, een in een lager slot pas het volgende - en
+			// geen van beide is te zien.
+			spawnables.updateBalls();
+
+			// De score gaat in hetzelfde beeldbericht mee als de standen; twee losse
+			// berichten zouden twee hertekeningen kunnen opleveren.
+			spawnables.publishStates(score);
+
+			// UC04 stap 4. De overgang telt, niet de stand: voor de eerste spawn
+			// staat de teller ook op nul.
+			int nofBallsInUse = spawnables.getNofBallsInUse();
+			bool bAllBallsGone = (nofBallsInUsePrev > 0) && (nofBallsInUse == 0);
+			nofBallsInUsePrev = nofBallsInUse;
+			return bAllBallsGone;
+		}
+
 		void showGameOverLabel()
 		{
 			flagGameOverLabelPressed.clear();
 			gameDisplayControl.showGameOverLabel();
 
+			// Een lus en geen enkele waitAny, want de beeldklok moet hier doortikken.
+			// De aanroeper heeft net releaseCratesAndFireBins() gedaan, en die lege
+			// standen bereiken het scherm pas bij de eerstvolgende publishStates() -
+			// precies wat het commentaar daar belooft. Zonder timerFrame erbij staat
+			// het spelbord drie seconden stil met de kistjes van het vorige spel er
+			// nog op.
 			timerGameOverLabel.start(GameOverLabelTimeoutMs * 1000);
-			pTask->waitAny(flagGameOverLabelPressed + timerGameOverLabel);
+			while (true)
+			{
+				pTask->waitAny(flagGameOverLabelPressed + timerGameOverLabel + timerFrame);
+
+				if (pTask->hasFired(timerFrame))
+				{
+					// De uitkomst telt hier niet: het veld is al leeg, dus de overgang
+					// naar nul ballen is allang geweest. Het gaat om het tekenen.
+					(void)updateSpawnables();
+					continue;
+				}
+
+				// Welke van de twee het vignet wegneemt maakt niet uit.
+				if (pTask->hasFired(flagGameOverLabelPressed))
+				{
+					break;
+				}
+
+				if (pTask->hasFired(timerGameOverLabel))
+				{
+					break;
+				}
+			}
 
 			// Welke van de twee het was maakt niet uit - het vignet gaat zo weg. Maar
 			// gebeurd is gebeurd, en dat moet weg: waitAny laat de event-bits staan
@@ -237,23 +366,38 @@ namespace pong_cleangui_dg_adv
 			// gebeurt er drie seconden lang niets - en daarna weer niet. Het
 			// speelveld staat dan stil terwijl de invariant juist zegt dat er iets
 			// bij hoort te komen.
+			// De tweede poging levert wel een uitkomst op, maar er is niets meer mee te
+			// doen: zijn ze allebei vol, dan gaat deze tik verloren en komt er over
+			// drie seconden een nieuwe. Vandaar de (void) - bewust genegeerd, niet
+			// vergeten.
 			if (bFireBin)
 			{
-				if (spawnFireBin(posX, posY, nofBalls)) { return; }
-				spawnCrate(posX, posY, nofBalls);
+				bool bFireBinSpawned = spawnFireBin(posX, posY, nofBalls);
+				if (bFireBinSpawned)
+				{
+					return;
+				}
+				(void)spawnCrate(posX, posY, nofBalls);
 			}
 			else
 			{
-				if (spawnCrate(posX, posY, nofBalls)) { return; }
-				spawnFireBin(posX, posY, nofBalls);
+				bool bCrateSpawned = spawnCrate(posX, posY, nofBalls);
+				if (bCrateSpawned)
+				{
+					return;
+				}
+				(void)spawnFireBin(posX, posY, nofBalls);
 			}
 		}
 
+		// Geeft terug of het gelukt is; een vol depot is geen fout maar een uitkomst,
+		// en het depot meldt het zelf.
 		bool spawnFireBin(int posX, int posY, int nofBalls)
 		{
-			if (!spawnables.spawnFireBinAt(posX, posY))
+			bool bSpawned = spawnables.spawnFireBinAt(posX, posY);
+			if (!bSpawned)
 			{
-				return false;		// vol depot meldt zichzelf.
+				return false;
 			}
 
 #ifdef PONG_MEASURE
@@ -265,9 +409,11 @@ namespace pong_cleangui_dg_adv
 			return true;
 		}
 
+		// Zelfde afspraak als spawnFireBin().
 		bool spawnCrate(int posX, int posY, int nofBalls)
 		{
-			if (!spawnables.spawnCrateAt(posX, posY))
+			bool bSpawned = spawnables.spawnCrateAt(posX, posY);
+			if (!bSpawned)
 			{
 				return false;
 			}

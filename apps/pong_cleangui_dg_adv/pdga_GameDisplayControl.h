@@ -27,8 +27,8 @@
 // veld" af te lezen in plaats van te beredeneren.
 //
 // Uit, omdat het geld kost waar het gemeten wordt: een logregel is bij 115200
-// baud zo'n 7 ms, en de spawn-regels lopen in de taak van de Handler - een kwart
-// van een beeld.
+// baud zo'n 7 ms, en de spawn-regels lopen in de taak waarin ook de beeldklok
+// zit - een kwart van een beeld.
 //#define PONG_MEASURE
 
 using namespace crt;
@@ -48,9 +48,9 @@ namespace pong_cleangui_dg_adv
 	// beeld te vroeg of te laat.
 	struct BallState
 	{
-		BallState():posX(0),posY(0),bActive(false),bBurning(false),indexBurningStep(0){}
-		BallState(int posX, int posY, bool bBurning, int32_t indexBurningStep)
-			:posX(posX),posY(posY),bActive(true),bBurning(bBurning),indexBurningStep(indexBurningStep){}
+		BallState():posX(0),posY(0),bActive(false),bBurning(false),indexBurnAnimationStep(0){}
+		BallState(int posX, int posY, bool bBurning, int32_t indexBurnAnimationStep)
+			:posX(posX),posY(posY),bActive(true),bBurning(bBurning),indexBurnAnimationStep(indexBurnAnimationStep){}
 
 		int posX;
 		int posY;
@@ -65,7 +65,7 @@ namespace pong_cleangui_dg_adv
 
 		// Hoeveel stappen deze bal al brandt. De display maakt er een cel van de
 		// spritesheet van; hoeveel cellen die heeft blijft kennis van de display.
-		int32_t indexBurningStep;
+		int32_t indexBurnAnimationStep;
 	};
 
 	// Hoeveel present crates er tegelijk in het veld kunnen staan, hoe groot ze
@@ -799,15 +799,15 @@ namespace pong_cleangui_dg_adv
 		// als de bal langer brandt dan verwacht - dat kan niet gebeuren zolang
 		// BallBurnUpMs en NofBurnStages bij elkaar passen, maar een index buiten
 		// de sheet is een fout die je pas op het scherm ziet.
-		static int burningFrameIndex(int32_t indexBurningStep)
+		static int burningFrameIndex(int32_t indexBurnAnimationStep)
 		{
-			int32_t stage = indexBurningStep / NofStepsPerBurnStage;
+			int32_t stage = indexBurnAnimationStep / NofStepsPerBurnStage;
 			if (stage >= NofBurnStages)
 			{
 				stage = NofBurnStages - 1;
 			}
 
-			int32_t indexInStage = indexBurningStep % NofFramesPerBurnStage;
+			int32_t indexInStage = indexBurnAnimationStep % NofFramesPerBurnStage;
 			return 1 + (int)(stage * NofFramesPerBurnStage + indexInStage);
 		}
 
@@ -910,7 +910,7 @@ namespace pong_cleangui_dg_adv
 				// sheet heeft is kennis van deze klasse; de bal telt alleen hoe
 				// lang hij al brandt.
 				panel.setImageFrame(0, ballState.bBurning
-					? burningFrameIndex(ballState.indexBurningStep)
+					? burningFrameIndex(ballState.indexBurnAnimationStep)
 					: 0);
 			}
 		}
