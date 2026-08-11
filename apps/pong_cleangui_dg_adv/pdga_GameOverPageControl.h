@@ -69,10 +69,6 @@ namespace pong_cleangui_dg_adv
 			gameOverDisplayControl.showGameOverPage();
 			pTask->dumpStackHighWaterMarkIfIncreased(); // This function call takes about 0.25ms! It should be called while debugging only.
 
-			// Een druk van voor deze pagina telt niet mee: de knop zit op dezelfde
-			// plek als waar tijdens het spel gespeeld werd.
-			flagStartPressed.clear();
-
 			// UC03 stap 1: alleen als de score een plek verdient.
 			if (hallOfFame.isQualifyingScore(score))
 			{
@@ -85,13 +81,10 @@ namespace pong_cleangui_dg_adv
 				ESP_LOGI("pong", "top-5: '%s' met %d punten opgeslagen", strName, (int)score);
 			}
 
-			// UC03 stap 2 en 3: de lijst tonen en wachten op "Play Again".
-			gameOverDisplayControl.showHallOfFame(hallOfFame);
-
-			// Nog een keer wissen: tijdens het intypen kan de knop niet geraakt
-			// zijn, maar de aanraking waarmee ENTER werd ingedrukt hoeft niet per
-			// se de laatste te zijn geweest.
+			gameOverDisplayControl.showHallOfFame(hallOfFame.getHallOfFameData());
 			flagStartPressed.clear();
+
+			// One and only state: STATE_WAITING_FOR_START
 			pTask->wait(flagStartPressed);
 
 			gameOverDisplayControl.hideGameOverPage();

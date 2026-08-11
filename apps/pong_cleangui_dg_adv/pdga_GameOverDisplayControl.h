@@ -75,7 +75,7 @@ namespace pong_cleangui_dg_adv
 			virtual void showNameInput() = 0;
 
 			// UC03 stap 2: de lijst, met de knop eronder.
-			virtual void showHallOfFame(const HallOfFame& hallOfFame) = 0;
+			virtual void showHallOfFame(const HallOfFameData& hallOfFameData) = 0;
 
 			virtual void showGameOverPage() = 0;
 			virtual void hideGameOverPage() = 0;
@@ -91,8 +91,8 @@ namespace pong_cleangui_dg_adv
 
 		enum Phase
 		{
-			PHASE_NAME,		// invoerveld en toetsenbord
-			PHASE_LIST		// hall of fame en de knop
+			PHASE_NAME_INPUT,		// invoerveld en toetsenbord
+			PHASE_HALLOFFAME		// hall of fame en de knop
 		};
 
 		// De naam met zijn plaatsnummer ("1  marius") en de score staan in twee
@@ -159,7 +159,7 @@ namespace pong_cleangui_dg_adv
 
 		// De lijst die getoond moet worden. Ook via een Pool: showHallOfFame()
 		// wordt vanuit MainControl aangeroepen en de opbouw gebeurt hier.
-		Pool<HallOfFameSnapshot> poolHallOfFame;
+		Pool<HallOfFameData> poolHallOfFame;
 
 		State state;
 		Phase phase;
@@ -194,7 +194,7 @@ namespace pong_cleangui_dg_adv
 			flagNewKey(this),
 			timerTorch(this),
 			state (STATE_HIDDEN),
-			phase (PHASE_LIST),
+			phase (PHASE_HALLOFFAME),
 			yKeyboardDownPix(0),
 			yKeyboardUpPix(0),
 			bKeyboardIsUp(false)
@@ -206,6 +206,11 @@ namespace pong_cleangui_dg_adv
 			display.addTouchListener(&buttonStart);
 			display.addTouchListener(&inputfield);
 			display.addTouchListener(&touchscreenKeyboard);
+
+			// Deze pagina luistert zelf mee om op elke aanslag te hertekenen. Mag hier
+			// al: inputNewKey zet alleen een Pool en een Flag, en de event group van de
+			// taak bestaat vanaf de Task-constructor - dus ruim voor start().
+			inputfield.addInputfieldListener(this);
 
 			start();
 		}
@@ -241,14 +246,9 @@ namespace pong_cleangui_dg_adv
 		flagShowNameInput.set();
 	}
 
-	void showHallOfFame(const HallOfFame& hallOfFame)
+	void showHallOfFame(const HallOfFameData& hallOfFameData)
 	{
-		HallOfFameSnapshot snapshot;
-		for (int i = 0; i < NofHallOfFameEntries; i++)
-		{
-			snapshot.arEntry[i] = hallOfFame.getEntry(i);
-		}
-		poolHallOfFame.write(snapshot);
+		poolHallOfFame.write(hallOfFameData);
 		flagShowHallOfFame.set();
 	}
 
@@ -351,11 +351,11 @@ namespace pong_cleangui_dg_adv
 		// niet hide(): hide() zou een wisvlak insturen, en dat is bij een pagina
 		// die als geheel opnieuw wordt getekend zowel overbodig als riskant - zie
 		// GameDisplayControl::hidePage().
-		void applyPhase(Phase newPhase)
+		void drawAndEnableWidgetsForPhase(Phase newPhase)
 		{
 			phase = newPhase;
 
-			bool bName = (phase == PHASE_NAME);
+			bool bName = (phase == PHASE_NAME_INPUT);
 
 			// De titel hoort bij de lijst: in de naamfase staat het invoerveld op
 			// die hoogte.
@@ -393,7 +393,7 @@ namespace pong_cleangui_dg_adv
 
 		void fillHallOfFameLines()
 		{
-			HallOfFameSnapshot snapshot;
+			HallOfFameData snapshot;
 			poolHallOfFame.read(snapshot);
 
 			// Eerst de teksten, en meteen meten hoe breed de twee kolommen worden.
@@ -503,7 +503,7 @@ namespace pong_cleangui_dg_adv
 		void showPage(PageRoot<22 + 2*NofHallOfFameEntries>& page)
 		{
 			page.setDrawable(true, true);
-			applyPhase(phase);		// zet meteen weer uit wat niet bij deze fase hoort
+			drawAndEnableWidgetsForPhase(phase);		// zet meteen weer uit wat niet bij deze fase hoort
 			page.show(true);
 			page.enable(true);
 		}
@@ -515,44 +515,49 @@ namespace pong_cleangui_dg_adv
 			page.disable(true);
 		}
 
-		/*override keyword not supported*/
-		void main()
+		void initKeyboardPos()
 		{
-			vTaskDelay(1000); // wait for other threads to have started up as well.
-
-#ifdef LOAD_GFXFF							  // Don't select font indices 0 and 1 - they are reserved.
-			freeFonts.setFreeFont(10, FSB9);  // Free serif 9 pix font.
-			freeFonts.setFreeFont(12, FSB12); // Free serif 12 pix font.
-#endif
-			initPanels();
-
-			PageRoot<22 + 2*NofHallOfFameEntries> pageGameOver("rootGameOverDisplay",display);
-			pageGameOver.addChildWidget(backgroundPanel);		// eerst, want alles hierna tekent erop.
-			pageGameOver.addChildWidget(hallOfFameTitlePanel);
-			pageGameOver.addChildWidget(typeYourNameText);
-
-			for (int i = 0; i < NofHallOfFameEntries; i++)
-			{
-				pageGameOver.addChildWidget(arHallOfFameNames[i]);
-				pageGameOver.addChildWidget(arHallOfFameScores[i]);
-			}
-
-			pageGameOver.addChildWidget(buttonStart);
-			pageGameOver.addChildWidget(arTorchPanels[0]);
-			pageGameOver.addChildWidget(arTorchPanels[1]);
-
-			// Het toetsenbord als laatste: het schuift over de rest heen.
-			pageGameOver.addChildWidget(inputfield);
-			pageGameOver.addChildWidget(touchscreenKeyboard);
-			inputfield.addInputfieldListener(this);
-
 			// Het begint net onder het scherm, zodat het van onderaf in beeld kan
 			// schuiven.
 			yKeyboardDownPix = screenHeight;
 			yKeyboardUpPix   = screenHeight - touchscreenKeyboard.getSizePix().y;
 			touchscreenKeyboard.setLocPos(Vec2(0, yKeyboardDownPix), CoordType::Pixels, Alignment::TopLeft);
+		}
 
-			applyPhase(PHASE_LIST);
+		void defineDisplayHierarchy(IWidget& pageRoot)
+		{
+			pageRoot.addChildWidget(backgroundPanel);		// eerst, want alles hierna tekent erop.
+			pageRoot.addChildWidget(hallOfFameTitlePanel);
+			pageRoot.addChildWidget(typeYourNameText);
+
+			for (int i = 0; i < NofHallOfFameEntries; i++)
+			{
+				pageRoot.addChildWidget(arHallOfFameNames[i]);
+				pageRoot.addChildWidget(arHallOfFameScores[i]);
+			}
+
+			pageRoot.addChildWidget(buttonStart);
+			pageRoot.addChildWidget(arTorchPanels[0]);
+			pageRoot.addChildWidget(arTorchPanels[1]);
+
+			// Het toetsenbord als laatste: het schuift over de rest heen.
+			pageRoot.addChildWidget(inputfield);
+			pageRoot.addChildWidget(touchscreenKeyboard);
+		}
+
+		/*override keyword not supported*/
+		void main()
+		{
+			vTaskDelay(1000); // wait for other threads to have started up as well.
+
+			initPanels();
+
+			PageRoot<22 + 2*NofHallOfFameEntries> pageGameOver("rootGameOverDisplay",display);
+			defineDisplayHierarchy(pageGameOver);
+
+			initKeyboardPos();
+
+			drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
 			hidePage(pageGameOver);		// bij het eerste opstarten is er nog niets verloren.
 
 			while (true)
@@ -600,7 +605,7 @@ namespace pong_cleangui_dg_adv
 					}
 					flagNewKey.clear();
 
-					applyPhase(PHASE_NAME);
+					drawAndEnableWidgetsForPhase(PHASE_NAME_INPUT);
 					pageGameOver.show(true);
 
 					if (!bKeyboardIsUp)
@@ -616,7 +621,7 @@ namespace pong_cleangui_dg_adv
 					}
 
 					fillHallOfFameLines();
-					applyPhase(PHASE_LIST);
+					drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
 					pageGameOver.show(true);
 				}
 				else if(hasFired(flagNewKey))

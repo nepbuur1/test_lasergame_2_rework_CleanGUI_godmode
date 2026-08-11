@@ -37,7 +37,7 @@ namespace pong_cleangui_dg_adv
 	// De lijst als los kopieerbaar geheel, om hem via een crt::Pool van de ene
 	// taak naar de andere te krijgen: GameOverControl bezit de HallOfFame, maar
 	// GameOverDisplayControl tekent hem.
-	struct HallOfFameSnapshot
+	struct HallOfFameData
 	{
 		HallOfFameEntry arEntry[NofHallOfFameEntries];
 	};
@@ -50,17 +50,22 @@ namespace pong_cleangui_dg_adv
 		static const uint8_t FileVersion = 1;
 
 		const char* strFilename;
-		HallOfFameEntry arEntry[NofHallOfFameEntries];
+		HallOfFameData hallOfFameData;
 
 	public:
 		HallOfFame(const char* strFilename) : strFilename(strFilename)
 		{
 		}
 
+		const HallOfFameData& getHallOfFameData() const
+		{
+			return hallOfFameData;
+		}
+
 		const HallOfFameEntry& getEntry(int index) const
 		{
 			assert((index >= 0) && (index < NofHallOfFameEntries));
-			return arEntry[index];
+			return hallOfFameData.arEntry[index];
 		}
 
 		// Verdient deze score een plek? De lijst staat aflopend, dus alleen de
@@ -68,7 +73,7 @@ namespace pong_cleangui_dg_adv
 		// raakt om een naam vragen.
 		bool isQualifyingScore(int32_t score) const
 		{
-			return (score > 0) && (score > arEntry[NofHallOfFameEntries - 1].score);
+			return (score > 0) && (score > hallOfFameData.arEntry[NofHallOfFameEntries - 1].score);
 		}
 
 		// Zet de score op zijn plek en schuift de rest een op. Bij gelijke score
@@ -76,13 +81,13 @@ namespace pong_cleangui_dg_adv
 		void insert(const char* strName, int32_t score)
 		{
 			int indexInsert = NofHallOfFameEntries - 1;
-			while ((indexInsert > 0) && (arEntry[indexInsert - 1].score < score))
+			while ((indexInsert > 0) && (hallOfFameData.arEntry[indexInsert - 1].score < score))
 			{
-				arEntry[indexInsert] = arEntry[indexInsert - 1];
+				hallOfFameData.arEntry[indexInsert] = hallOfFameData.arEntry[indexInsert - 1];
 				indexInsert--;
 			}
 
-			HallOfFameEntry& entry = arEntry[indexInsert];
+			HallOfFameEntry& entry = hallOfFameData.arEntry[indexInsert];
 			entry.score = score;
 			strncpy(entry.strName, strName, MaxNofNameChars);
 			entry.strName[MaxNofNameChars] = '\0';
@@ -102,7 +107,7 @@ namespace pong_cleangui_dg_adv
 		{
 			for (int i = 0; i < NofHallOfFameEntries; i++)
 			{
-				arEntry[i] = HallOfFameEntry();
+				hallOfFameData.arEntry[i] = HallOfFameEntry();
 			}
 		}
 
@@ -140,9 +145,9 @@ namespace pong_cleangui_dg_adv
 				{
 					int byte = f.read();
 					if (byte < 0) { bOk = false; break; }
-					arEntry[i].strName[c] = (char)byte;
+					hallOfFameData.arEntry[i].strName[c] = (char)byte;
 				}
-				arEntry[i].strName[MaxNofNameChars] = '\0';
+				hallOfFameData.arEntry[i].strName[MaxNofNameChars] = '\0';
 
 				int32_t score = 0;
 				for (int b = 0; bOk && (b < 4); b++)
@@ -151,7 +156,7 @@ namespace pong_cleangui_dg_adv
 					if (byte < 0) { bOk = false; break; }
 					score |= ((int32_t)(byte & 0xFF)) << (8 * b);
 				}
-				arEntry[i].score = score;
+				hallOfFameData.arEntry[i].score = score;
 			}
 			f.close();
 
@@ -183,11 +188,11 @@ namespace pong_cleangui_dg_adv
 			{
 				for (int c = 0; c <= MaxNofNameChars; c++)
 				{
-					f.write((uint8_t)arEntry[i].strName[c]);
+					f.write((uint8_t)hallOfFameData.arEntry[i].strName[c]);
 				}
 				for (int b = 0; b < 4; b++)
 				{
-					f.write((uint8_t)((arEntry[i].score >> (8 * b)) & 0xFF));
+					f.write((uint8_t)((hallOfFameData.arEntry[i].score >> (8 * b)) & 0xFF));
 				}
 			}
 			f.close();

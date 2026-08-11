@@ -109,6 +109,20 @@ namespace pong_cleangui_dg_adv
         // eigen brandfase hebben.
         int32_t indexBurnAnimationStep;
 
+        // De twee inkomende berichten, en wat er bij het tweede hoort. Een bal
+        // spawnt niet in de taak van wie het vraagt: spawnAt() en spawnInTheMiddle()
+        // zetten alleen deze vlag, en STATE_IDLE in update() voert hem uit. Zo staat
+        // het veranderen van de toestand op een plek - in de machine - in plaats van
+        // in een functie die van buiten wordt aangeroepen.
+        //
+        // Gewone booleans en geen crt::Flag: een Flag kost een event-bit en een
+        // taak om op te wachten, en beide kanten zitten hier in dezelfde taak. Het
+        // gaat hier om de scheiding tussen melden en uitvoeren, niet om synchronisatie.
+        bool bFlagSpawnInTheMiddle;
+        bool bFlagSpawnAt;
+        int spawnAtPosX;
+        int spawnAtPosY;
+
 #ifdef PONG_MEASURE
         // Alleen voor de meting bij het verlaten van het scherm; zie daar.
         int64_t timeOfIgnitionUs;
@@ -139,7 +153,11 @@ namespace pong_cleangui_dg_adv
             vY(0),
             state(STATE_IDLE),
             nofBurnUpClockStepsLeft(0),
-            indexBurnAnimationStep(0)
+            indexBurnAnimationStep(0),
+            bFlagSpawnInTheMiddle(false),
+            bFlagSpawnAt(false),
+            spawnAtPosX(0),
+            spawnAtPosY(0)
 #ifdef PONG_MEASURE
             , timeOfIgnitionUs(0)
             , posYAtIgnition(0)
@@ -172,57 +190,43 @@ namespace pong_cleangui_dg_adv
 
         // De twee manieren om in het spel te komen. Allebei aan te roepen nadat het
         // depot deze bal heeft uitgegeven - het begint hem daarna vanzelf te updaten.
+        //
+        // Ze doen hier bewust niets meer dan het bericht aannemen; het spawnen zelf
+        // gebeurt in de eerstvolgende update(), in STATE_IDLE. Zie de vlaggen bij de
+        // leden voor waarom.
 
         // Op een opgegeven plek, met een willekeurige richting. Zo komen de
         // ballen uit een geopende present crate (UC07 stap 3) daar vandaan in
         // plaats van uit het midden.
         void spawnAt(int posX, int posY)
         {
-            this->posX = posX;
-            this->posY = posY;
-
-            // Een spreiding in de horizontale snelheid, zodat tien ballen uit
-            // dezelfde crate niet als een blok bewegen. De verticale houdt zijn
-            // vaste grootte - daar hangt de valsnelheid aan.
-            vX = (int)(rand() % (4*BallSpeedPixPerFrame + 1)) - 2*BallSpeedPixPerFrame;
-            vY = ((rand()%2) == 0) ? BallSpeedPixPerFrame : -BallSpeedPixPerFrame;
-
-            indexBurnAnimationStep = 0;
-            state = STATE_RUNNING;
+            spawnAtPosX = posX;
+            spawnAtPosY = posY;
+            bFlagSpawnAt = true;
         }
 
         void spawnInTheMiddle()
         {
-#ifdef PONG_FAST_GAME_OVER
-            // De bal begint vlak boven de doellijn, helemaal links, en gaat
-            // meteen naar beneden. De peddel begint in het midden en
-            // haalt dat niet, dus is het na een handvol beelden game over.
-            //
-            // Bedoeld voor het beproeven van die overgang, waar meerdere taken
-            // tegelijk gaan tekenen en het dus stuk kan gaan.
-            //
-            // vX = 0 houdt hem bij de linkerwand vandaan: bij een botsing tegen
-            // die wand zou hij naar rechts wegdraaien en alsnog bij de peddel
-            // kunnen uitkomen.
-            posX = WallThicknessPix + ballRadius;
-            posY = PaddleHeightPix + ballRadius + 2*BallSpeedPixPerFrame;
-            vX = 0;
-            vY = -BallSpeedPixPerFrame;
-#else
-            posX = fieldWidth/2;
-            posY = fieldHeight/2;
-            vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
-            vY = BallSpeedPixPerFrame;
-#endif
-            indexBurnAnimationStep = 0;
-            state = STATE_RUNNING;
+            bFlagSpawnInTheMiddle = true;
         }
 
         // Wat de display van deze bal moet weten. De bal schrijft nergens naartoe;
         // hij wordt uitgelezen. Dat scheelt vijftig Pool-schrijfacties per beeld -
         // Pool::write() neemt zijn argument op waarde aan.
+        //
+        // STATE_IDLE levert een lege stand op, en dat is sinds het spawnen is
+        // uitgesteld geen franje meer. Een bal die uit een geopende crate komt, is
+        // vanaf zijn obtain() in gebruik, maar staat pas een update() later op zijn
+        // plek. Valt zijn slot lager uit dan dat van de bal die de crate opende, dan
+        // is hij in dit beeld al voorbijgelopen en zou hij hier de positie van een
+        // vorig leven melden - een bal die een beeld lang op een oude plek flitst.
         BallState getBallState() const
         {
+            if (state == STATE_IDLE)
+            {
+                return BallState();
+            }
+
             return BallState(posX, posY,
                              (state == STATE_FALLING_OUT) || (state == STATE_BURNING_UP),
                              indexBurnAnimationStep);
@@ -239,6 +243,23 @@ namespace pong_cleangui_dg_adv
         {
             switch (state)
             {
+            case STATE_IDLE:
+                // De twee spawn-berichten worden hier uitgevoerd, en nergens anders
+                // gaat deze bal van STATE_IDLE af. Het depot loopt alleen uitgegeven
+                // exemplaren af, dus we komen hier precies in het venster tussen
+                // obtain() en de eerste echte stap.
+                if (bFlagSpawnInTheMiddle)
+                {
+                    bFlagSpawnInTheMiddle = false;
+                    startInTheMiddle();
+                }
+                else if (bFlagSpawnAt)
+                {
+                    bFlagSpawnAt = false;
+                    startAt(spawnAtPosX, spawnAtPosY);
+                }
+                break;
+
             case STATE_RUNNING:
                 if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
                 {
@@ -348,6 +369,51 @@ namespace pong_cleangui_dg_adv
         }
 
 	private:
+        // Het werk achter de twee spawn-berichten. Alleen aangeroepen vanuit
+        // STATE_IDLE in update(), dus in de taak van de beeldklok en niet in die van
+        // wie het vroeg.
+        void startAt(int posX, int posY)
+        {
+            this->posX = posX;
+            this->posY = posY;
+
+            // Een spreiding in de horizontale snelheid, zodat tien ballen uit
+            // dezelfde crate niet als een blok bewegen. De verticale houdt zijn
+            // vaste grootte - daar hangt de valsnelheid aan.
+            vX = (int)(rand() % (4*BallSpeedPixPerFrame + 1)) - 2*BallSpeedPixPerFrame;
+            vY = ((rand()%2) == 0) ? BallSpeedPixPerFrame : -BallSpeedPixPerFrame;
+
+            indexBurnAnimationStep = 0;
+            state = STATE_RUNNING;
+        }
+
+        void startInTheMiddle()
+        {
+#ifdef PONG_FAST_GAME_OVER
+            // De bal begint vlak boven de doellijn, helemaal links, en gaat
+            // meteen naar beneden. De peddel begint in het midden en
+            // haalt dat niet, dus is het na een handvol beelden game over.
+            //
+            // Bedoeld voor het beproeven van die overgang, waar meerdere taken
+            // tegelijk gaan tekenen en het dus stuk kan gaan.
+            //
+            // vX = 0 houdt hem bij de linkerwand vandaan: bij een botsing tegen
+            // die wand zou hij naar rechts wegdraaien en alsnog bij de peddel
+            // kunnen uitkomen.
+            posX = WallThicknessPix + ballRadius;
+            posY = PaddleHeightPix + ballRadius + 2*BallSpeedPixPerFrame;
+            vX = 0;
+            vY = -BallSpeedPixPerFrame;
+#else
+            posX = fieldWidth/2;
+            posY = fieldHeight/2;
+            vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
+            vY = BallSpeedPixPerFrame;
+#endif
+            indexBurnAnimationStep = 0;
+            state = STATE_RUNNING;
+        }
+
         void bounceOffWallsIfHit()
         {
             // Tegen een wand aan: terugzetten op de rand en de richting omkeren.

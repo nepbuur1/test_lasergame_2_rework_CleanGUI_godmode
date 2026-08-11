@@ -40,7 +40,7 @@ namespace pong_cleangui_dg_adv
 		enum State
 		{
 			STATE_HIDDEN,
-			STATE_SHOWN
+			STATE_SHOWING
 		};
 
 	private:
@@ -174,18 +174,36 @@ namespace pong_cleangui_dg_adv
 
 		// Zie de toelichting bij GameDisplayControl::showPage/hidePage - dit is
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
-		void showPage(PageRoot<20>& page)
+		void showPage(IWidget& page)
 		{
 			page.setDrawable(true, true);
 			page.show(true);
 			page.enable(true);
 		}
 
-		void hidePage(PageRoot<20>& page)
+		void hidePage(IWidget& page)
 		{
 			page.setDrawable(false, true);
 			page.hide(true);
 			page.disable(true);
+		}
+
+		void defineDisplayHierarchy(IWidget& pageRoot)
+		{
+			// Let op: je kunt niet meer children aan pageRoot
+			// toevoegen dan is gespecificeerd in zijn template parameter
+			// (op dit moment is dat 20, zie main functie)
+			pageRoot.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
+			pageRoot.addChildWidget(titlePanel);
+			pageRoot.addChildWidget(creditsPanel);
+			pageRoot.addChildWidget(buttonStart);
+			pageRoot.addChildWidget(arTorchPanels[0]);
+			pageRoot.addChildWidget(arTorchPanels[1]);
+		}
+
+		void selectNextAnimationFrameOfTorches()
+		{
+			TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
 		}
 
 		/*override keyword not supported*/
@@ -193,19 +211,10 @@ namespace pong_cleangui_dg_adv
 		{
 			vTaskDelay(1000); // wait for other threads to have started up as well.
 
-#ifdef LOAD_GFXFF							  // Don't select font indices 0 and 1 - they are reserved.
-			freeFonts.setFreeFont(10, FSB9);  // Free serif 9 pix font.
-			freeFonts.setFreeFont(12, FSB12); // Free serif 12 pix font.
-#endif
 			initPanels();
 
 			PageRoot<20> pageStart("rootStartPageDisplay",display);
-			pageStart.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
-			pageStart.addChildWidget(titlePanel);
-			pageStart.addChildWidget(creditsPanel);
-			pageStart.addChildWidget(buttonStart);
-			pageStart.addChildWidget(arTorchPanels[0]);
-			pageStart.addChildWidget(arTorchPanels[1]);
+			defineDisplayHierarchy(pageStart);
 
 			hidePage(pageStart);	// StartPageControl vraagt hem zo meteen zelf op.
 
@@ -213,24 +222,10 @@ namespace pong_cleangui_dg_adv
 			{
 				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-				waitAny(flagShowStartPage + flagHideStartPage + timerTorch);
-
-				if (hasFired(timerTorch))
-				{
-					// Alleen de cel verschuiven; het tekenen gebeurt daarna in een
-					// keer. Met een backbuffer is een gedeeltelijke hertekening
-					// toch niet goedkoper - zie GameDisplayControl.
-					TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
-					pageStart.show(true);
-
-					// Meteen opnieuw zetten met een verse wachttijd: de timer is
-					// eenmalig, juist om die wachttijd elke stap te kunnen loten.
-					timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
-				}
-
 				switch(state)
 				{
 					case STATE_HIDDEN:
+						wait(flagShowStartPage);
 						if(hasFired(flagShowStartPage))
 						{
 							showPage(pageStart);
@@ -238,24 +233,26 @@ namespace pong_cleangui_dg_adv
 							// De fakkels flakkeren alleen zolang de pagina in beeld
 							// staat: elke tik is een volledige hertekening.
 							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
-							state = STATE_SHOWN;
-						}
-						else if(hasFired(flagHideStartPage))
-						{
-							// al uit beeld: niets te doen.
+							state = STATE_SHOWING;
 						}
 						break;
 
-					case STATE_SHOWN:
+					case STATE_SHOWING:
+						waitAny(flagHideStartPage + timerTorch);
 						if(hasFired(flagHideStartPage))
 						{
 							timerTorch.stop();
 							hidePage(pageStart);
 							state = STATE_HIDDEN;
 						}
-						else if(hasFired(flagShowStartPage))
+						else if (hasFired(timerTorch))
 						{
-							// al in beeld: niets te doen.
+							selectNextAnimationFrameOfTorches();
+							pageStart.show(true);
+
+							// Eenmalige timer, zodat elke wachttijd gerandomiseerd kan worden,
+							// tbv een "stochastischer vlameffect".
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 						}
 						break;
 
