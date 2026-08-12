@@ -71,6 +71,38 @@ rechtstreeks op het paneel en draait voordat er een widgetboom is. De PAL8-varia
 zou per rotatie een backbuffer van een andere maat nodig hebben, en er valt hier
 niets te bufferen.
 
+### Past het in de partitie?
+
+Nagerekend voor alle apps en examples, want het bestand groeit van 11 naar 46 bytes.
+
+De `spiffs`-partitie uit `partitions.csv` is `0x19000` = 102.400 bytes, en littlefs
+werkt op de ESP32 in blokken van 4096 bytes (`CONFIG_LITTLEFS_BLOCK_SIZE`), dus 25
+blokken. Deze codebase zet er in totaal **twee** bestanden in:
+
+| bestand | wie | grootte |
+|---|---|---|
+| `/TouchCalData1` | elke app en elk example, via de display-adapter | 11 → **46** bytes |
+| hall of fame | alleen `pong_cleangui_dg_adv` | `1 + 5 * (20 + 1 + 4)` = 126 bytes |
+
+Beide liggen ruim onder de inline-grens van littlefs — `cache_size` is 512 en
+`block_size/8` is eveneens 512 — dus ze worden in de metadata van de rootdirectory
+opgeborgen en kosten geen eigen datablok. Zelfs als ze dat wél deden: twee blokken
+plus het superblok-paar is 16 KB van de 100 KB. De 35 bytes die deze wijziging
+toevoegt kosten op blokniveau dus letterlijk niets.
+
+Twee kanttekeningen die geen ruimteprobleem zijn maar wel het bestand raken:
+
+- De TFT_eWidget-voorbeelden `Button_demo.ino` en `Slider_demo.ino` schrijven naar
+  hetzelfde pad `/TouchCalData1`, in hun eigen indeling van 14 bytes. Ze staan niet
+  in `main.cpp` aan. Draai je er toch een, dan is de tabel weg en moet je
+  `TouchCalibrateAll` opnieuw doen. Het leesfilter eist daarom **exact** 11 bytes
+  voor een v1-bestand en niet "minstens", anders zou zo'n bestand van 14 bytes soms
+  als v1 worden aangezien — de eerste byte ervan is de LSB van `calData[0]` en die
+  kan toevallig onder de 4 liggen.
+- `mountFileSystem()` logt sinds nu één keer per boot
+  `littlefs: <used> van <total> bytes in gebruik`, zodat dit op het bord na te
+  rekenen is in plaats van alleen op papier.
+
 ### De opdracht zelf staat nu in git
 
 `devdocs/Claude_instructions/CleanGUI_show_enable_refactor.md` — de volledige

@@ -51,6 +51,14 @@ touchkalibratie in leeft; zonder die partitie vraagt het bord er elke boot om.
 - Elke andere app blijft bij het opstarten wél kort (2 s) "Touch now to
   recalibrate" aanbieden, maar dat hérkalibreert alleen zijn eigen rotatie; de
   andere drie slots blijven staan.
+- **Ruimte:** de partitie is 100 KB (`0x19000`) en littlefs werkt in blokken van
+  4 KB. Deze codebase zet er maar twee bestanden in: `/TouchCalData1` (46 bytes)
+  en de hall of fame van `pong_cleangui_dg_adv` (126 bytes). Beide liggen onder
+  de inline-grens van littlefs (512) en kosten dus geen eigen datablok.
+  `mountFileSystem()` logt bij elke boot hoeveel er werkelijk in gebruik is.
+- Let op: `libs/TFT_eWidget/examples/.../Button_demo.ino` en `Slider_demo.ino`
+  schrijven naar hetzelfde pad in hun eigen 14-byte-indeling. Ze staan niet aan
+  in `main.cpp`; draai je er toch een, dan is de tabel weg.
 
 ## Display / TFT_eSPI
 - Config staat in `libs/TFT_eSPI/User_Setup.h` (geselecteerd via `User_Setup_Select.h`).

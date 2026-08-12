@@ -793,13 +793,26 @@ namespace crt
 
         bool mountFileSystem()
         {
-            if (LITTLEFS.begin())
+            bool bMounted = LITTLEFS.begin();
+            if (!bMounted)
             {
-                return true;
+                ESP_LOGI("DisplayAdapter", "bestandssysteem formatteren");
+                LITTLEFS.format();
+                bMounted = LITTLEFS.begin();
             }
-            ESP_LOGI("DisplayAdapter", "bestandssysteem formatteren");
-            LITTLEFS.format();
-            return LITTLEFS.begin();
+
+            if (bMounted)
+            {
+                // Een keer per boot, zodat de ruimte op het bord na te rekenen is en
+                // niet alleen op papier. De spiffs-partitie is 0x19000 = 100 KB en
+                // littlefs werkt in blokken van 4 KB; de kalibratietabel (46 bytes)
+                // en de hall of fame (126 bytes) zijn de enige twee bestanden die
+                // deze codebase erin zet. Ruimte is dus geen zorg - maar als iemand
+                // er later meer in kwijt wil, staat het hier in de log.
+                ESP_LOGI("DisplayAdapter", "littlefs: %u van %u bytes in gebruik",
+                         (unsigned)LITTLEFS.usedBytes(), (unsigned)LITTLEFS.totalBytes());
+            }
+            return bMounted;
         }
 
         // Leest de tabel, of laat hem leeg als er niets bruikbaars staat. Een
@@ -854,7 +867,12 @@ namespace crt
                 return true;
             }
 
-            if ((nofRead >= (size_t)CalFileSizeV1) && (buf[0] < (uint8_t)NofRotations))
+            // Exact 11 bytes, niet "minstens": het TFT_eWidget-voorbeeld
+            // Button_demo.ino schrijft naar datzelfde pad een bestand van 14 bytes
+            // in zijn eigen indeling. Dat wordt zo niet aangezien voor versie 1 -
+            // wat er soms wel uit zou komen, want de eerste byte daarvan is de LSB
+            // van calData[0] en die kan toevallig onder de 4 liggen.
+            if ((nofRead == (size_t)CalFileSizeV1) && (buf[0] < (uint8_t)NofRotations))
             {
                 uint8_t rotation = buf[0];
                 const uint8_t* p = buf + 1;
