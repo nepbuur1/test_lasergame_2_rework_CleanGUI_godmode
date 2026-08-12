@@ -113,8 +113,17 @@ stappenplan 0-10, en hoe het zonder toezicht te testen valt (touch namaken via
 `ITouchListener`, pixels teruglezen via de PAL8-buffer). Bedoeld om na een
 `git pull` op een andere machine uitgevoerd te worden.
 
-Wat daar ook in staat als valkuil: `apps` staat in `.claudeignore`, terwijl vier
-van de tien stappen juist in `apps/` zitten.
+Bij het opschrijven viel een valkuil op die meteen is weggenomen: `apps` stond in
+`.claudeignore`, met de opmerking "voor nu even niet nodig", terwijl vier van de
+tien stappen juist in `apps/` zitten. Met die regel erin zou de migratie half
+gedaan worden zonder dat iemand het merkt — de bestanden zijn dan simpelweg niet
+te vinden. Alleen `apps/pong_cleangui_dg_adv.zip` blijft op de lijst.
+
+De gegenereerde beeldheaders onder `apps/*/images/_pal8/` zijn er bewust *niet*
+bij gezet: samen zo'n 9.800 regels, dezelfde mappen onder
+`libs/CleanGUI_for_TFT_eSPI/examples/` staan ook niet op de lijst, en er zitten
+`_palette.h` en `_allImages.h` tussen — geen pixeldata maar juist nodig om een
+app te lezen.
 
 ## 2026-08-07 — GameObjectsControl uit elkaar: opslag, beeldklok, en drie interfaces van een regel
 

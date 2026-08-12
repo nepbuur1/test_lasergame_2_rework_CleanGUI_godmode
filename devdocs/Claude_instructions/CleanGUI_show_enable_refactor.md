@@ -245,9 +245,10 @@ achtergrond* **én** *touch levert nul callbacks*.
   wordt gevraagd — mits het voorbeeld `TouchCalibrateAll` één keer is gedraaid.
   Is dat op deze machine/dit bord nog niet gebeurd, doe dat dan eerst; het kost
   vier keer vier hoeken aantikken en daarna nooit meer.
-- **`apps` staat in `.claudeignore`.** De stappen 5, 8, 9 en 10 zitten juist in
-  `apps/`. Haal die regel eruit (of geef de bestanden expliciet op) voordat je
-  aan stap 5 begint.
+- **`.claudeignore` is hiervoor al aangepast** (2026-08-12): `apps` stond erop
+  met de opmerking "voor nu even niet nodig", terwijl de stappen 5, 8, 9 en 10
+  juist in `apps/` zitten. Alleen `apps/*.zip` blijft eruit. Kom je toch een app
+  tegen die je niet kunt lezen, kijk dan eerst of die regel is teruggekomen.
 - **`apps/pong/pong` botst op headernamen.** Die app gebruikt nog de kale
   `crt_`-namen (`crt_BallControl.h`, `crt_GameControl.h`, `crt_PaddleControl.h`,
   `crt_SceneDisplayControl.h`, `crt_CharMatrix.h`), terwijl de drie

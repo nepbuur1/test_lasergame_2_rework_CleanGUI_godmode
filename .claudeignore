@@ -30,8 +30,20 @@ compile_commands.json
 # pre-commit
 .pre-commit-config.yaml
 
-# voor nu even niet nodig:
-apps
+# Hier stond "apps" op de negeerlijst, met de opmerking "voor nu even niet
+# nodig". Dat klopt niet meer: de apps zijn juist waar het werk zit. De
+# show/enable/draw-refactor uit devdocs/Claude_instructions/ raakt
+# pong_cleangui_dg_adv, _dg, _cg, keukenweegschaal en apps/pong/pong - vier van
+# de tien stappen. Met apps op de negeerlijst zou Claude die bestanden niet
+# vinden en de migratie half doen zonder het te merken.
+#
+# Alleen de zip-back-up blijft eruit. De gegenereerde beeldheaders in
+# apps/*/images/_pal8/ blijven er bewust wel in: het is samen zo'n 9.800 regels,
+# en dezelfde mappen onder libs/CleanGUI_for_TFT_eSPI/examples/ staan ook niet op
+# de lijst. Bovendien staan _palette.h en _allImages.h ertussen, en die zijn geen
+# pixeldata maar juist nodig om een app te begrijpen.
+apps/*.zip
+
 # python tools (tools/): de virtual environment en de bytecode-cache.
 # requirements.txt volstaat om de venv opnieuw op te bouwen: bash tools/setup_venv.sh
 tools/venv/
