@@ -161,7 +161,7 @@ Werk de stappen **één voor één** af, met een commit per stap.
 | 6 | de 8 examples in `libs/CleanGUI_for_TFT_eSPI/examples` | 8 | per stuk build + flash |
 | 7 | testharnas opnieuw | — | alles moet nu slagen |
 | 8 | `pong_cleangui_dg`, `pong_cleangui_cg`, `keukenweegschaal` | 8 | build + flash |
-| 9 | `apps/pong/pong` | 1 | vereist tijdelijke CMakeLists-swap (zie §6) |
+| 9 | `apps/pong/pong` | 1 | build + flash; staat gewoon in het includepad (zie §6) |
 | 10 | `GameOverDisplayControl` opsplitsen in expliciete states | 1 | build + gerichte tests |
 
 **Stap 2 vóór stap 3 is bewust:** eerst vastleggen wat er nú stuk is.
@@ -249,12 +249,13 @@ achtergrond* **én** *touch levert nul callbacks*.
   met de opmerking "voor nu even niet nodig", terwijl de stappen 5, 8, 9 en 10
   juist in `apps/` zitten. Alleen `apps/*.zip` blijft eruit. Kom je toch een app
   tegen die je niet kunt lezen, kijk dan eerst of die regel is teruggekomen.
-- **`apps/pong/pong` botst op headernamen.** Die app gebruikt nog de kale
-  `crt_`-namen (`crt_BallControl.h`, `crt_GameControl.h`, `crt_PaddleControl.h`,
-  `crt_SceneDisplayControl.h`, `crt_CharMatrix.h`), terwijl de drie
-  CleanGUI-pong-varianten hun eigen prefix dragen (`pcg_`, `pdg_`, `pdga_`).
-  Zet `"../apps/pong/pong"` in `main/CMakeLists.txt` alleen aan als je hem
-  nodig hebt, en daarna weer uit.
+- **`apps/pong/pong` botst niet** — die CMakeLists-swap is niet meer nodig.
+  In `main/CMakeLists.txt` stond dat die app op headernamen zou botsen omdat hij
+  nog de kale `crt_`-namen gebruikt. Dat is nagegaan op 2026-08-12 en klopt niet:
+  zijn vijf headers komen nergens anders in de boom voor, hun klassen ook niet,
+  en de drie CleanGUI-varianten hebben elk hun eigen prefix én namespace.
+  `"../apps/pong/pong"` staat sindsdien gewoon aan; beide bouwrichtingen zijn
+  geverifieerd. Stap 9 heeft dus geen bijzondere behandeling nodig.
 - Bouwen en flashen: zie §7.
 
 ---

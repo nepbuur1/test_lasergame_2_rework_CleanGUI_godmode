@@ -120,14 +120,19 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../apps/kopie_van_wifi_scan_example_van_esp_idf"
 "../libs/esp_http_client/main"
 
-# De _cg-, _dg- en _dg_adv-varianten dragen elk hun eigen headerprefix
-# (pcg_, pdg_ en pdga_) en hun eigen namespace, dus die mogen samen in het
-# includepad staan: main.cpp kiest met zijn #include van de .ino welke ervan
-# er gebouwd wordt. apps/pong/pong gebruikt nog de kale crt_-namen
-# (crt_BallControl.h, crt_GameControl.h, crt_PaddleControl.h,
-# crt_SceneDisplayControl.h, crt_CharMatrix.h) en botst daarmee wel; laat die
-# uit staan tenzij je hem nodig hebt.
-#"../apps/pong/pong"
+# Alle vier de pong-varianten mogen samen in het includepad staan: main.cpp
+# kiest met zijn #include van de .ino welke ervan er gebouwd wordt, en een
+# includepad op zichzelf compileert niets.
+#
+# Hier stond dat apps/pong/pong zou botsen omdat die nog de kale crt_-namen
+# gebruikt. Dat klopt niet (meer): die vijf headers - crt_BallControl.h,
+# crt_CharMatrix.h, crt_GameControl.h, crt_PaddleControl.h en
+# crt_SceneDisplayControl.h - komen nergens anders in de boom voor, en hun
+# klassen ook niet. De drie CleanGUI-varianten dragen elk hun eigen prefix
+# (pcg_, pdg_, pdga_) en hun eigen namespace, dus onderling botsen ze evenmin.
+# Nagegaan op 2026-08-12 door beide richtingen te bouwen: Pong_CleanGUI_dg_adv
+# met dit pad aan, en Pong2 met de drie andere paden aan. Allebei groen.
+"../apps/pong/pong"
 "../apps/pong_cleangui_cg"
 "../apps/pong_cleangui_dg"
 "../apps/pong_cleangui_dg_adv"
