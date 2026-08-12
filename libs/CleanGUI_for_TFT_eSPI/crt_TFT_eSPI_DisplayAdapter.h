@@ -745,6 +745,246 @@ namespace crt
             return bValidTouch;
         }
 
+        // --- de kalibratietabel -------------------------------------------
+        //
+        // Versie 1 bewaarde precies een kalibratie, met de rotatie waarvoor hij
+        // gold als eerste byte ervoor. Startte je een app in een andere rotatie,
+        // dan kwam die byte niet overeen, werd er opnieuw gekalibreerd en werd
+        // het bestand overschreven - de kalibratie van de vorige rotatie was dan
+        // weg. Heen en weer springen tussen een portret-app en een landschap-app
+        // kostte dus elke boot vier hoeken aantikken, en dat maakte het testen
+        // van de voorbeelden achter elkaar onwerkbaar.
+        //
+        // Versie 2 bewaart alle vier de rotaties naast elkaar, elk in een eigen
+        // slot, met een geldigheidsbit per slot. Kalibreren raakt alleen het slot
+        // van de rotatie die je kalibreert; de andere drie blijven staan. Zijn ze
+        // alle vier een keer gedaan - zie het voorbeeld TouchCalibrateAll - dan
+        // is wisselen tussen apps met verschillende rotaties gratis.
+        //
+        // Bestandsindeling, little endian net als in versie 1:
+        //   [0..3]   magic 'C','G','T','C'
+        //   [4]      versie (2)
+        //   [5]      geldigheidsmasker, bit r hoort bij rotatie r
+        //   [6..45]  4 slots van 5 uint16: de calData van TFT_eSPI::setTouch
+        //
+        // De twee versies zijn niet te verwarren: versie 1 is 11 bytes en begint
+        // met een rotatie (0..3), versie 2 is 46 bytes en begint met 'C' (67).
+    protected:
+        enum : int
+        {
+            NofRotations = 4,
+            NofCalValues = 5,
+            CalFileVersion = 2,
+            CalFileSizeV1 = 1 + NofCalValues * 2,                               // 11
+            CalFileHeaderSize = 6,
+            CalFileSizeV2 = CalFileHeaderSize + NofRotations * NofCalValues * 2 // 46
+        };
+
+        struct CalTable
+        {
+            uint8_t validMask;
+            uint16_t arCalData[NofRotations][NofCalValues];
+        };
+
+        static bool isCalSlotValid(const CalTable& table, uint8_t rotation)
+        {
+            return (rotation < NofRotations) && ((table.validMask & (1 << rotation)) != 0);
+        }
+
+        bool mountFileSystem()
+        {
+            if (LITTLEFS.begin())
+            {
+                return true;
+            }
+            ESP_LOGI("DisplayAdapter", "bestandssysteem formatteren");
+            LITTLEFS.format();
+            return LITTLEFS.begin();
+        }
+
+        // Leest de tabel, of laat hem leeg als er niets bruikbaars staat. Een
+        // bestand van versie 1 wordt overgenomen: die ene kalibratie hoort bij de
+        // rotatie die erin staat en gaat dus in dat slot. Een bord dat al
+        // gekalibreerd was hoeft die rotatie daardoor niet opnieuw te doen.
+        bool loadCalTable(CalTable& table)
+        {
+            table.validMask = 0;
+            for (int r = 0; r < NofRotations; r++)
+            {
+                for (int i = 0; i < NofCalValues; i++)
+                {
+                    table.arCalData[r][i] = 0;
+                }
+            }
+
+            if (!LITTLEFS.exists(_filenameCalibration))
+            {
+                ESP_LOGI("DisplayAdapter", "geen kalibratiebestand %s", _filenameCalibration);
+                return false;
+            }
+
+            fs::File f = LITTLEFS.open(_filenameCalibration, FILE_READ);
+            if (!f)
+            {
+                ESP_LOGE("DisplayAdapter", "kalibratiebestand %s niet te openen", _filenameCalibration);
+                return false;
+            }
+
+            uint8_t buf[CalFileSizeV2] = {};
+            size_t nofRead = f.read(buf, sizeof(buf));
+            f.close();
+
+            if ((nofRead >= (size_t)CalFileSizeV2) &&
+                (buf[0] == 'C') && (buf[1] == 'G') && (buf[2] == 'T') && (buf[3] == 'C') &&
+                (buf[4] == (uint8_t)CalFileVersion))
+            {
+                table.validMask = buf[5];
+                const uint8_t* p = buf + CalFileHeaderSize;
+                for (int r = 0; r < NofRotations; r++)
+                {
+                    for (int i = 0; i < NofCalValues; i++)
+                    {
+                        table.arCalData[r][i] = (uint16_t)(p[0] | (p[1] << 8));
+                        p += 2;
+                    }
+                }
+                ESP_LOGI("DisplayAdapter", "kalibratietabel gelezen, gekalibreerde rotaties: %s%s%s%s",
+                         isCalSlotValid(table, 0) ? "0 " : "", isCalSlotValid(table, 1) ? "1 " : "",
+                         isCalSlotValid(table, 2) ? "2 " : "", isCalSlotValid(table, 3) ? "3 " : "");
+                return true;
+            }
+
+            if ((nofRead >= (size_t)CalFileSizeV1) && (buf[0] < (uint8_t)NofRotations))
+            {
+                uint8_t rotation = buf[0];
+                const uint8_t* p = buf + 1;
+                for (int i = 0; i < NofCalValues; i++)
+                {
+                    table.arCalData[rotation][i] = (uint16_t)(p[0] | (p[1] << 8));
+                    p += 2;
+                }
+                table.validMask = (uint8_t)(1 << rotation);
+                ESP_LOGI("DisplayAdapter", "kalibratiebestand van versie 1 overgenomen voor rotatie %d",
+                         (int)rotation);
+                return true;
+            }
+
+            ESP_LOGE("DisplayAdapter", "kalibratiebestand niet herkend (%d bytes gelezen)", (int)nofRead);
+            return false;
+        }
+
+        bool saveCalTable(const CalTable& table)
+        {
+            uint8_t buf[CalFileSizeV2];
+            buf[0] = 'C'; buf[1] = 'G'; buf[2] = 'T'; buf[3] = 'C';
+            buf[4] = (uint8_t)CalFileVersion;
+            buf[5] = table.validMask;
+
+            uint8_t* p = buf + CalFileHeaderSize;
+            for (int r = 0; r < NofRotations; r++)
+            {
+                for (int i = 0; i < NofCalValues; i++)
+                {
+                    *p++ = (uint8_t)(table.arCalData[r][i] & 0xFF);
+                    *p++ = (uint8_t)((table.arCalData[r][i] >> 8) & 0xFF);
+                }
+            }
+
+            // FILE_WRITE kapt het bestand af, dus de hele tabel gaat er in een keer
+            // opnieuw in. Bewust niet LITTLEFS.remove() eerst: dat was in versie 1
+            // precies de stap die de andere rotaties weggooide.
+            fs::File f = LITTLEFS.open(_filenameCalibration, FILE_WRITE);
+            if (!f)
+            {
+                ESP_LOGE("DisplayAdapter", "kalibratiebestand %s niet te schrijven", _filenameCalibration);
+                return false;
+            }
+            size_t nofWritten = f.write(buf, sizeof(buf));
+            f.close();
+
+            if (nofWritten != sizeof(buf))
+            {
+                ESP_LOGE("DisplayAdapter", "kalibratiebestand maar deels geschreven: %d van %d bytes",
+                         (int)nofWritten, (int)sizeof(buf));
+                return false;
+            }
+
+            ESP_LOGI("DisplayAdapter", "kalibratietabel opgeslagen in %s, geldigheidsmasker 0x%02X",
+                     _filenameCalibration, (unsigned)table.validMask);
+            return true;
+        }
+
+        // Wacht tot er geen vinger meer op het glas ligt. Tussen twee rotaties
+        // door nodig: calibrateTouch() begint meteen te meten in de hoek
+        // linksboven, en een vinger die daar nog van de vorige ronde ligt wordt
+        // dan als die eerste hoek gemeten.
+        //
+        // Bewust op de ruwe druk en niet op getTouch(): die rekent de meting eerst
+        // om met de kalibratie die er op dat moment in staat, en juist die is hier
+        // nog onbetrouwbaar - een aanraking buiten het scherm telt dan niet mee.
+        void waitUntilTouchReleased(uint32_t timeoutMs)
+        {
+#ifdef TOUCH_THRESHOLD
+            const uint16_t threshold = TOUCH_THRESHOLD;
+#else
+            const uint16_t threshold = 600;
+#endif
+            const int NofQuietSamplesNeeded = 4;    // een enkele lage meting is ruis
+
+            int64_t endTime = esp_timer_get_time() + (int64_t)timeoutMs * 1000;
+            int nofQuiet = 0;
+
+            while ((esp_timer_get_time() - endTime) < 0)
+            {
+                nofQuiet = (_tft.getTouchRawZ() <= threshold) ? (nofQuiet + 1) : 0;
+                if (nofQuiet >= NofQuietSamplesNeeded)
+                {
+                    return;
+                }
+                delay(20);
+            }
+            ESP_LOGI("DisplayAdapter", "er blijft druk op het scherm staan; toch maar doorgaan");
+        }
+
+        // Kalibreert een rotatie en zet het resultaat in de tabel. De rotatie moet
+        // al op de TFT staan. Het bewaren doet de aanroeper, zodat die kan kiezen
+        // wanneer dat gebeurt.
+        void calibrateRotationIntoTable(CalTable& table, uint8_t rotation, bool bWasAsked,
+                                        const char* pExtraLine)
+        {
+            ESP_LOGI("DisplayAdapter", "kalibreren van rotatie %d", (int)rotation);
+
+            _pTarget->fillScreen(TFT_BLACK);
+            _pTarget->setCursor(20, 0);
+            _pTarget->setTextFont(2);
+            _pTarget->setTextSize(1);
+
+            // Rood als de gebruiker er zelf om vroeg: dan is dit geen verrassing
+            // maar een bevestiging dat de tik is aangekomen.
+            _pTarget->setTextColor(bWasAsked ? TFT_RED : TFT_WHITE, TFT_BLACK);
+
+            if (pExtraLine != nullptr)
+            {
+                _pTarget->println(pExtraLine);
+            }
+            _pTarget->println("Touch corners as indicated");
+
+            _pTarget->setTextFont(1);
+            _pTarget->println();
+
+            _tft.calibrateTouch(table.arCalData[rotation], TFT_MAGENTA, TFT_BLACK, 15);
+            table.validMask |= (uint8_t)(1 << rotation);
+
+            _pTarget->setTextColor(TFT_GREEN, TFT_BLACK);
+            _pTarget->println("Calibration complete!");
+
+            ESP_LOGI("DisplayAdapter", "rotatie %d gekalibreerd: [%d, %d, %d, %d, %d]", (int)rotation,
+                     table.arCalData[rotation][0], table.arCalData[rotation][1],
+                     table.arCalData[rotation][2], table.arCalData[rotation][3],
+                     table.arCalData[rotation][4]);
+        }
+
+    public:
         // The function below was for the greater part copied from Bodmer.
         /*override*/ void touchCalibrate(uint8_t rotation, uint8_t font)
         {
@@ -756,208 +996,110 @@ namespace crt
             _pTarget->fillScreen(TFT_BLACK);
             _pTarget->setTextFont(font);  //tft.setFreeFont(FF18);
 
+            mountFileSystem();
+
+            CalTable table;
+            loadCalTable(table);
+
 #ifdef TOUCH_SKIP_CALIBRATION
-            // Skip interactive calibration (prevents blocking if touch is not yet working)
-            uint16_t calData[5] = { 300, 3600, 300, 3600, 0 };
-            if (!LITTLEFS.begin()) {
-                LITTLEFS.format();
-                LITTLEFS.begin();
+            // Niet interactief kalibreren. Handig als de touch nog niet werkt, want
+            // anders blijft het bord in calibrateTouch() staan wachten op hoeken die
+            // nooit komen.
+            if (isCalSlotValid(table, rotation))
+            {
+                _tft.setTouch(table.arCalData[rotation]);
             }
-            if (LITTLEFS.exists(_filenameCalibration)) {
-                fs::File f = LITTLEFS.open(_filenameCalibration, "r");
-                if (f) {
-                    uint8_t storedRotation;
-                    if (f.readBytes((char*)&storedRotation, 1) == 1 &&
-                        f.readBytes((char*)calData, 14) == 14 &&
-                        storedRotation == rotation) {
-                        _tft.setTouch(calData);
-                        f.close();
-                        _pTarget->fillScreen(TFT_BLACK);
-                        return;
-                    }
-                    f.close();
-                }
+            else
+            {
+                uint16_t arFallback[NofCalValues] = { 300, 3600, 300, 3600, 0 };
+                _tft.setTouch(arFallback);
             }
-            _tft.setTouch(calData);
             _pTarget->fillScreen(TFT_BLACK);
             return;
 #else
-
-            uint16_t calData[5];
-            uint8_t calDataOK = 0;
-            uint8_t storedRotation = 0xFF; // Invalid value to indicate no valid rotation stored
-
-            // check file system exists
-            if (!LITTLEFS.begin()) {
-                ESP_LOGI("DisplayAdapter","Formating file system");
-                LITTLEFS.format();
-                LITTLEFS.begin();
-            }
-
-            ESP_LOGI("DisplayAdapter", "=== Touch Calibration Debug ===");
-            ESP_LOGI("DisplayAdapter", "Constructor parameter bRepeatCalibration: %d", _bRepeatCalibration);
-            ESP_LOGI("DisplayAdapter", "Requested rotation: %d", rotation);
-            ESP_LOGI("DisplayAdapter", "Calibration file: %s", _filenameCalibration);
-
-            // Save the ORIGINAL constructor parameter BEFORE any modifications
             bool bConstructorRequestedRecalibration = _bRepeatCalibration;
+            bool bHaveStored = isCalSlotValid(table, rotation);
             bool bAskedForRecalibration = false;
-            bool bRotationMismatch = false;
 
-            // check if calibration file exists and size is correct
-            if (LITTLEFS.exists(_filenameCalibration)) {
-                ESP_LOGI("DisplayAdapter", "Calibration file EXISTS");
-                fs::File f = LITTLEFS.open(_filenameCalibration, "r");
-                if (f) {
-                    ESP_LOGI("DisplayAdapter", "File opened successfully, file size: %d", f.size());
-                    // Read rotation first, then calibration data byte by byte
-                    int rotRead = f.read();
-                    if (rotRead >= 0) {
-                        storedRotation = (uint8_t)rotRead;
-                        // Read calibration data byte by byte (5 uint16_t values = 10 bytes)
-                        for (int i = 0; i < 5; i++) {
-                            int lsb = f.read();
-                            int msb = f.read();
-                            if (lsb >= 0 && msb >= 0) {
-                                calData[i] = (uint16_t)(lsb | (msb << 8));
-                            }
-                        }
-                    }
-                    ESP_LOGI("DisplayAdapter", "Read rotation=%d", storedRotation);
+            ESP_LOGI("DisplayAdapter", "=== Touch Calibration ===");
+            ESP_LOGI("DisplayAdapter", "rotatie %d, opgeslagen kalibratie: %s, bRepeatCalibration: %d",
+                     (int)rotation, bHaveStored ? "ja" : "nee", (int)bConstructorRequestedRecalibration);
 
-                    if (rotRead >= 0) {
-                        ESP_LOGI("DisplayAdapter", "Stored rotation: %d, Current rotation: %d", storedRotation, rotation);
-                        ESP_LOGI("DisplayAdapter", "Calibration data: [%d, %d, %d, %d, %d]",
-                                 calData[0], calData[1], calData[2], calData[3], calData[4]);
+            if (bHaveStored && !bConstructorRequestedRecalibration)
+            {
+                // Eerst instellen, anders kan de vraag hieronder geen aanraking zien.
+                _tft.setTouch(table.arCalData[rotation]);
+                _bRepeatCalibration = queryDoYouWantToRecalibrate();
+                bAskedForRecalibration = true;
+            }
 
-                        if (storedRotation == rotation) {
-                            // Rotation matches, calibration data is valid
-                            calDataOK = 1;
-                            ESP_LOGI("DisplayAdapter", "Rotation MATCHES - calibration data is valid");
-                        } else {
-                            // Rotation mismatch - force recalibration without asking
-                            ESP_LOGI("DisplayAdapter", "Rotation MISMATCH: stored=%d, current=%d - forcing recalibration", storedRotation, rotation);
-                            bRotationMismatch = true;
-                            _bRepeatCalibration = true;
-                        }
-                    } else {
-                        ESP_LOGE("DisplayAdapter", "Failed to read calibration data properly");
-                    }
-                    f.close();
-                } else {
-                    ESP_LOGE("DisplayAdapter", "Failed to open calibration file");
-                }
-
-                if (_bRepeatCalibration && !bRotationMismatch)
-                {
-                    // Delete if user requested re-calibration
-                    LITTLEFS.remove(_filenameCalibration);
-                }
+            if (bHaveStored && !_bRepeatCalibration)
+            {
+                ESP_LOGI("DisplayAdapter", "opgeslagen kalibratie voor rotatie %d in gebruik", (int)rotation);
             }
             else
             {
-                // File doesn't exist - force recalibration without asking
-                ESP_LOGI("DisplayAdapter", "Calibration file not found - forcing recalibration");
-                _bRepeatCalibration = true;
-            }
-
-            ESP_LOGI("DisplayAdapter", "Before decision: calDataOK=%d, _bRepeatCalibration=%d, constructor=%d",
-                     calDataOK, _bRepeatCalibration, bConstructorRequestedRecalibration);
-
-            if (calDataOK && !_bRepeatCalibration) {
-                ESP_LOGI("DisplayAdapter", "Using stored calibration - setting touch");
-                // calibration data valid and rotation matches
-                // Set touch calibration FIRST so we can detect touches
-                _tft.setTouch(calData);
-
-                // Ask user if they want to recalibrate (unless constructor forced it)
-                if (!bConstructorRequestedRecalibration) {
-                    ESP_LOGI("DisplayAdapter", "Asking user if they want to recalibrate");
-                    _bRepeatCalibration = queryDoYouWantToRecalibrate();
-                    bAskedForRecalibration = true;
-                    ESP_LOGI("DisplayAdapter", "User response to recalibration query: %d", _bRepeatCalibration);
-
-                    // If user requested recalibration, delete the file and recalibrate
-                    if (_bRepeatCalibration) {
-                        ESP_LOGI("DisplayAdapter", "User requested recalibration - deleting file");
-                        LITTLEFS.remove(_filenameCalibration);
-                    }
-                } else {
-                    ESP_LOGI("DisplayAdapter", "Constructor forced recalibration - skipping user prompt");
-                }
-            }
-
-            if (calDataOK && !_bRepeatCalibration) {
-                // User did not request recalibration, we're done
-                ESP_LOGI("DisplayAdapter", "Calibration complete - using stored data");
-                _pTarget->fillScreen(TFT_BLACK);
-            }
-            else
-            {
-                // data not valid, rotation mismatch, or recalibration requested so recalibrate
-                ESP_LOGI("DisplayAdapter", "PERFORMING CALIBRATION (calDataOK=%d, _bRepeatCalibration=%d)",
-                         calDataOK, _bRepeatCalibration);
-                _pTarget->fillScreen(TFT_BLACK);
-                _pTarget->setCursor(20, 0);
-                _pTarget->setTextFont(2);
-                _pTarget->setTextSize(1);
-                _pTarget->setTextColor(TFT_WHITE, TFT_BLACK);
-
-                _pTarget->println("Touch corners as indicated");
-
-                _pTarget->setTextFont(1);
-                _pTarget->println();
-
-                if (_bRepeatCalibration && bAskedForRecalibration) {
-                    _pTarget->setTextColor(TFT_RED, TFT_BLACK);
-                }
-
-                _tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
-
-                _pTarget->setTextColor(TFT_GREEN, TFT_BLACK);
-                _pTarget->println("Calibration complete!");
-
-                // store data with rotation
-                ESP_LOGI("DisplayAdapter", "Saving calibration to file: %s", _filenameCalibration);
-                ESP_LOGI("DisplayAdapter", "Saving rotation: %d", rotation);
-                ESP_LOGI("DisplayAdapter", "Saving calibration data: [%d, %d, %d, %d, %d]",
-                         calData[0], calData[1], calData[2], calData[3], calData[4]);
-
-                fs::File f = LITTLEFS.open(_filenameCalibration, FILE_WRITE);
-                if (f) {
-                    // Write as individual bytes to ensure binary mode
-                    size_t rotWritten = f.write(rotation);  // Write rotation as single byte
-                    size_t calWritten = 0;
-                    for (int i = 0; i < 5; i++) {
-                        calWritten += f.write((uint8_t)(calData[i] & 0xFF));        // LSB
-                        calWritten += f.write((uint8_t)((calData[i] >> 8) & 0xFF)); // MSB
-                    }
-                    f.close();
-                    ESP_LOGI("DisplayAdapter", "Written %d rotation bytes, %d calibration bytes",
-                             rotWritten, calWritten);
-                    ESP_LOGI("DisplayAdapter", "Calibration file saved successfully");
-
-                    // Verify what was written by reading it back
-                    f = LITTLEFS.open(_filenameCalibration, FILE_READ);
-                    if (f) {
-                        uint8_t verifyRot = f.read();
-                        uint16_t verifyCal[5];
-                        for (int i = 0; i < 5; i++) {
-                            int lsb = f.read();
-                            int msb = f.read();
-                            verifyCal[i] = (uint16_t)(lsb | (msb << 8));
-                        }
-                        f.close();
-                        ESP_LOGI("DisplayAdapter", "VERIFY: Read back rotation=%d, calData=[%d, %d, %d, %d, %d]",
-                                 verifyRot, verifyCal[0], verifyCal[1], verifyCal[2], verifyCal[3], verifyCal[4]);
-                    }
-                } else {
-                    ESP_LOGE("DisplayAdapter", "FAILED to open calibration file for writing!");
-                }
+                calibrateRotationIntoTable(table, rotation, bAskedForRecalibration, nullptr);
+                saveCalTable(table);
+                _tft.setTouch(table.arCalData[rotation]);
             }
 
             _pTarget->fillScreen(TFT_BLACK);
 #endif
+        }
+
+        // Kalibreert alle vier de rotaties achter elkaar en bewaart ze naast
+        // elkaar. Daarna hoeft geen enkele app nog te kalibreren, ook niet als hij
+        // in een andere rotatie draait dan de app ervoor. Zie het voorbeeld
+        // TouchCalibrateAll, dat verder niets anders doet.
+        //
+        // Draait bewust buiten AsyncDisplay om: dit tekent rechtstreeks op het
+        // paneel, net als touchCalibrate zelf, en er is nog geen widgetboom.
+        // Gebruik hem daarom op de RGB565-adapter; de PAL8-adapter zou per rotatie
+        // een backbuffer van een andere maat nodig hebben.
+        void touchCalibrateAllRotations(uint8_t font)
+        {
+            _tft.begin();
+            _bBegun = true;
+
+            mountFileSystem();
+
+            CalTable table;
+            loadCalTable(table);
+
+            for (uint8_t rotation = 0; rotation < (uint8_t)NofRotations; rotation++)
+            {
+                _rotation = rotation;
+                _tft.setRotation(rotation);
+                _pTarget->setTextFont(font);
+
+                // Los van calibrateTouch(), dat pas na de eerste hoek een pauze
+                // inlast: hier ligt de vinger nog op de hoek rechtsonder van de
+                // vorige rotatie.
+                waitUntilTouchReleased(3000);
+
+                char arLine[32];
+                snprintf(arLine, sizeof(arLine), "Rotation %d of %d", (int)rotation + 1, (int)NofRotations);
+                calibrateRotationIntoTable(table, rotation, false, arLine);
+
+                // Per rotatie bewaren en niet pas aan het eind: gaat het bord
+                // halverwege uit, dan is alleen de laatste rotatie kwijt.
+                saveCalTable(table);
+            }
+
+            _rotation = 0;
+            _tft.setRotation(_rotation);
+            _pTarget->fillScreen(TFT_BLACK);
+            _pTarget->setCursor(20, 20);
+            _pTarget->setTextFont(2);
+            _pTarget->setTextSize(1);
+            _pTarget->setTextColor(TFT_GREEN, TFT_BLACK);
+            _pTarget->println("All 4 rotations calibrated.");
+            _pTarget->println("Flash your app; it will not");
+            _pTarget->println("ask for calibration again.");
+
+            ESP_LOGI("DisplayAdapter", "alle vier de rotaties gekalibreerd, masker 0x%02X",
+                     (unsigned)table.validMask);
         }
 
     private:

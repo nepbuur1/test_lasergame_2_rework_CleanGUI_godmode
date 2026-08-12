@@ -54,6 +54,7 @@ namespace crt
 
 // **** .CleanGUI related Tests ****
 //#include <Vec2.ino>
+//#include <TouchCalibrateAll.ino>			// kalibreert alle 4 de schermrotaties in een keer
 //#include <Panel.ino>
 //#include <Button_demo.ino>
 //#include <AsyncDisplay.ino>

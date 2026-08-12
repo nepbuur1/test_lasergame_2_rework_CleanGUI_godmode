@@ -2,6 +2,12 @@
 ## Introduction
 This file contains tasks for Claude. Claude should only perform such a task after explicit request.
 
+## Overzicht
+| # | taak | status | beschrijving |
+|---|---|---|---|
+| 1 | Image-assets in flash zonder CMakeLists-wijzigingen | gedaan | hieronder |
+| 2 | CleanGUI: drie orthogonale assen (show / enable / draw) | te doen | [CleanGUI_show_enable_refactor.md](CleanGUI_show_enable_refactor.md) |
+
 ## Task 1
 Eerder had je een mooi plan gemaakt:
 

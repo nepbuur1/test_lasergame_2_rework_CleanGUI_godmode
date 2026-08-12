@@ -91,6 +91,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
 
 "../libs/CleanGUI_for_TFT_eSPI/examples/Panel"
 "../libs/CleanGUI_for_TFT_eSPI/examples/AsyncDisplay"
+"../libs/CleanGUI_for_TFT_eSPI/examples/TouchCalibrateAll"
 "../libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenButton"
 "../libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenButtonGroup"
 "../libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard"

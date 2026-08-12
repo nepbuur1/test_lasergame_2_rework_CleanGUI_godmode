@@ -1,5 +1,89 @@
 # Claude log
 
+## 2026-08-12 — Touchkalibratie per schermrotatie, en de nachtopdracht naar git
+
+Twee dingen, en het tweede is de reden voor het eerste.
+
+### Terugdraaien
+
+De nachtelijke poging van 11 augustus op `refactor/cleangui-draw-enable-split`
+(3 commits plus ongecommit werk) is teruggedraaid: branch weg, `main` weer op
+`13f7254`, schone boom. Het werk is niet vernietigd maar staat lokaal onder de
+tag `backup/nachtwerk-2026-08-11`, met het ongecommitte deel als extra
+WIP-commit erbovenop. Die tag is niet gepusht.
+
+### Waarom die poging niet zelfstandig af te maken was
+
+Elke app en elk voorbeeld kiest zijn eigen schermrotatie. De kalibratie werd wél
+mét rotatie bewaard, maar er paste er **maar één** in `/TouchCalData1`:
+
+```
+[0]      rotatie
+[1..10]  5 uint16 calData
+```
+
+Startte je een app in een andere rotatie, dan kwam die byte niet overeen, werd er
+opnieuw gekalibreerd, en werd het bestand overschreven — de kalibratie van de
+vorige rotatie was daarmee weg. Achter elkaar door de voorbeelden lopen kostte dus
+elke flash vier hoeken aantikken, en dat is precies wat een autonome run niet kan.
+
+Erger nog was de sloop bij een *gewone* hercalibratie: bij een rotatiemismatch en
+bij de "Touch now to recalibrate"-vraag deed de oude code eerst
+`LITTLEFS.remove()`. Wat er voor andere rotaties in stond ging daar sowieso bij weg.
+
+### Wat er nu staat
+
+Formaat v2 in hetzelfde bestand, 46 bytes:
+
+| offset | inhoud |
+|---|---|
+| 0..3 | magic `'C','G','T','C'` |
+| 4 | versie (2) |
+| 5 | geldigheidsmasker, bit *r* hoort bij rotatie *r* |
+| 6..45 | 4 slots van 5 uint16, little endian |
+
+De twee versies zijn niet te verwarren: v1 is 11 bytes en begint met een rotatie
+(0..3), v2 is 46 bytes en begint met `'C'` (67). Een v1-bestand wordt bij het lezen
+overgenomen in het slot waar het volgens zijn eigen rotatiebyte hoort, dus een bord
+dat al gekalibreerd was hoeft die ene rotatie niet opnieuw te doen.
+
+Gedrag, en dat is bewust asymmetrisch:
+
+| wie | wat |
+|---|---|
+| `touchCalibrate(rotation, font)` — elke app | leest het slot van *zijn eigen* rotatie. Staat het er, dan `setTouch` plus de bestaande 2-secondenvraag "Touch now to recalibrate". Wordt daarop getikt, dan wordt **alleen dat ene slot** opnieuw gevuld |
+| `touchCalibrateAllRotations(font)` — nieuw | kalibreert 0, 1, 2, 3 achter elkaar en bewaart na élke rotatie |
+
+`LITTLEFS.remove()` is helemaal verdwenen; `FILE_WRITE` kapt het bestand toch af en
+de hele tabel gaat er in één keer opnieuw in. Per rotatie opslaan en niet pas aan
+het eind: gaat het bord halverwege uit, dan is alleen de laatste rotatie kwijt.
+
+Tussen twee rotaties door zit een `waitUntilTouchReleased()`. `calibrateTouch()`
+last pas ná de eerste hoek een pauze in (`if (i>0) delay(1000)`), terwijl de vinger
+op dat moment nog op de hoek rechtsonder van de vórige rotatie ligt. Die wacht kijkt
+naar `getTouchRawZ()` en niet naar `getTouch()`, want dat laatste rekent de meting
+eerst om met de kalibratie die er op dat moment staat — en juist die is daar nog
+onbetrouwbaar.
+
+Nieuw voorbeeld `libs/CleanGUI_for_TFT_eSPI/examples/TouchCalibrateAll`, bewust
+zonder AsyncDisplay en zonder widgets, op de RGB565-adapter: de kalibratie tekent
+rechtstreeks op het paneel en draait voordat er een widgetboom is. De PAL8-variant
+zou per rotatie een backbuffer van een andere maat nodig hebben, en er valt hier
+niets te bufferen.
+
+### De opdracht zelf staat nu in git
+
+`devdocs/Claude_instructions/CleanGUI_show_enable_refactor.md` — de volledige
+specificatie van de show/enable/draw-refactor, inclusief de redenering achter
+`makeDrawable`/`makeNonDrawable`, waarom `_bVisible` weg kan, waarom `hide()` op
+`repaintRegion` moet en niet op een `fillRect` met de achtergrondkleur, het
+stappenplan 0-10, en hoe het zonder toezicht te testen valt (touch namaken via
+`ITouchListener`, pixels teruglezen via de PAL8-buffer). Bedoeld om na een
+`git pull` op een andere machine uitgevoerd te worden.
+
+Wat daar ook in staat als valkuil: `apps` staat in `.claudeignore`, terwijl vier
+van de tien stappen juist in `apps/` zitten.
+
 ## 2026-08-07 — GameObjectsControl uit elkaar: opslag, beeldklok, en drie interfaces van een regel
 
 `GameObjectsControl` deed vier dingen: het hield de depots vast, het beantwoordde de

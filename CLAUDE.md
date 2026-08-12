@@ -19,12 +19,38 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash
 idf.py -p /dev/ttyUSB0 monitor
 ```
+`idf.py` staat niet altijd in PATH. Op de machine van de auteur eerst sourcen met
+`. ~/esp54/esp-idf/export.sh` (ESP-IDF v5.4.3, toolchain in `~/.espressif`) — let
+op: níet de gebruikelijke `~/esp/esp-idf`. Op een andere machine kan dat pad
+afwijken; zoek hem op in plaats van te gokken.
+
+Welke app of welk voorbeeld gebouwd wordt, kies je met het `#include` van de
+`.ino` in `main/main.cpp`. Precies één regel mag actief zijn.
+
 `sdkconfig` staat in `.gitignore`. Wat er per se in moet, staat daarom in
 **`sdkconfig.defaults`**: `FREERTOS_HZ=1000` (arduino-esp32 eist dat, anders
 faalt cmake meteen), de eigen `partitions.csv`, en 4MB flash. Zet nieuwe
 niet-default instellingen daar bij, anders zijn ze weg zodra `sdkconfig`
 opnieuw wordt gegenereerd. De spiffs-partitie uit `partitions.csv` is waar de
 touchkalibratie in leeft; zonder die partitie vraagt het bord er elke boot om.
+
+## Touchkalibratie
+- Leeft in `/TouchCalData1` op de spiffs-partitie uit `partitions.csv`. **Draai
+  nooit `idf.py erase_flash`** — dat wist hem.
+- Het bestand bewaart **alle vier de schermrotaties naast elkaar**, elk in een
+  eigen slot met een geldigheidsbit (formaat v2, 46 bytes: magic `CGTC`, versie,
+  masker, 4 × 5 uint16). Een bestand van het oude formaat (11 bytes: rotatie +
+  5 uint16) wordt bij het lezen overgenomen in het bijbehorende slot.
+- Dat is nodig omdat elke app en elk voorbeeld zijn eigen rotatie kiest. In het
+  oude formaat paste er maar één kalibratie in, dus wie een app in een andere
+  rotatie startte moest opnieuw kalibreren én gooide daarmee de vorige weg.
+  Achter elkaar door de voorbeelden lopen was daardoor niet te doen.
+- Voorbeeld **`TouchCalibrateAll`** kalibreert alle vier de rotaties in één keer;
+  daarna vindt elke app zijn eigen rotatie kant en klaar terug. Draai dat één
+  keer per bord.
+- Elke andere app blijft bij het opstarten wél kort (2 s) "Touch now to
+  recalibrate" aanbieden, maar dat hérkalibreert alleen zijn eigen rotatie; de
+  andere drie slots blijven staan.
 
 ## Display / TFT_eSPI
 - Config staat in `libs/TFT_eSPI/User_Setup.h` (geselecteerd via `User_Setup_Select.h`).
