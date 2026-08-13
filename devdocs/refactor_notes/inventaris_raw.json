@@ -1,0 +1,800 @@
+[
+ {
+  "group": "keukenweegschaal + pong-console (weegcontrol.h, weegcontrol_obs.h, crt_GameControl.h)",
+  "callSites": [
+   {
+    "file": "apps/keukenweegschaal/weegcontrol.h",
+    "line": 55,
+    "code": "display.enable();",
+    "intent": "Toestand WACHT_OP_AANKNOP_3SEC_INGEDRUKT: na wait(flagDrieSecondenKnop) is de aan-knop 3 seconden ingedrukt geweest, dus de weegschaal-display wordt aangezet en meteen daarna wordt de tarra gelezen. Dit is GEEN CleanGUI-widget: `display` is een pseudocode-object (klasse Display bestaat nergens in de repo) met een showString(x,y,string)-interface.",
+    "migration": "Ongewijzigd laten. Raakt de CleanGUI-API niet; enable() hier is een eigen aan/uit van een weegschaal-display, niet crt::Widget::enable().",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/keukenweegschaal/weegcontrol.h",
+    "line": 78,
+    "code": "display.disable();",
+    "intent": "Toestand DISPLAY, tak HasFired(flagDrieSecondenKnop): de gebruiker houdt de knop weer 3 seconden in, dus het apparaat gaat uit — display uit en terug naar WACHT_OP_AANKNOP_3SEC_INGEDRUKT. Geen CleanGUI-widget.",
+    "migration": "Ongewijzigd laten. Raakt de CleanGUI-API niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/keukenweegschaal/weegcontrol_obs.h",
+    "line": 20,
+    "code": "display.disable();",
+    "intent": "In de constructor van WeegControl: het display start uit, want de weegschaal wacht eerst op 3 seconden aan-knop. Geen CleanGUI-widget; er staat ook geen enkele show/hide in dit bestand, dus dit is geen leunen op een neveneffect.",
+    "migration": "Ongewijzigd laten. Raakt de CleanGUI-API niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/keukenweegschaal/weegcontrol_obs.h",
+    "line": 71,
+    "code": "display.enable();",
+    "intent": "Toestand WACHT_OP_AANKNOP_3SEC_INGEDRUKT: na wait(flagDrieSecKnop) display aan en tarra lezen. Spiegelbeeld van weegcontrol.h:55. Geen CleanGUI-widget.",
+    "migration": "Ongewijzigd laten. Raakt de CleanGUI-API niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/keukenweegschaal/weegcontrol_obs.h",
+    "line": 113,
+    "code": "display.disable()",
+    "intent": "Toestand DISPLAY, tak HasFired(flagDrieSecKnop): apparaat uit, terug naar de wachttoestand. Let op: er staat geen puntkomma — het bestand is pseudocode, geen compileerbare C++. Geen CleanGUI-widget.",
+    "migration": "Ongewijzigd laten. Raakt de CleanGUI-API niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong/pong/crt_GameControl.h",
+    "line": 127,
+    "code": "sceneDisplayControl.enable();",
+    "intent": "STATE_KLIK_OM_TE_STARTEN: na een knopdruk wordt de bal gestart en daarna het scene-renderen aangezet, waarna de toestand naar STATE_GAME_RUNNING gaat. `sceneDisplayControl` is een `ISceneDisplayControl&` (crt_SceneDisplayControl.h:22-31); enable() zet daar alleen `flagEnable` (crt_SceneDisplayControl.h:92-95) van een CleanRTOS-Task die een ASCII-CharMatrix naar de console print. Geen widget, geen TFT.",
+    "migration": "Ongewijzigd laten. Dit is Task-scheduling via een Flag, niet crt::Widget::enable(); de nieuwe show/hide/makeDrawable-API raakt dit niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong/pong/crt_GameControl.h",
+    "line": 138,
+    "code": "sceneDisplayControl.disable();",
+    "intent": "STATE_GAME_OVER: eerst het renderen stilleggen, daarna vTaskDelay(200) met het commentaar \"wacht op evt parallel afrenderen van scene\" — dus expliciet wachten tot de renderende task zijn laatste frame af heeft voordat de Game-Over-ASCII-art wordt gelogd. disable() zet alleen `flagDisable` (crt_SceneDisplayControl.h:97-100). Geen widget.",
+    "migration": "Ongewijzigd laten. Dit is Task-scheduling via een Flag, niet crt::Widget::disable().",
+    "risk": "mechanisch"
+   }
+  ],
+  "reliesOnSideEffect": [],
+  "notes": "Kernbevinding: geen van deze drie bestanden raakt CleanGUI. In alle drie samen komt geen enkele `show(`, `hide(`, `setDrawable(`, `isShown(`, `redraw(`, `redrawRegion(`, `repaintRegion(` of `paint(` voor — geverifieerd met een grep op de volledige bestanden; de enige treffers zijn de zeven hierboven gerapporteerde enable()/disable()-aanroepen op niet-widget-objecten. Er is dus ook nergens iets dat op het neveneffect show->enable of hide->disable kan leunen: dat neveneffect vereist een show/hide, en die staat hier niet. `apps/keukenweegschaal/weegcontrol.h` en `weegcontrol_obs.h` zijn ontwerp-schetsen in pseudocode, geen compileerbare C++ (`void losgelaten(knopNaam:string)`, `switch(state):` met dubbele punt, ontbrekende puntkomma's op regels 83/108/113 van _obs, en met `-` weggestreepte memberregels 7-12 van _obs); ze worden door geen enkele .ino geinclude en `apps/keukenweegschaal` staat niet in het include-pad van `main/CMakeLists.txt`. Het object `display` daarin heeft nergens in de repo een klassedefinitie, en zijn interface `showString(x,y,string)` bestaat niet in CleanGUI — ik kan daarom niet met absolute zekerheid zeggen wat de auteur met `Display` voor ogen had, maar er is geen aanwijzing dat het een CleanGUI-widget is. In `crt_GameControl.h` is `sceneDisplayControl` aantoonbaar een CleanRTOS-Task achter de interface `ISceneDisplayControl`; enable()/disable() zetten daar alleen Flags die de renderloop in `SceneDisplayControl::main()` (crt_SceneDisplayControl.h:181-199) tussen STATE_ENABLED en STATE_DISABLED laten schakelen, en dat renderen gaat naar de seriele console via `charMatrix.printMatrix()`, niet naar het scherm. Twee tekstuele bijna-treffers die géén migratie zijn: `display.showString(...)` op weegcontrol.h:65 en weegcontrol_obs.h:83 bevatten wel \"show\" maar matchen niet op `show(`. Ik heb geen bestaande workaround-regels gevonden (geen enable/disable pal na een show/hide, geen commentaar in de trant van \"show zet de enable-toestand terug\"). Ter context voor de bouw: de console-Pong wordt op dit moment niet gebouwd (`//#include <Pong2.ino>` op main/main.cpp:68), maar `apps/pong/pong` staat wel op het include-pad (main/CMakeLists.txt:135), dus het bestand moet blijven compileren. Conclusie voor de refactoring: deze groep vergt nul wijzigingen en levert nul risico op stil gedrag."
+ },
+ {
+  "group": "CleanGUI_for_TFT_eSPI/examples — TouchscreenKeyboard, AsyncDisplay, TouchscreenButtonGroup, TouchscreenButton",
+  "callSites": [
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 156,
+    "code": "page1.show(true);",
+    "intent": "Teken de hele pagina in een keer (achtergrondpaneel onderop plus het toetsenbord); het commentaar op 152-155 zegt expliciet 'de hele pagina, niet alleen het toetsenbord', anders wordt het achtergrondpaneel nooit getekend.",
+    "migration": "page1.show(true); blijft letterlijk staan (= makeDrawable + redraw). Een extra enable is hier niet nodig: _bEnabled staat na constructie al op true en er is nergens eerder gedisabled. Wie alleen tekenwerk bedoelt kan page1.redraw(true) gebruiken, maar dan blijft de hide() op regel 180 het toetsenbord non-drawable maken en dat is hier ongewenst.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 180,
+    "code": "touchscreenKeyboard.hide(true);",
+    "intent": "Reactie op de pseudo-toets 'OutsideKeyboardPressed': er is buiten het toetsenbord getikt, dus het toetsenbord moet weg. Het moet daarna ook echt uit staan — de test verwacht dat de volgende aanraking alleen nog flagTouchPressed zet (tak op 203) en geen toetsaanslagen meer produceert.",
+    "migration": "touchscreenKeyboard.hide(true); gevolgd door touchscreenKeyboard.disable(true); — precies in die volgorde, zodat eerst het beeld wordt hersteld en daarna de toetsen dood zijn. disable(true) is verplicht met children: hide(true) disabelde nu ook alle 32 knoppen plus tsOutsideKeyboardButton.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 207,
+    "code": "if(!touchscreenKeyboard.isShown())",
+    "intent": "Alleen opnieuw tonen als het toetsenbord nu verborgen is; het commentaar op 205-206 legt uit dat de vorige aanraking het toetsenbord had verborgen en dat de test het 'for the sake of this test' weer terugzet.",
+    "migration": "if(!touchscreenKeyboard.isDrawable()) — dat is de directe vervanger, want de nieuwe hide() zet _bDrawable op false en show() weer op true. Alternatief, en eerlijker zodra hide/disable altijd samen gaan: !touchscreenKeyboard.isEnabled(), of een eigen bool bKeyboardShown in de taak. Let op het verschil in beginwaarde: isShown() was false tot de eerste show(), isDrawable() is true vanaf constructie — hier onschuldig, want dit punt wordt pas na page1.show(true) bereikt.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 209,
+    "code": "touchscreenKeyboard.show(true);",
+    "intent": "Het verborgen toetsenbord weer terugzetten na een aanraking buiten het toetsenbord — en het moet daarna weer aanraakbaar zijn, anders is de test na één ronde stuk: er komt nooit meer een keyPressed.",
+    "migration": "touchscreenKeyboard.show(true); gevolgd door touchscreenKeyboard.enable(true); (children mee: hide(true) had ze allemaal uitgezet). enable ná show, zodat er geen aanraking op een half getekend toetsenbord binnenkomt; de bPressed-reset in TouchscreenButton::enable() vangt de overgang uit->aan nog steeds af.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/AsyncDisplay/crt_TestAsyncDisplay.h",
+    "line": 143,
+    "code": "page1.show(true);",
+    "intent": "Elke lus-iteratie de hele boom opnieuw tekenen (achtergrond, paneel, negen Text-labels) — het uitgecommentarieerde ESP_LOGI op 142 noemt het 'clearing screen'. Puur tekenwerk; dit voorbeeld heeft geen enkele touch-listener, dus de enable-toestand doet er niet toe.",
+    "migration": "page1.show(true); laten staan. redraw(true) is semantisch wat hier bedoeld wordt, maar mag alleen als regel 148 ook verandert — zie de opmerking daar: na hide(true) is het paneel non-drawable en zou een kale redraw het paneel voorgoed onzichtbaar maken.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/AsyncDisplay/crt_TestAsyncDisplay.h",
+    "line": 148,
+    "code": "panel.hide(true);",
+    "intent": "Het paneel op zijn oude plek uitwissen vlak voordat setLocPos() op 149 het een pixel opschuift — de klassieke wis-verplaats-teken-animatie. Bedoeld is alleen 'veeg weg wat er nu staat'.",
+    "migration": "panel.hide(true); kan blijven (makeNonDrawable + repaintRegion herstelt nu de achtergrond via de root in plaats van te vullen met _colBg; achtergrond is hier zwart, dus visueel gelijk). Netter is dit paar te vervangen door panel.moveTo(locPos, CoordType::Pixels), dat precies hiervoor bestaat en niet flikkert. Het meegedisabelde paneel en zijn labels maken hier niets uit.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenButtonGroup/crt_TestTouchscreenButtonGroup.h",
+    "line": 222,
+    "code": "page1.show(true);",
+    "intent": "De opgebouwde pagina in een keer tekenen: achtergrondpaneel, knop A en B los, en de buttongroup met C en D erin. De knoppen moeten daarna reageren op aanraking.",
+    "migration": "page1.show(true); ongewijzigd. Geen expliciete enable nodig: geen van de knoppen of de groep is ooit gedisabled en _bEnabled staat vanaf de constructor op true.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenButton/crt_TestTouchscreenButton.h",
+    "line": 154,
+    "code": "page1.show(true);",
+    "intent": "De pagina met achtergrondpaneel en de twee knoppen in een keer tekenen; daarna draait de lus alleen nog op de flags van de knoplisteners.",
+    "migration": "page1.show(true); ongewijzigd. Ook hier geen enable nodig — niets is ooit gedisabled.",
+    "risk": "mechanisch"
+   }
+  ],
+  "reliesOnSideEffect": [
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 180,
+    "explanation": "hide(true) is hier de enige plek die het toetsenbord uitzet; er staat nergens disable(). Aanraakafhandeling kijkt uitsluitend naar _bEnabled (TouchscreenButton::touchPressed regel 219, TouchscreenButtonGroup::touchPressed regel 77) en niet naar _bVisible, dus zonder de disable blijft het onzichtbare toetsenbord toetsen versturen. Erger: de if/else-keten op 173-211 neemt dan altijd de queueKeyPressedStrings-tak, waardoor de flagTouchPressed-tak op 203 nooit meer draait en het toetsenbord nooit meer terugkomt. Bovendien blijft tsOutsideKeyboardButton vuren, zodat elke aanraking opnieuw 'OutsideKeyboardPressed' oplevert."
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/TouchscreenKeyboard/crt_TestTouchscreenKeyboard.h",
+    "line": 209,
+    "explanation": "show(true) is de enige plek die het toetsenbord na de hide van regel 180 weer aan zet; er staat nergens enable(). Zonder de enable-kant van het neveneffect komt het toetsenbord wel terug in beeld maar blijft het dood: TouchscreenButtonGroup::touchPressed valt op !isEnabled() meteen terug en er komt nooit meer een keyPressed, dus de tekst-uitvoer op regel 194 werkt na de eerste hide niet meer."
+   }
+  ],
+  "notes": "In alle vier de voorbeelden staat _bEnabled al vanaf de constructor van Widget op true (crt_Widget.h regel 50) en wordt er nergens expliciet gedisabled, dus de opbouw-show'en op 154/156/222 leunen niet aantoonbaar op het enable-neveneffect: alleen het toetsenbordvoorbeeld doet dat, en wel op beide kanten. Er zitten in deze vier bestanden geen bestaande workarounds (geen enable/disable vlak na een show/hide, geen commentaar dat de enable-toestand terugzet) — die staan in de bibliotheek zelf. Drie daarvan raken deze voorbeelden rechtstreeks en verdienen aandacht bij dezelfde refactoring: crt_TouchscreenButton.h regels 295-310, waar het commentaar bij enable() letterlijk uitlegt dat Widget::show() enable(false) aanroept en daarmee een lopende druk wiste (die verklaring vervalt, de guard zelf blijft nuttig); crt_TouchscreenButton.h regels 270-283, waar bij disable() staat 'Widget::hide() disabelt ook, dus dit dekt hide() mee' — dat klopt straks niet meer, en het beschreven scenario (knop verbergt zijn eigen pagina, vinger gaat los in het niets) is precies wat tsOutsideKeyboardButton in het toetsenbordvoorbeeld doet; en crt_TouchscreenKeyboard.h regels 263, 295 en 327, waar switchToLower/Upper/Numerical elk 'Base::show(true); // redraw this keyboard' doen — dat is duidelijk redraw(true) bedoeld, en het is nu ook de reden dat een verborgen toetsenbord door een SHIFT- of 123-druk zichtbaar én enabled zou terugspringen. Voor crt_TestAsyncDisplay.h geldt een koppeling tussen regel 143 en 148: die twee zijn een paar, en show->redraw op 143 mag alleen samen met een aanpassing van 148, anders blijft het paneel na de eerste hide non-drawable en verdwijnt het uit beeld. Ik heb aangenomen dat redraw(bIncludeChildren) zichzelf en zijn kinderen tekent zonder enige vlag aan te raken en dat hide() eerst makeNonDrawable doet en daarna repaintRegion (anders zou het toetsenbord zichzelf terugtekenen); die twee volgordes staan in de opdracht maar nog niet in de code, dus ik kon ze niet verifiëren. Ook onzeker: of isDrawable() na de refactoring de publieke lees-API blijft die regel 207 mag gebruiken — als isDrawable() ook verdwijnt, is een eigen bool in TestTouchscreenKeyboard de enige overgebleven optie."
+ },
+ {
+  "group": "pong_cleangui_cg (pcg_DisplayControl.h + pcg_GameControl.h)",
+  "callSites": [
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 446,
+    "code": "page.setDrawable(true, true);",
+    "intent": "In showPage(): eerst de hele pagina-subboom weer tekenbaar maken, want hidePage() had hem niet-tekenbaar gezet en Panel::showPanel() keert bij !isDrawable() meteen terug. Moet dus per se vóór de show() op 447 staan.",
+    "migration": "Vervalt: `page.show(true)` op 447 doet de makeDrawable(true) nu zelf (show == makeDrawable + redraw, in die volgorde). Wie hem letterlijk wil houden: `page.makeDrawable(true);`.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 447,
+    "code": "page.show(true);",
+    "intent": "De pagina nu echt tekenen, inclusief alle kinderen (panelen, knoppen, tekst). Het commentaar op 442-443 zegt waarom dat mag zonder eerst te wissen: elke pagina begint met een schermvullend paneel, dus hij overschrijft wat de vorige achterliet.",
+    "migration": "Blijft `page.show(true);` — tekent nog steeds. De enable die er vandaag gratis bij zit verdwijnt stil, maar wordt hier al gedekt door de expliciete `page.enable(true)` op 448.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 448,
+    "code": "page.enable(true);",
+    "intent": "De knoppen van deze pagina weer op aanraking laten reageren. Vandaag dubbelop: Widget::show() roept per widget al enable(false) aan, dus na show(true) is de hele subboom al enabled.",
+    "migration": "Ongewijzigd, maar wordt van redundant naar dragend: dit is straks de enige enable. Ook TouchscreenButton::enable()'s opruimen van een blijven hangen bPressed (zie crt_TouchscreenButton.h:295-310) hangt hier vanaf. Niet opruimen.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 453,
+    "code": "page.setDrawable(false, true);",
+    "intent": "In hidePage(): met opzet vóór de hide(), zodat Panel::hide() zijn wisvlak overslaat (crt_Panel.h:322-330 keert terug bij !isDrawable()). Commentaar 435-443: het verbergen tekent expres niets — dat scheelt de zwarte flits tussen twee pagina's, en het mag omdat de volgende pagina schermvullend begint.",
+    "migration": "`page.makeNonDrawable(true);` — een-op-een, en dit is nu precies de hele bedoeling van hidePage()'s eerste twee regels.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 454,
+    "code": "page.hide(true);",
+    "intent": "Alleen nog de vlag _bVisible uitzetten; door de setDrawable(false) ervan tekent en wist deze aanroep vandaag helemaal niets.",
+    "migration": "Vervalt. In de nieuwe API is regel 453 (makeNonDrawable) exact wat hier bedoeld werd; hide() zou er een repaintRegion over de hele paginarect bij doen. Die repaint tekent hier weliswaar niets (alles is dan al niet-tekenbaar), maar hij is overbodig en hij wordt fout zodra iemand de volgorde omdraait — hide() vóór makeNonDrawable wist wél. Let op dat de disable die hide() vandaag impliceert verdwijnt; regel 455 dekt dat al.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 455,
+    "code": "page.disable(true);",
+    "intent": "De knoppen van deze pagina niet meer op aanraking laten reageren. Vandaag dubbelop: Widget::hide() disablet elke widget al.",
+    "migration": "Ongewijzigd, maar wordt dragend: dit is straks de enige disable, en ook het enige dat nog TouchscreenButton::disable() bereikt (die reset bPressed — zonder dat blijft een knop die onder je vinger verdwijnt voorgoed 'ingedrukt', zie crt_TouchscreenButton.h:270-283). Niet opruimen.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 482,
+    "code": "pageRoot.show(false);",
+    "intent": "Alleen de vlag omzetten, expres zonder kinderen. Het commentaar 473-481 legt uit waarom: redrawRegion() breekt af op een onzichtbare widget, dus zonder deze regel verschijnt het beeld wel maar herstelt moveTo() daarna niets meer; show(true) zou alle drie de pagina's tegelijk tonen; de root zelf is een kale Widget en tekent niets.",
+    "migration": "`pageRoot.makeDrawable(false);`. Strikt genomen mag de regel ook weg: _bDrawable staat bij constructie al op true (crt_Widget.h:50), dus de poort waar dit commentaar over gaat is er straks vanzelf. Het commentaarblok 473-481 moet hoe dan ook herschreven — de reden die het geeft (_bVisible) bestaat niet meer.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 567,
+    "code": "paddlePanel.show(true);",
+    "intent": "Bij flagShowPaddle: de peddel weer in beeld zetten aan het begin van een spel (PaddleControl vraagt dit via displayControl.showPaddle(), pcg_PaddleControl.h:174).",
+    "migration": "Blijft `paddlePanel.show(true);`. Werkt ook na de refactoring goed: de hide op 576 maakt hem straks niet-tekenbaar en deze show maakt hem weer tekenbaar. De verdwenen enable is gedekt door 568.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 568,
+    "code": "paddlePanel.enable(true);",
+    "intent": "Administratief: de peddel is een Panel, geen knop, en niets in de codebase leest isEnabled() van een Panel. Staat er voor de symmetrie met de disable op 577.",
+    "migration": "Ongewijzigd. Mag blijven staan; heeft na de refactoring net zo min functioneel effect als nu.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 569,
+    "code": "buttonLeft.show(true);",
+    "intent": "De linker peddelknop weer tekenen. Bedoeld is nadrukkelijk óók dat hij weer aanraakbaar wordt — de knop is op 579 gedisabled toen de peddel verdween.",
+    "migration": "Blijft `buttonLeft.show(true);`. De enable die vandaag in show() zit verdwijnt stil, maar 570 staat er al. Zonder 570 zou de knop na de refactoring zichtbaar maar dood zijn.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 570,
+    "code": "buttonLeft.enable(true);",
+    "intent": "Vandaag redundant (show(true) enablede hem al één regel eerder).",
+    "migration": "Ongewijzigd, maar wordt dragend: dit is straks de enige enable van de linker peddelknop, én de plek waar TouchscreenButton::enable() een verouderde bPressed weggooit.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 571,
+    "code": "buttonRight.show(true);",
+    "intent": "Idem als 569, voor de rechter peddelknop.",
+    "migration": "Blijft `buttonRight.show(true);`; de verdwenen enable is gedekt door 572.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 572,
+    "code": "buttonRight.enable(true);",
+    "intent": "Vandaag redundant.",
+    "migration": "Ongewijzigd, wordt dragend. Niet opruimen.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 576,
+    "code": "paddlePanel.hide(true);",
+    "intent": "Bij flagHidePaddle: de peddel van het scherm halen als het spel afloopt. Hier wordt géén setDrawable(false) vooraf gedaan (anders dan in hidePage), dus dit wist wél: Panel::hidePanel() vult de peddelrect met _colBg (zwart).",
+    "migration": "Blijft `paddlePanel.hide(true);`. Gedragsverschil: nieuw wist hij niet met zijn eigen _colBg maar laat hij de boom de rect opnieuw tekenen — hier levert dat hetzelfde zwart op (gamePanel colFg 0x00000000). De verdwenen disable is gedekt door 577.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 577,
+    "code": "paddlePanel.disable(true);",
+    "intent": "Administratief, zie 568: een Panel z'n enable-toestand wordt nergens gelezen.",
+    "migration": "Ongewijzigd.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 578,
+    "code": "buttonLeft.hide(true);",
+    "intent": "De linker peddelknop weghalen als het spel afloopt — zichtbaar én aanraakbaar. Dat laatste is niet cosmetisch: op de game-over-pagina mag een druk op de oude peddelknop niets meer doen.",
+    "migration": "Blijft `buttonLeft.hide(true);`. De disable verdwijnt stil uit hide(); 579 staat er al. Zonder 579 zou de knop onzichtbaar maar aanraakbaar blijven.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 579,
+    "code": "buttonLeft.disable(true);",
+    "intent": "Vandaag redundant (hide(true) disablede al).",
+    "migration": "Ongewijzigd, wordt dragend — en dit is straks de enige route naar TouchscreenButton::disable(), die bPressed reset. Niet opruimen.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 580,
+    "code": "buttonRight.hide(true);",
+    "intent": "Idem als 578, voor de rechter peddelknop.",
+    "migration": "Blijft `buttonRight.hide(true);`; de verdwenen disable is gedekt door 581.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_DisplayControl.h",
+    "line": 581,
+    "code": "buttonRight.disable(true);",
+    "intent": "Vandaag redundant.",
+    "migration": "Ongewijzigd, wordt dragend. Niet opruimen.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_GameControl.h",
+    "line": 49,
+    "code": "paddleControl.enable();",
+    "intent": "\"De peddel eerst: die moet er staan voordat de bal eraan komt.\" Dit is PaddleControl::enable() (pcg_PaddleControl.h:113), die alleen flagEnable zet; PaddleControl vraagt daarna zelf displayControl.showPaddle() aan.",
+    "migration": "Niet aanpassen. Geen widget-aanroep — alleen naamsgelijkenis. Een mechanische zoek-vervang op `enable(` mag hier niet toeslaan.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_cg/pcg_GameControl.h",
+    "line": 58,
+    "code": "paddleControl.disable();",
+    "intent": "\"De peddelknoppen horen bij het spel, niet bij de game-over-pagina.\" Zet flagDisable; PaddleControl roept vervolgens displayControl.hidePaddle() aan, wat op DisplayControl-regel 576-581 uitkomt.",
+    "migration": "Niet aanpassen. Geen widget-aanroep.",
+    "risk": "mechanisch"
+   }
+  ],
+  "reliesOnSideEffect": [],
+  "notes": "Geen enkele plek in deze twee bestanden leunt op het neveneffect: achter élke show/hide op een widget staat al een expliciete enable/disable (447+448, 454+455, 567+568, 569+570, 571+572, 576+577, 578+579, 580+581), en de drie pagina's krijgen bij het opbouwen hun disable via hidePage() op 495, 503 en 509 — dus reliesOnSideEffect is leeg. Het belangrijkste gevolg: juist die 'dubbele' calls, die vandaag redundant zijn, worden na de refactoring dragend en mogen niet als opschoning verdwijnen (448, 455, 570, 572, 579, 581 zijn functioneel; 568 en 577 zijn puur administratief, want alleen TouchscreenButton leest isEnabled()). Wat wél weg kan: regel 446 (show doet de makeDrawable nu zelf) en regel 454 (makeNonDrawable op 453 ís al wat hier bedoeld werd); regel 482 mag ook weg omdat _bDrawable bij constructie al true is (crt_Widget.h:50). De workaround die de nieuwe API overbodig maakt is de constructie hidePage()/commentaarblok 435-443: \"setDrawable(false) eerst, zodat Panel::hide() zijn wisvlak overslaat\" is precies wat makeNonDrawable per definitie doet. Volgorde-waarschuwing: in hidePage moet het niet-tekenbaar maken vóór elke mogelijke repaint blijven staan — hide() vóór makeNonDrawable wist wél, en dat is exact de zwarte flits tussen twee pagina's die de auteur hier vermijdt. Commentaar dat feitelijk onwaar wordt en mee moet in de refactoring: regel 434 (somt setDrawable op), 437-438, 473-481 (redrawRegion gate op _bVisible) en 594-595 (\"onzichtbare widget\" → \"niet-tekenbare widget\"); regel 409 en 428 (\"show(true) tekent ze\") blijven kloppen. Semantische verschuiving buiten deze bestanden om, maar hier wel voelbaar: de startwaarde was _bVisible=false (er tekent niets tot de eerste show), na de refactoring is _bDrawable=true de startwaarde, dus alles moet expliciet niet-tekenbaar gemaakt worden bij het opbouwen — hier gebeurt dat al op 495/503/509, maar in het venster tussen addChildWidget en die hidePage-aanroepen is een subboom straks wél tekenbaar. Let bij het implementeren van hide(bIncludeChildren) op de parent/kind-volgorde: als de ouder zijn rect repaint terwijl een kind nog drawable is, blijft dat kind staan — regel 578 en 580 zijn precies dat geval (een TouchscreenButton met een Text-kind). Ik weet niet zeker hoe redrawRegion in de nieuwe API met een niet-tekenbare ouder omgaat (subboom overslaan of toch doorlopen); dat bepaalt of het weglaten van `page.hide(true)` op 454 echt niets verandert — mijn analyse gaat ervan uit dat een niet-tekenbare widget niets tekent, wat in beide varianten waar is. pcg_GameControl.h bevat geen enkele widget-aanroep: alleen displayControl.showGamePage()/hideGamePage() (regel 43 en 59, dat zijn vlagzetters die uiteindelijk op showPage/hidePage uitkomen) en de twee PaddleControl-calls hierboven."
+ },
+ {
+  "group": "CleanGUI_for_TFT_eSPI/examples — MultiPanel, Panel, Inputfield, ImageViewer",
+  "callSites": [
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 265,
+    "code": "button.show(true);",
+    "intent": "Alleen hertekenen: showButton() heeft net de bevelkleuren omgewisseld en wil de knop in-/uitgedrukt op het scherm zetten. Het commentaar erboven (regel 261-264) gaat uitsluitend over waarom de kinderen mee moeten (het label), niet over vlaggen.",
+    "migration": "button.redraw(true);  // tekenen zonder vlaggen aan te raken",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 334,
+    "code": "panel.setDrawable(true, true);",
+    "intent": "Spawnen = het al opgebouwde spritepaneel weer laten meetekenen in de tree (zie het commentaar op regel 458-462: 'Spawning is no more than a position and setDrawable(true)').",
+    "migration": "panel.makeDrawable(true);  — of samen met regel 335 tot één panel.show(true)",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 335,
+    "code": "panel.show(false);\t\t// puts it on the map straight away",
+    "intent": "Het paneel nu meteen op de map blitten, zonder op het volgende beeld te wachten. Panel<0> heeft geen kinderen, dus bIncludeChildren=false is hier louter goedkoop.",
+    "migration": "panel.redraw(false);  (regel 334+335 samen: panel.show(true);)",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 346,
+    "code": "arSpritePanels[i].setDrawable(false, true);",
+    "intent": "Sprite uit de tekening halen zonder per stuk te wissen; het wissen gebeurt bewust in één keer op regel 355 (commentaar 352-354: 'One repaint of the whole map rather than forty little erases').",
+    "migration": "arSpritePanels[i].makeNonDrawable(true);  — expliciet NIET hide(), want de nieuwe hide() doet per sprite een repaintRegion en dat is precies de veertig-losse-wissen die dit commentaar vermijdt.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 355,
+    "code": "mapPanel.repaintRegion(mapPanel.getGlobPosPix(), mapPanel.getSizePix());",
+    "intent": "De hele map in één keer terugzetten nadat alle sprites niet-tekenbaar zijn gemaakt.",
+    "migration": "ongewijzigd — mits Widget::redrawRegion() zijn poort '!_bVisible' vervangt door '!_bDrawable'; blijft die poort op een verdwenen _bVisible staan, dan tekent dit niets meer.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 424,
+    "code": "fpsText.redraw();",
+    "intent": "Alleen de fps-regel opnieuw schrijven; de tekst is opaak (regel 206), dus dat wist de vorige regel in dezelfde pass.",
+    "migration": "ongewijzigd — maar let op de naambotsing: Text::redraw() (0 argumenten) verbergt straks Widget::redraw(bool). Deze aanroep blijft compileren; fpsText.redraw(true) zou dat niet.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 471,
+    "code": "panel.setDrawable(false, true);",
+    "intent": "Alle 40 spritepanelen worden volledig opgebouwd en daarna uitgezet, zodat spawnen niets meer kost dan één blit (commentaar 458-462).",
+    "migration": "panel.makeNonDrawable(true);",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 490,
+    "code": "page1.show(true);",
+    "intent": "Het ene moment waarop het hele scherm wordt geschilderd (commentaar 488-489). Bedoeld is: teken alles wat tekenbaar is — niet: zet vlaggen.",
+    "migration": "page1.redraw(true);",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 513,
+    "code": "_pPage->show(true);\t\t// alles opnieuw; goedkoper dan het slim doen",
+    "intent": "Bij een gebufferde display elk beeld de hele tree opnieuw tekenen (zie de meting in het commentaar op 359-372: 10 -> 19 fps).",
+    "migration": "_pPage->redraw(true);",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Panel/crt_TestPanel.h",
+    "line": 149,
+    "code": "panel.show(false);",
+    "intent": "Elk paneel apart tekenen puur om het te kunnen timen; het commentaar op 146-147 zegt expliciet dat dit hetzelfde tekent als page1.show(true). Geen touch, geen enable in dit hele voorbeeld.",
+    "migration": "panel.redraw(false);",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Panel/crt_TestPanel.h",
+    "line": 151,
+    "code": "panelImageCentered.show(false);",
+    "intent": "Idem: het tweede paneel tekenen en de tijd ervan meten (emaCenteredUs).",
+    "migration": "panelImageCentered.redraw(false);",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Panel/crt_TestPanel.h",
+    "line": 153,
+    "code": "panelImageClipped.show(false);",
+    "intent": "Idem, geklipt plaatje, gemeten als emaClippedUs.",
+    "migration": "panelImageClipped.redraw(false);",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Panel/crt_TestPanel.h",
+    "line": 155,
+    "code": "panelBackdrop.show(false);\t\t\t\t// parent first,",
+    "intent": "De ouder eerst tekenen (painter's algorithm), zodat de transparante ring erop kan.",
+    "migration": "panelBackdrop.redraw(false);",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Panel/crt_TestPanel.h",
+    "line": 157,
+    "code": "panelImageTransparent.show(false);\t\t// then its child on top.",
+    "intent": "Het transparante kind erbovenop; bIncludeChildren=false is hier bewust, want de ouder is al apart getekend en getimed.",
+    "migration": "panelImageTransparent.redraw(false);",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Inputfield/crt_TestInputfield.h",
+    "line": 169,
+    "code": "touchscreenKeyboard.disable(true);",
+    "intent": "Touch uit tijdens de schuifanimatie; het commentaar op 152-154 zegt letterlijk dat moveTo _bVisible en _bEnabled met rust laat en dat het uitzetten van de touch daarom hier apart moet ('tikken op verschuivende toetsen slaat nergens op').",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Inputfield/crt_TestInputfield.h",
+    "line": 205,
+    "code": "touchscreenKeyboard.enable(true);",
+    "intent": "Touch weer aan, maar alleen als het toetsenbord omhoog is geschoven ('alleen als hij in beeld staat'). Bij het wegschuiven blijft het bewust uitgeschakeld.",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Inputfield/crt_TestInputfield.h",
+    "line": 252,
+    "code": "page1.show(true);",
+    "intent": "De eerste, volledige tekening van de pagina, met het toetsenbord net onder het scherm geparkeerd (regel 244-249).",
+    "migration": "page1.redraw(true);  — show(true) zou hier tsOutsideInputfieldButton tekenbaar maken, die in crt_InputField.h:70 met /*drawable*/false wordt geconstrueerd.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/Inputfield/crt_TestInputfield.h",
+    "line": 308,
+    "code": "inputfield.enable(true);",
+    "intent": "Na het omhoogschuiven van het toetsenbord het invoerveld actief maken. Expliciet, dus onafhankelijk van welk neveneffect dan ook (de tegenhanger op regel 312 staat bewust uitgecommentarieerd).",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 306,
+    "code": "button.show(true);",
+    "intent": "Alleen hertekenen met de zojuist omgewisselde bevelkleuren, zodat de gebruiker ziet dat de tik is aangekomen (commentaar 288-291). Kinderen mee vanwege het label.",
+    "migration": "button.redraw(true);  — met show(true) zou een kruisknop die intussen niet-tekenbaar is gemaakt (setFrameButtonsPresent(false)) alsnog tekenbaar worden en op het scherm verschijnen; dat pad is bereikbaar via flagFrameReleased op regel 629 nadat prev/next het plaatje al heeft gewisseld.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 327,
+    "code": "pButton->setDrawable(bPresent, true);",
+    "intent": "Het kruisje uit de tekening halen bij een plaatje dat geen spritesheet is. Het commentaar op 323-325 wijst er nadrukkelijk op dat de tweede parameter bIncludeChildren is en niet de toestand — de auteur weet hier dus al dat tekenbaar en enabled twee dingen zijn.",
+    "migration": "if (bPresent) { pButton->makeDrawable(true); } else { pButton->makeNonDrawable(true); }  — bewust géén show()/hide(), want het commentaar op 319 zegt 'Draws nothing by itself'.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 331,
+    "code": "pButton->enable(true);",
+    "intent": "Kruisknop weer laten luisteren zodra er een spritesheet op staat.",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 335,
+    "code": "pButton->disable(true);",
+    "intent": "Kruisknop laten zwijgen als hij niet zichtbaar is — commentaar 316-318: 'a button that is no longer visible but still listening would swallow touches meant for whatever is there now'.",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 480,
+    "code": "backgroundPanel.repaintRegion(topLeftPix, sizePix);",
+    "intent": "Alleen de oude plus de nieuwe plaatjesrechthoek door de tree laten hertekenen; commentaar 473-476 legt uit dat daar geen show() bij hoort ('No show() calls needed').",
+    "migration": "ongewijzigd — mits redrawRegion() op _bDrawable gaat poorten in plaats van op het verdwijnende _bVisible.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 490,
+    "code": "backgroundPanel.repaintRegion(crossTopLeftPix, crossSizePix);",
+    "intent": "Tweede, losse regio voor de strook van het kruisje, alleen als dat verschijnt of verdwijnt (commentaar 483-486).",
+    "migration": "ongewijzigd",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 496,
+    "code": "captionText.redraw();",
+    "intent": "Het onderschrift ligt buiten beide regio's en verandert elke keer; opaak, dus één pass wist de oude regel en schrijft de nieuwe (commentaar 493-495).",
+    "migration": "ongewijzigd — zelfde naambotsing Text::redraw() / Widget::redraw(bool) als in MultiPanel:424.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 565,
+    "code": "page1.show(true);",
+    "intent": "De enige keer dat het hele scherm terecht wordt geschilderd, want er staat nog niets (commentaar 559-561). Bedoeld als 'teken alles', niet als 'zet alles aan'.",
+    "migration": "page1.redraw(true);  — dan blijven zowel de tekenbaarheid als de enable-toestand staan zoals setFrameButtonsPresent() ze op regel 563 heeft gezet.",
+    "risk": "stil-gedrag"
+   }
+  ],
+  "reliesOnSideEffect": [
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 565,
+    "explanation": "Onbedoelde, schadelijke afhankelijkheid — de enige aantoonbare show()->enable-interactie in deze vier bestanden. Regel 563 roept setFrameButtonsPresent(false) aan, dat de vier kruisknoppen niet-tekenbaar EN disabled maakt (regel 327/335). Twee regels later enablet page1.show(true) via Widget::show -> this->enable(false), recursief over de hele tree, alle vier weer. arAllImages[0] is imageKleurwiel (1x1, geen spritesheet — zie images/_pal8/_allImages.h), dus dit gebeurt bij elke boot: vier onzichtbare maar levende knoppen die tikken opslokken, precies wat het commentaar op 316-318 wil voorkomen. Onder de nieuwe API enablet show() niet meer en verdwijnt deze latente bug vanzelf; er hoeft dus GEEN extra enable/disable bij, mits regel 565 ook redraw(true) wordt in plaats van show(true) (anders maakt makeDrawable het kruisje alsnog zichtbaar)."
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer/crt_TestImageViewer.h",
+    "line": 306,
+    "explanation": "Bestaande workaround die kan verdwijnen. showButton() tekent een INGEDRUKTE knop met show(true); dat roept enable(false) aan op een knop die al enabled is. Daarvoor is in crt_TouchscreenButton.h:295-310 een guard gebouwd ('if (!PBase::isEnabled()) { bPressed = false; }') met het commentaar: 'Dat laatste gebeurde wel, want Widget::show() roept enable(false) aan. Wie de knop ingedrukt tekent, deed dus tegelijk alsof hij nooit was ingedrukt.' Zodra show() niet meer enablet, is die guard niet meer nodig."
+   },
+   {
+    "file": "libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel/crt_TestMultiPanel.h",
+    "line": 265,
+    "explanation": "Tweede aanroeper van dezelfde workaround: showButton() tekent hier ook een ingedrukte knop via show(true). Bovendien draait MultiPanel bij een gebufferde display elk beeld _pPage->show(true) (regel 513), wat vandaag de hele tree elk beeld opnieuw enablet terwijl er net een vinger op een knop ligt — alleen de guard in TouchscreenButton::enable voorkomt dat bPressed daarbij wordt weggegooid. Na de refactoring is er niets meer te voorkomen. De knoppen in dit voorbeeld worden nooit gedisabled, dus er leunt hier niets op de enable-kant zelf: er hoeft geen expliciete enable() bij."
+   }
+  ],
+  "notes": "In deze vier bestanden staat geen enkele hide() en geen enkele isShown(), dus de hide()->disable-kant komt hier niet voor; alleen de show()-kant is relevant. De grootste stille wijziging is hier niet enable maar drawable: show() wordt makeDrawable+redraw, en show() raakte _bDrawable vroeger nooit aan — elke page-brede show(true) maakt daarmee opzettelijk niet-tekenbare widgets weer tekenbaar (MultiPanel: de 40 spritepanelen uit regel 471, waarvan er dan veertig tegelijk op (0,0) verschijnen, elk beeld opnieuw via regel 513; ImageViewer: het kruisje; Inputfield: tsOutsideInputfieldButton, die in crt_InputField.h:70 met /*drawable*/false wordt gebouwd en dus onzichtbaar is voor wie alleen het voorbeeld leest). Daarom is redraw(true) de juiste vertaling van elke page-brede show(true), en show(true) juist niet. Widget::redrawRegion() en Widget::moveTo() beginnen allebei met 'if (!_bVisible) return;'; die poort moet _bDrawable worden, anders tekenen MultiPanel:355 en ImageViewer:480/490 niets meer en beweegt MultiPanel:409 / Inputfield:188 niets meer. Let daarbij op een subtiel verschil: vandaag cullt redrawRegion op _bVisible en slaat het tekenen pas in showPanel()/showText() over op _bDrawable, maar loopt wel door naar de kinderen — een _bDrawable-poort bovenaan cullt de kinderen mee. In deze vier voorbeelden maakt dat niets uit, omdat elke setDrawable() hier met bIncludeChildren=true gebeurt. Text::redraw() (nul argumenten) bestaat al en zal Widget::redraw(bool) verbergen: MultiPanel:424 en ImageViewer:496 blijven compileren, maar redraw(true) op een Text niet — overweeg Text::redraw() te schrappen of Widget::redraw een default-argument te geven. Panel::hide()/Text::hide() gebruiken isShown() om te bepalen of er ooit iets gestaan heeft (crt_Panel.h:226, crt_Text.h:196); die vraag verdwijnt netjes met de nieuwe hide()=makeNonDrawable+repaintRegion, want repaintRegion herstelt wat er hoort te staan in plaats van colBg te smeren. Buiten scope maar raakt het Inputfield-voorbeeld: TouchscreenKeyboard roept intern Base::show(true) aan op regels 263/295/327 bij een moduswissel, met dezelfde twee neveneffecten. Onzeker gelaten: of de nieuwe redraw() een default-argument krijgt, en of redrawRegion/moveTo hun poort op _bDrawable of op niets gaan zetten — de migratie van MultiPanel:355 en ImageViewer:480/490 hangt daarvan af."
+ },
+ {
+  "group": "apps/pong_cleangui_dg — GameDisplayControl, StartPageDisplayControl, GameOverDisplayControl, GameControl",
+  "callSites": [
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 324,
+    "code": "page.setDrawable(true, true);",
+    "intent": "De hele boom weer tekenbaar zetten voordat er getekend wordt — hij stond uit sinds hidePage().",
+    "migration": "Vervalt: show(true) op de volgende regel doet de makeDrawable al. Wil je het expliciet houden: page.makeDrawable(true);",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 325,
+    "code": "page.show(true);",
+    "intent": "De hele pagina in een keer tekenen via de PageRoot; het commentaar L315-320 legt uit dat show(true) op de root hier mag en zelfs moet, omdat redrawRegion() op een onzichtbare widget afbreekt.",
+    "migration": "Ongewijzigd: page.show(true); (== makeDrawable + redraw). Alleen niet meer op het enable-neveneffect rekenen — dat staat al expliciet op L326.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 326,
+    "code": "page.enable(true);",
+    "intent": "De pagina aanraakbaar maken; vandaag redundant, want Widget::show(true) enablet de hele subtree al.",
+    "migration": "Ongewijzigd laten. NIET opruimen als dubbelop: na de refactoring is dit de enige regel die de peddelknoppen nog aanraakbaar maakt.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 344,
+    "code": "page.setDrawable(false, true);",
+    "intent": "Eerst de tekenvlag uit, zodat de hide() erna zijn wisvlak overslaat — zie het commentaar L329-341: verbergen mag met opzet NIETS tekenen, omdat drie tekentaken dezelfde commandobuffer delen.",
+    "migration": "page.makeNonDrawable(true); — en daarmee is het verbergen meteen compleet.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 345,
+    "code": "page.hide(true);",
+    "intent": "De vlaggen op 'uit' zetten zonder te tekenen (het tekenen is al geblokkeerd door L344); de volgende pagina wist wat hier blijft staan met zijn eigen schermvullende backgroundPanel.",
+    "migration": "Schrappen. De nieuwe hide() = makeNonDrawable + repaintRegion(eigen rect), en juist dat repainten is wat hier per se niet mag gebeuren: het zet tekenwerk in de gedeelde commandobuffer terwijl de volgende pagina daar al in schuift.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 346,
+    "code": "page.disable(true);",
+    "intent": "De pagina onaanraakbaar maken; vandaag redundant, want Widget::hide(true) disabelt de subtree al mee.",
+    "migration": "Ongewijzigd laten. Wordt van redundant tot dragend: zonder deze regel blijven de peddelknoppen van een verborgen pagina op touch reageren.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 410,
+    "code": "paddlePanel.show(true);",
+    "intent": "De peddel in beeld brengen zodra PaddleControl hem opvraagt (flagShowPaddle).",
+    "migration": "Ongewijzigd: paddlePanel.show(true);. Let op de volgorde binnen show(): de hide() op L419 zet de widget straks op non-drawable, dus de vlag moet gezet zijn voordat er getekend wordt.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 411,
+    "code": "paddlePanel.enable(true);",
+    "intent": "Expliciet enablen naast de show — vandaag een no-op, want show() enablet al.",
+    "migration": "Ongewijzigd laten; wordt de enige enable.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 412,
+    "code": "buttonLeft.show(true);",
+    "intent": "De linker peddelknop in beeld brengen: die hoort bij het lopende spel, niet bij de pagina als geheel.",
+    "migration": "Ongewijzigd: buttonLeft.show(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 413,
+    "code": "buttonLeft.enable(true);",
+    "intent": "De knop weer op touch laten reageren (TouchscreenButton::touchPressed keert bij !isEnabled() meteen terug).",
+    "migration": "Ongewijzigd laten; dit is straks de enige regel die de knop weer laat werken. Bijvangst: TouchscreenButton::enable() ziet nu een echte overgang uit->aan en gooit een verouderde bPressed weg — precies wat het commentaar op crt_TouchscreenButton.h L295-308 beschrijft.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 414,
+    "code": "buttonRight.show(true);",
+    "intent": "Idem voor de rechter peddelknop.",
+    "migration": "Ongewijzigd: buttonRight.show(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 415,
+    "code": "buttonRight.enable(true);",
+    "intent": "Idem: de rechter knop weer laten reageren.",
+    "migration": "Ongewijzigd laten; wordt de enige enable.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 419,
+    "code": "paddlePanel.hide(true);",
+    "intent": "De peddel uit beeld halen op flagHidePaddle (het spel is afgelopen), terwijl de spelpagina zelf nog wel in beeld staat — hier moet dus WEL gewist worden.",
+    "migration": "Ongewijzigd: paddlePanel.hide(true);. Het wissen loopt straks via repaintRegion door de root in plaats van via een colBg-vulling; hier zelfde resultaat (alles eronder is zwart) en netjeser, want de doellijn komt terug in plaats van weggevuld te worden.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 420,
+    "code": "paddlePanel.disable(true);",
+    "intent": "Expliciet disablen naast de hide — vandaag een no-op.",
+    "migration": "Ongewijzigd laten; wordt de enige disable.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 421,
+    "code": "buttonLeft.hide(true);",
+    "intent": "De linker peddelknop weghalen: de knoppen horen bij het spel, niet bij de game-over-pagina (zie ook pdg_GameControl.h L61).",
+    "migration": "Ongewijzigd: buttonLeft.hide(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 422,
+    "code": "buttonLeft.disable(true);",
+    "intent": "De knop echt doof maken, en via TouchscreenButton::disable() bPressed resetten zodat hij niet 'ingedrukt' blijft hangen.",
+    "migration": "Ongewijzigd laten. Wordt dragend: het commentaar op crt_TouchscreenButton.h L278 ('Widget::hide() disabelt ook, dus dit dekt hide() mee') klopt straks niet meer, dus zonder deze regel blijft bPressed hangen en is de knop daarna dood.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 423,
+    "code": "buttonRight.hide(true);",
+    "intent": "Idem voor de rechter peddelknop.",
+    "migration": "Ongewijzigd: buttonRight.hide(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameDisplayControl.h",
+    "line": 424,
+    "code": "buttonRight.disable(true);",
+    "intent": "Idem: rechter knop doof maken en bPressed resetten.",
+    "migration": "Ongewijzigd laten; wordt dragend, zie L422.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 116,
+    "code": "page.setDrawable(true, true);",
+    "intent": "Startpagina weer tekenbaar zetten; het commentaar L112-113 zegt expliciet dat dit dezelfde afspraak is als bij GameDisplayControl::showPage.",
+    "migration": "Vervalt (show(true) doet de makeDrawable), of page.makeDrawable(true);.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 117,
+    "code": "page.show(true);",
+    "intent": "De hele startpagina (achtergrond + startknop) in een keer tekenen via de root.",
+    "migration": "Ongewijzigd: page.show(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 118,
+    "code": "page.enable(true);",
+    "intent": "De startknop aanraakbaar maken; vandaag redundant naast show(true).",
+    "migration": "Ongewijzigd laten. Dit is straks de enige regel die 'Click here to Start' laat werken — weghalen betekent een dode startknop.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 123,
+    "code": "page.setDrawable(false, true);",
+    "intent": "Tekenvlag uit voordat de hide() volgt, zodat het verbergen niets tekent (zie pdg_GameDisplayControl.h L329-341).",
+    "migration": "page.makeNonDrawable(true);",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 124,
+    "code": "page.hide(true);",
+    "intent": "Vlaggen op 'uit' zonder te tekenen; bij de eerste aanroep (L143) heeft deze pagina zelfs nog nooit een pixel gezet.",
+    "migration": "Schrappen — de nieuwe hide() repaint de eigen rect, en dat is precies wat hier niet mag (bij het opstarten viel zo'n wisvlak ooit over de startknop van een andere taak, zie crt_Panel.h L217-223).",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_StartPageDisplayControl.h",
+    "line": 125,
+    "code": "page.disable(true);",
+    "intent": "De startknop doof maken zolang de pagina uit beeld is; vandaag redundant naast hide(true).",
+    "migration": "Ongewijzigd laten; wordt dragend. Zonder deze regel start een aanraking op de plek van de startknop straks een spel terwijl de spelpagina in beeld staat.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 128,
+    "code": "page.setDrawable(true, true);",
+    "intent": "Game-over-pagina weer tekenbaar zetten; commentaar L124-125 verwijst naar dezelfde afspraak als bij GameDisplayControl.",
+    "migration": "Vervalt (show(true) doet de makeDrawable), of page.makeDrawable(true);.",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 129,
+    "code": "page.show(true);",
+    "intent": "Achtergrond, GAME OVER-label met zijn tekstkind, en de startknop in een keer tekenen via de root.",
+    "migration": "Ongewijzigd: page.show(true);.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 130,
+    "code": "page.enable(true);",
+    "intent": "De startknop van de game-over-pagina aanraakbaar maken; vandaag redundant naast show(true).",
+    "migration": "Ongewijzigd laten; straks de enige enable — anders is er geen weg meer uit de game-over-pagina.",
+    "risk": "mechanisch"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 135,
+    "code": "page.setDrawable(false, true);",
+    "intent": "Tekenvlag uit voordat de hide() volgt, zodat het verbergen niets tekent.",
+    "migration": "page.makeNonDrawable(true);",
+    "risk": "compileerfout"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 136,
+    "code": "page.hide(true);",
+    "intent": "Vlaggen op 'uit' zonder te tekenen; bij de eerste aanroep (L157) staat er nog niets van deze pagina op het scherm ('bij het eerste opstarten is er nog niets verloren').",
+    "migration": "Schrappen — de nieuwe hide() zou hier wel tekenen, en de spelpagina die daarna in beeld komt zou daar zijn eigen tekenwerk mee kunnen kruisen.",
+    "risk": "stil-gedrag"
+   },
+   {
+    "file": "apps/pong_cleangui_dg/pdg_GameOverDisplayControl.h",
+    "line": 137,
+    "code": "page.disable(true);",
+    "intent": "De startknop doof maken zolang de pagina uit beeld is; vandaag redundant naast hide(true).",
+    "migration": "Ongewijzigd laten; wordt dragend.",
+    "risk": "mechanisch"
+   }
+  ],
+  "reliesOnSideEffect": [],
+  "notes": "Geen enkele plek in deze vier bestanden leunt aantoonbaar op show()->enable of hide()->disable: elke show(true)/hide(true) heeft al een expliciete enable(true)/disable(true) ernaast (L325-326 en L344-346, L410-415, L419-424 in GameDisplayControl; L117-118/L124-125 in StartPage; L129-130/L136-137 in GameOver), vandaar dat reliesOnSideEffect leeg is. Het spiegelbeeld is hier wel het risico: die expliciete regels zijn vandaag redundant (Widget::show(true) enablet de hele subtree al, Widget::hide(true) disabelt hem) en worden na de refactoring de enige enable/disable — wie ze bij het opruimen als \"dubbelop\" schrapt, krijgt een dode startknop of een pagina die onzichtbaar blijft reageren. pdg_GameControl.h bevat geen enkele widget-aanroep; paddleControl.enable() (L53) en paddleControl.disable() (L62) zijn aanroepen op een control-object en lopen via showPaddle()/hidePaddle() naar de widgets in GameDisplayControl. Het gevoeligste punt is hidePage(): die functie bestaat er juist uit om NIETS te tekenen (commentaar pdg_GameDisplayControl.h L329-341 over drie tekentaken die een gedeelde commandobuffer vullen), dus de nieuwe hide() met zijn repaintRegion hoort daar helemaal niet meer te staan — alleen makeNonDrawable(true) + disable(true). Onzeker en te controleren in de bibliotheek: of de nieuwe redrawRegion() op _bDrawable gaat gaten nu _bVisible verdwijnt; doet hij dat, dan is \"makeNonDrawable(true); hide(true);\" ook nog veilig, maar het kost alsnog onnodige setClipRect/clearClipRect-commando's vanuit drie taken. Volgorde-val bij showPaddle (L410-414): omdat de nieuwe hide() de widget non-drawable maakt, moet show() de drawable-vlag zetten VOORDAT hij tekent — de huidige Panel::show() roept showPanel() eerst aan en zet de vlag daarna, en showPanel() keert bij !isDrawable() meteen terug, dus die volgorde moet in de bibliotheek omgedraaid worden of de peddel komt na het eerste spel niet meer terug. Twee dingen die niet in de gevraagde lijst staan maar wel op _bVisible leunen en dus meeveranderen: Widget::moveTo() keert vroeg terug op !_bVisible (gebruikt op L435 paddlePanel.moveTo en L441 ballPanel.moveTo) en Widget::redrawRegion() slaat een onzichtbare widget over — beide guards moeten _bDrawable worden, anders schuift een verborgen peddel weer zichtbaar mee. Commentaar dat achterhaald raakt en meegewijzigd moet worden: pdg_GameDisplayControl.h L296 en L311 (\"show(true) tekent ze\" — blijft kloppen), L315-320 (\"redrawRegion() breekt af op een onzichtbare widget\") en L329-330 (\"setDrawable(false) eerst, zodat Panel::hide() zijn wisvlak overslaat\"), plus de verwijzingen daarnaar in pdg_StartPageDisplayControl.h L112-113 en pdg_GameOverDisplayControl.h L124-125. De wrappers showPage()/hidePage() worden aangeroepen op L381/L401/L464 (game), L143/L156/L168 (start) en L157/L170/L182 (gameover); die aanroepen zelf blijven ongewijzigd. In deze vier bestanden komen isShown(), redrawRegion(), repaintRegion() en paint() nergens voor; van de verdwijnende API staat alleen setDrawable( erin, zes keer, en dat zijn precies de zes compileerfouten."
+ }
+]
