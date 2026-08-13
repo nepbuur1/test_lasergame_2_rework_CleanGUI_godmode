@@ -5,8 +5,8 @@
 
 // Zegt dat show, enable en tekenen drie losse assen zijn (zie IWidget
 // hieronder). Bedoeld voor code die tegen zowel de oude als de nieuwe API moet
-// compileren - het voorbeeld ShowEnableSemantics doet dat, en meet daarmee het
-// verschil. Nieuwe code hoeft er niet naar te kijken.
+// compileren - de zelftest in CleanGUI_for_TFT_eSPI/internal/tests doet dat, en
+// meet daarmee het verschil. Nieuwe code hoeft er niet naar te kijken.
 #define CLEANGUI_HAS_DRAW_ENABLE_SPLIT 1
 
 namespace crt

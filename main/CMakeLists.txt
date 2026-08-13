@@ -98,8 +98,11 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../libs/CleanGUI_for_TFT_eSPI/examples/Inputfield"
 "../libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer"
 "../libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel"
-"../libs/CleanGUI_for_TFT_eSPI/examples/ShowEnableSemantics"
 "../libs/CleanGUI_for_TFT_eSPI"
+
+# Geen voorbeeld om van te leren maar een zelftest: hij legt vast wat show,
+# enable en tekenen elk wel en niet doen, en faalt als dat verschuift.
+"../libs/CleanGUI_for_TFT_eSPI/internal/tests/ShowEnableSemantics"
 
 "../libs"
 #"../libs/hwlib"

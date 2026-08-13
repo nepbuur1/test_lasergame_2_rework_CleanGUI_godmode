@@ -28,7 +28,7 @@
 //   readPaletteIndexAt() haalt er een uit. Na waitUntilDrawn() staat daar wat
 //   de widgets werkelijk hebben getekend.
 //
-// Draai dit voorbeeld en lees de log. De laatste regel is het oordeel.
+// Draai deze test en lees de log. De laatste regel is het oordeel.
 //
 // Dit harnas compileert tegen zowel de oude als de nieuwe API - zie cgRedraw()
 // hieronder. Zo is het geschreven voordat de assen uit elkaar waren getrokken,

@@ -64,7 +64,10 @@ getekend.
 Samen betrapt dat precies de bug: *pixel is achtergrond* **én** *touch levert
 nul callbacks*.
 
-Het voorbeeld **`ShowEnableSemantics`** doet daarmee 37 controles. Het is met
+De zelftest **`ShowEnableSemantics`** doet daarmee 37 controles. Hij staat
+bewust niet bij de voorbeelden maar in
+`libs/CleanGUI_for_TFT_eSPI/internal/tests/`: een voorbeeld is er om van te
+leren, deze om te falen zodra de semantiek verschuift. Het is met
 opzet zo geschreven dat het tegen zowel de oude als de nieuwe API compileert
 (`cgRedraw` en twee zusters, geschakeld op `CLEANGUI_HAS_DRAW_ENABLE_SPLIT`).
 Tegen de oude bibliotheek faalden er zeven — precies de zeven die vooraf waren

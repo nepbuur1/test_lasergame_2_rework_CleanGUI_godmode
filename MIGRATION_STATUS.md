@@ -51,7 +51,8 @@ dat niet meer doen. De ruwe data staat in `inventaris_raw.json`.
 
 ## Uitslag van het testharnas (stap 2)
 
-Voorbeeld `ShowEnableSemantics`, gedraaid op het bord:
+De zelftest `ShowEnableSemantics` (in `libs/CleanGUI_for_TFT_eSPI/internal/tests/`),
+gedraaid op het bord:
 
 ```
 37 controles: 30 geslaagd, 7 gefaald (7 daarvan verwacht), 0 onverwacht geslaagd
@@ -143,7 +144,9 @@ worden)*
 | `pong_cleangui_cg` | `pcg_DisplayControl.h` |
 | examples | `AsyncDisplay`, `ImageViewer`, `Inputfield`, `MultiPanel`, `Panel`, `TouchscreenKeyboard` |
 
-Plus het nieuwe example `ShowEnableSemantics`.
+Plus de nieuwe zelftest `ShowEnableSemantics`, die niet bij de voorbeelden staat
+maar in `libs/CleanGUI_for_TFT_eSPI/internal/tests/` — hij is er niet om van te
+leren maar om te falen zodra de semantiek verschuift.
 
 **Gebruiken de aangepaste functies wél, maar hoefden niet mee** — twee examples,
 elk met één `page1.show(true)` aan het eind van de boomopbouw:

@@ -6,8 +6,12 @@
 
 #include "ShowEnableSemantics_ino.h"
 
-// Dit voorbeeld vraagt geen enkele aanraking: het maakt ze zelf na. Draaien en
-// de log lezen is genoeg - de laatste regel is het oordeel.
+// Deze test vraagt geen enkele aanraking: hij maakt ze zelf na. Draaien en de
+// log lezen is genoeg - de laatste regel is het oordeel.
+//
+// Staat in internal/tests en niet bij de voorbeelden: een voorbeeld is er om
+// van te leren, deze om te falen zodra show, enable of tekenen weer in elkaar
+// gaan grijpen.
 
 // IMPORTANT: required for this example to work:
 // if you are building from Arduino IDE, make sure to set
