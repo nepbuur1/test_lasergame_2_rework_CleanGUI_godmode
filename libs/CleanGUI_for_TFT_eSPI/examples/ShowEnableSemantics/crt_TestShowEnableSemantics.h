@@ -30,10 +30,15 @@
 //
 // Draai dit voorbeeld en lees de log. De laatste regel is het oordeel.
 //
-// Let op: dit harnas is met opzet geschreven zodat het tegen zowel de oude als
-// de nieuwe API compileert - zie cgRedraw() hieronder. Voor de refactoring
-// horen een paar controles te FALEN; dat is het bewijs dat de bug er is. Ze
-// staan hieronder gemarkeerd met bBrokenBeforeRefactor.
+// Dit harnas compileert tegen zowel de oude als de nieuwe API - zie cgRedraw()
+// hieronder. Zo is het geschreven voordat de assen uit elkaar waren getrokken,
+// en zo is het gedraaid: zeven van de zevenendertig controles faalden, precies
+// de zeven die van tevoren waren aangewezen. Diezelfde zeven slagen nu, zonder
+// dat er iets aan dit bestand is veranderd behalve het weghalen van hun
+// bBrokenBeforeRefactor-vlag.
+//
+// Die dubbele compileerbaarheid blijft staan. Zonder haar meet dit harnas maar
+// een van de twee kanten, en dan is het geen bewijs meer van een verschil.
 
 #ifdef LOAD_GFXFF
 #include <Free_Fonts.h>
@@ -374,9 +379,9 @@ namespace crt
 			check("tekenbaar: een niet-tekenbare ouder tekent zelf niet",
 				readPixel(205, 150) == indexOf(COL_BG));
 			check("tekenbaar: en kapt zijn kinderen mee af",
-				readPixel(100, 110) == indexOf(COL_BG), true /*bBrokenBeforeRefactor*/);
+				readPixel(100, 110) == indexOf(COL_BG));
 			check("tekenbaar: ook de knop twee niveaus lager",
-				readPixel(100, 165) == indexOf(COL_BG), true /*bBrokenBeforeRefactor*/);
+				readPixel(100, 165) == indexOf(COL_BG));
 
 			resetScene(page);
 			check("tekenbaar: en na het terugzetten staat alles er weer",
@@ -394,12 +399,12 @@ namespace crt
 			btnMain.disable(false);
 			cgRedraw(btnMain);
 			check("assen: hertekenen laat uitgeschakeld uitgeschakeld",
-				!btnMain.isEnabled(), true);
+				!btnMain.isEnabled());
 
 			resetCounters();
 			btnMain.touchPressed(Vec2(120, 245));
 			check("assen: en die knop meldt dus nog steeds niets",
-				nofPressedMain == 0, true);
+				nofPressedMain == 0);
 			btnMain.touchReleased(Vec2(120, 245));
 
 			// ... en hij moet wel getekend zijn. Anders is de test hierboven te
@@ -418,14 +423,14 @@ namespace crt
 			page.disable(true);
 			page.show(true);
 			check("assen: show() laat een uitgeschakelde pagina uitgeschakeld",
-				!btnMain.isEnabled(), true);
+				!btnMain.isEnabled());
 
 			// hide() evenmin.
 			resetScene(page);
 			page.enable(true);
 			probePanel.hide(true);
 			check("assen: hide() laat een ingeschakelde widget ingeschakeld",
-				probePanel.isEnabled(), true);
+				probePanel.isEnabled());
 		}
 
 		// hide() hoort terug te brengen wat eronder zat, niet zijn eigen colBg
@@ -440,7 +445,7 @@ namespace crt
 			probePanel.hide(true);
 			check("hide: daarna is de probe weg", readPixel(60, 40) != indexOf(COL_PROBE));
 			check("hide: en er staat wat eronder zat, niet zijn eigen colBg",
-				readPixel(60, 40) == indexOf(COL_BG), true);
+				readPixel(60, 40) == indexOf(COL_BG));
 
 			resetScene(page);
 			check("hide: en show() brengt hem terug", readPixel(60, 40) == indexOf(COL_PROBE));
