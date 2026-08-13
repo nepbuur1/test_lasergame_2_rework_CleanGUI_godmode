@@ -103,7 +103,7 @@ namespace crt
 
 			// Only the label is redrawn; the panel underneath is deliberately NOT
 			// repainted. Hier stond Base::show(true), en dat was de flikker: die
-			// vult eerst het hele veld met colPanel - waardoor de tekst weg is -
+			// vulde eerst het hele veld met colPanel - waardoor de tekst weg is -
 			// en tekent hem daarna pas opnieuw. Gemeten was dat veld daardoor 2,9
 			// tot 3,9 ms leeg per toetsaanslag (fillRect 2,57 ms + drawString).
 			// Het label is opaak (zie addChildWidgets), dus het schildert zijn
@@ -119,7 +119,7 @@ namespace crt
 			// Hier stond vTaskDelay(100) met als commentaar "wait for the redraw
 			// to be completed". Dat werkte averechts: deze functie draait in de
 			// AsyncDisplay-taak (pollTouch -> touchlistener -> keyPressed), en
-			// show() zet de tekencommando's alleen maar in queueCommands. Die
+			// tekenen zet de commando's alleen maar in queueCommands. Die
 			// queue wordt uitsluitend leeggehaald door de lus van diezelfde
 			// AsyncDisplay-taak, dus tijdens het slapen kon de redraw juist niet
 			// plaatsvinden - hij begon pas erna. Het was dus 100 ms dode tijd

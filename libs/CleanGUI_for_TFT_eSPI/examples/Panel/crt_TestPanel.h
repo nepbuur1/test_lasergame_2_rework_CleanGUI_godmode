@@ -143,18 +143,18 @@ namespace crt
 				int64_t t0 = esp_timer_get_time();
 				display.fillScreen(0x00000000);
 
-				// Drawn one by one instead of via page1.show(true), purely so
+				// Drawn one by one instead of via page1.redraw(true), purely so
 				// that each panel can be timed. The drawing is identical.
 				int64_t t1 = esp_timer_get_time();
-				panel.show(false);
+				panel.redraw(false);
 				int64_t t2 = esp_timer_get_time();
-				panelImageCentered.show(false);
+				panelImageCentered.redraw(false);
 				int64_t t3 = esp_timer_get_time();
-				panelImageClipped.show(false);
+				panelImageClipped.redraw(false);
 				int64_t t4 = esp_timer_get_time();
-				panelBackdrop.show(false);				// parent first,
+				panelBackdrop.redraw(false);			// parent first,
 				int64_t t5 = esp_timer_get_time();
-				panelImageTransparent.show(false);		// then its child on top.
+				panelImageTransparent.redraw(false);	// then its child on top.
 				display.present();						// leeg bij RGB565; bij RGB332 het beeld tonen
 				int64_t t6 = esp_timer_get_time();
 
@@ -178,7 +178,7 @@ namespace crt
 
 					ESP_LOGI("TestPanel", "%d.%02d fps | clear %d.%02d ms",
 						fps100 / 100, fps100 % 100, clear100 / 100, clear100 % 100);
-					ESP_LOGI("TestPanel", "  show (us): red %d | centered %d | clipped %d | backdrop %d | ring %d",
+					ESP_LOGI("TestPanel", "  redraw (us): red %d | centered %d | clipped %d | backdrop %d | ring %d",
 						(int)emaRedUs, (int)emaCenteredUs, (int)emaClippedUs,
 						(int)emaBackdropUs, (int)emaRingUs);
 				}
@@ -186,7 +186,7 @@ namespace crt
 				// Yield, so that the idle task on this core gets to run and the
 				// task watchdog stays quiet. One tick is 1 ms (FREERTOS_HZ=1000),
 				// which is well below the frame time - it does show up in the
-				// frame rate, but not in the clear/show timings.
+				// frame rate, but not in the clear/redraw timings.
 				vTaskDelay(1);
 			}
 		}

@@ -149,9 +149,11 @@ namespace crt
 	private:
 		// Schuift het toetsenbord van yFromPix naar yToPix. moveTo herstelt per
 		// stap de vrijgekomen strook door de tree eroverheen te laten tekenen;
-		// _bVisible en _bEnabled blijven onaangeroerd, dus er knippert niets aan
+		// _bDrawable en _bEnabled blijven onaangeroerd, dus er knippert niets aan
 		// en uit. Wel de touch uitzetten tijdens de beweging: tikken op
-		// verschuivende toetsen slaat nergens op.
+		// verschuivende toetsen slaat nergens op. Die disable/enable is het enige
+		// dat de aanraakbaarheid van het toetsenbord stuurt, dus haal hem niet
+		// weg.
 		// Hoe lang de hele beweging duurt. Zonder pacing is hij voorbij voordat je
 		// hem ziet, en met een vaste pauze per stap zou de duur afhangen van de
 		// adapter - een present() van de backbuffer kost al ~31 ms per stap,
@@ -249,7 +251,14 @@ namespace crt
 			touchscreenKeyboard.setLocPos(Vec2(0, yKeyboardDownPix), CoordType::Pixels, Alignment::TopLeft);
 			bool bKeyboardIsUp = false;
 
-			page1.show(true);
+			// redraw en geen show: het invoerveld heeft een kind dat met opzet
+			// niet tekenbaar is - tsOutsideInputfieldButton, dat alleen
+			// aanrakingen buiten het veld opvangt maar wel de hele veldrect
+			// beslaat. show(true) zou dat kind tekenbaar maken, en dan vult het
+			// bij elke tekenronde eerst het veld zwart voordat de veldknop er
+			// overheen komt. redraw tekent wat tekenbaar is en laat de vlaggen
+			// staan.
+			page1.redraw(true);
 
 #ifdef CRT_INPUTFIELD_AUTOSLIDE
 			// Off unless CRT_INPUTFIELD_AUTOSLIDE is defined: zet dezelfde vlag

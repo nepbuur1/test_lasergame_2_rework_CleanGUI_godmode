@@ -177,6 +177,16 @@ namespace crt
 
 					if(strncmp(strKey, "OutsideKeyboardPressed", 22) == 0)
 					{
+						// Eerst doof, dan pas weg. Verbergen tekent - via de
+						// commandobuffer, dus met een venster waarin de
+						// touch-taak nog langskomt - en in dat venster zou een
+						// toetsenbord dat al van het scherm is nog een toets
+						// kunnen melden. Zonder deze disable blijft het bovendien
+						// voorgoed dood liggen versturen: zijn rug meldt elke
+						// aanraking buiten het toetsenbord als
+						// "OutsideKeyboardPressed", en die tak wint dan van de
+						// flagTouchPressed-tak die het terugzet.
+						touchscreenKeyboard.disable(true);
 						touchscreenKeyboard.hide(true);
 					}
 					else if(strncmp(strKey, "SHIFT", 5) == 0)
@@ -204,9 +214,14 @@ namespace crt
 				{
 					// A touch event outside the keyboard was already handled bover, via a keypressed event.
 					// That hid the keyboard. For the sake of this test, lets' show it again.
-					if(!touchscreenKeyboard.isShown())
+					if(!touchscreenKeyboard.isDrawable())
 					{
 						touchscreenKeyboard.show(true);
+
+						// Tegenhanger van de disable() hierboven: tonen maakt
+						// niet mee aanraakbaar, dus zonder deze regel komt het
+						// toetsenbord wel terug in beeld maar blijft het dood.
+						touchscreenKeyboard.enable(true);
 					}
 				}
 				else

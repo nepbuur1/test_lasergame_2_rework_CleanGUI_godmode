@@ -140,6 +140,12 @@ namespace crt
 			while (true)
 			{
 				//ESP_LOGI("Currently", "clearing screen");
+				// show(true) en niet redraw(true): de hide() hieronder zet het
+				// paneel en zijn negen labels op niet-tekenbaar, en dit is de
+				// enige plek die dat weer terugdraait. Wordt dit redraw(true) -
+				// elders in deze codebase juist de goede vertaling, want die
+				// laat de vlaggen met rust - dan is het paneel na de eerste
+				// omloop voorgoed weg.
 				page1.show(true);
 				vTaskDelay(10);
 

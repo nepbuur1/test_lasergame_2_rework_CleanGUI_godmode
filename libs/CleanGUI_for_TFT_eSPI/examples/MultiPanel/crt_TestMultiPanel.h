@@ -258,11 +258,11 @@ namespace crt
 			{
 				button.setBevel(colKeyHighlight, colKeyShadow);
 			}
-			// show(true), niet show(false): het label van een TouchscreenButton is een
+			// Met de kinderen erbij, want het label van een TouchscreenButton is een
 			// kind-widget (zie bTextAddedToThisPanel in crt_TouchscreenButton.h).
 			// Zonder de kinderen schildert het panel over het label heen en tekent
 			// niemand het terug - dan verdwijnt de tekst bij de eerste aanraking.
-			button.show(true);
+			button.redraw(true);
 		}
 
 		static bool isTransparentKind(int indexSprite)
@@ -331,8 +331,11 @@ namespace crt
 
 			Panel<0>& panel = arSpritePanels[indexSprite];
 			panel.setLocPos(state.posPix, CoordType::Pixels, Alignment::TopLeft);
-			panel.setDrawable(true, true);
-			panel.show(false);		// puts it on the map straight away
+
+			// show = tekenbaar maken en meteen blitten, zodat hij niet pas bij het
+			// volgende beeld verschijnt. Zonder kinderen mag: een Panel<0> heeft er
+			// geen.
+			panel.show(false);
 
 			if (bTransparent) { nofActiveTransparent++; } else { nofActiveOpaque++; }
 			updateFpsText(-1);
@@ -343,7 +346,7 @@ namespace crt
 			for (int i = 0; i < MaxNofSprites; i++)
 			{
 				arSpriteStates[i].bActive = false;
-				arSpritePanels[i].setDrawable(false, true);
+				arSpritePanels[i].makeNonDrawable(true);
 			}
 
 			nofActiveTransparent = 0;
@@ -401,7 +404,8 @@ namespace crt
 
 				if (_bDisplayIsBuffered)
 				{
-					// Alleen verplaatsen; het tekenen doet showAll() straks in een keer.
+					// Alleen verplaatsen; het tekenen doet de redraw van de hele
+					// pagina straks in een keer.
 					arSpritePanels[i].setLocPos(state.posPix, CoordType::Pixels, Alignment::TopLeft);
 				}
 				else
@@ -421,7 +425,7 @@ namespace crt
 
 			snprintf(strFps, sizeof(strFps), "%d fps   trans %d   opaak %d",
 				nofFpsShown, nofActiveTransparent, nofActiveOpaque);
-			fpsText.redraw();
+			fpsText.redraw(false);
 		}
 
 		void main()
@@ -457,7 +461,7 @@ namespace crt
 
 			// Every sprite panel is set up completely here - size, image, place in
 			// the tree - and then switched off. Spawning is no more than a position
-			// and setDrawable(true), so it costs nothing but the one blit.
+			// and a show(), so it costs nothing but the one blit.
 			// Note that setPanelProps() would not do: it assigns the fields but
 			// leaves the pixel sizes stale. setSize/setLocPos do recalculate.
 			for (int i = 0; i < MaxNofSprites; i++)
@@ -468,7 +472,7 @@ namespace crt
 				panel.setSize(Vec2(SpriteSizePix, SpriteSizePix), CoordType::Pixels);
 				panel.setLocPos(Vec2(0, 0), CoordType::Pixels, Alignment::TopLeft);
 				panel.setImage(isTransparentKind(i) ? &imageBarbarian : &imageBarbarianOpaque);
-				panel.setDrawable(false, true);
+				panel.makeNonDrawable(true);
 			}
 
 			// Het palet van de plaatjes is ook het palet van het scherm. Nodig om
@@ -487,7 +491,11 @@ namespace crt
 
 			// The one moment the whole screen is painted. After this only the
 			// sprites move, and each of those repaints its own rectangle.
-			page1.show(true);
+			//
+			// redraw en niet show: show(true) zou de veertig spritepanelen die hier
+			// net zijn uitgezet allemaal weer tekenbaar maken, en dan staat de hele
+			// horde meteen op elkaar gestapeld linksboven op de map.
+			page1.redraw(true);
 			display.present();
 
 			int nofFrames = 0;
@@ -510,7 +518,10 @@ namespace crt
 					moveSprites();
 					if (_bDisplayIsBuffered)
 					{
-						_pPage->show(true);		// alles opnieuw; goedkoper dan het slim doen
+						// Alles wat tekenbaar is opnieuw; goedkoper dan het slim doen.
+						// redraw, want show(true) zou hier elk beeld de veertig
+						// nog-niet-gespawnde sprites erbij zetten.
+						_pPage->redraw(true);
 					}
 					nofFrames++;
 

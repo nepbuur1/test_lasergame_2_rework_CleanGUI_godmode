@@ -14,9 +14,9 @@ dit bestand genoeg om verder te kunnen.
 | 0 | branch + nulmeting | **gedaan** | `4dc67cc` |
 | 1 | `readPaletteIndexAt()` op de PAL8-adapter | **gedaan** | `ad08c5e` |
 | 2 | testharnas `ShowEnableSemantics` tegen de huidige API | **gedaan** | dit |
-| 3 | `Widget` + `IWidget`: de nieuwe API | te doen | |
-| 4 | `Panel`, `Text`, `TouchscreenKeyboard` | te doen | |
-| 5 | `pong_cleangui_dg_adv` | te doen | |
+| 3 | `Widget` + `IWidget`: de nieuwe API | **gedaan** | `06b3f9e` |
+| 4 | `Panel`, `Text`, `TouchscreenKeyboard` | **gedaan** | `32f94b8` |
+| 5 | `pong_cleangui_dg_adv` | bezig | |
 | 6 | de 8 examples | te doen | |
 | 7 | testharnas opnieuw — alles moet slagen | te doen | |
 | 8 | `pong_cleangui_dg`, `pong_cleangui_cg`, `keukenweegschaal` | te doen | |
@@ -50,7 +50,11 @@ Voorbeeld `ShowEnableSemantics`, gedraaid op het bord:
 EINDOORDEEL: VERWACHT ROOD - 7 controles falen zoals voorspeld; dat is de bug
 ```
 
-De zeven die falen, en die na stap 3/4 groen moeten worden:
+Na stap 3 en 4 staat hetzelfde harnas op **37 van de 37**, met de zeven
+hieronder als "OK (!)" — geslaagd terwijl hun vlag nog op *stuk voor de
+refactoring* staat. Stap 7 zet die vlaggen om.
+
+De zeven die faalden, en die nu slagen:
 
 1. tekenbaar: en kapt zijn kinderen mee af
 2. tekenbaar: ook de knop twee niveaus lager
@@ -93,6 +97,24 @@ worden)*
   `setDrawable(false, true)` vóór `hide(true)` zodat het verbergen niets in de
   gedeelde commandobuffer schuift. Voor die plekken is de vertaling
   `makeNonDrawable(true) + disable(true)` en verdwijnt de `hide()` helemaal.
+- **`disable()` hoort vóór `hide()`, niet erna.** De oude `hide()` disabelde
+  als eerste en tekende daarna pas; de nieuwe tekent, en dat gaat via de
+  commandobuffer. In dat venster komt de touch-taak nog langs, dus een widget
+  die al van het scherm is kan nog een druk melden. Gevonden door de
+  tegenspreker op `crt_TestTouchscreenKeyboard.h`.
+- **`isShown()` is in `crt_TestTouchscreenKeyboard.h` `isDrawable()` geworden**,
+  niet een eigen `bool` zoals de spec voorstelde. Dat kan omdat `hide()` en
+  `show()` daar precies de tekenbaarheid omzetten, en het scheelt een veld dat
+  uit de pas kan lopen — wat nou juist het bezwaar tegen `_bVisible` was.
+- **`setDrawableTo`/`setEnabledTo` in `pdga_GameOverDisplayControl.h` heten nu
+  `makeDrawableIf`/`enableIf`.** Met de oude naam bleef `grep -rn setDrawable`
+  dit bestand aanwijzen, en dat is uitgerekend het commando waarmee de
+  voortgang van deze migratie wordt afgevinkt.
+- **Eén bug is en passant gerepareerd** in `pdga_GameDisplayControl.h::showPage`.
+  Daar stond `initBallAndPaddlePosition()` vóór `setDrawable(true, true)`, en
+  die zette dus alle vijftig balslots, vijf crates en vijf vuurkorven weer aan
+  die de `apply*States` net hadden uitgezet — waarna `show(true)` ze ook tekende.
+  De volgorde is omgedraaid. Dit is een gedragswijziging, geen vertaling.
 
 ## Wat de gebruiker nog handmatig moet doen
 

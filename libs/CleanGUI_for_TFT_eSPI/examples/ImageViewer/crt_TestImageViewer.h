@@ -299,11 +299,22 @@ namespace crt
 			{
 				button.setBevel(colKeyHighlight, colKeyShadow);
 			}
-			// show(true), niet show(false): het label van een TouchscreenButton is een
-			// kind-widget (zie bTextAddedToThisPanel in crt_TouchscreenButton.h).
-			// Zonder de kinderen schildert het panel over het label heen en tekent
-			// niemand het terug - dan verdwijnt de tekst bij de eerste aanraking.
-			button.show(true);
+			// A cross button may have been switched off by
+			// setFrameButtonsPresent() in the meantime - a prev/next press is
+			// handled before the release of the cross button that is still down.
+			// Redrawing one of those draws nothing, and then the present() below
+			// would push the whole screen (~38 ms on the PAL8 adapter) for a
+			// frame that did not change.
+			if (!button.isDrawable())
+			{
+				return;
+			}
+
+			// With the children: the label of a TouchscreenButton is a child
+			// widget (see bTextAddedToThisPanel in crt_TouchscreenButton.h).
+			// Without them the panel paints over the label and nobody puts it
+			// back - the text would disappear on the first touch.
+			button.redraw(true);
 			asyncDisplay.present();
 		}
 
@@ -316,22 +327,25 @@ namespace crt
 		// switched off in both respects: not drawable, so the tree skips it while
 		// painting, and not enabled, because a button that is no longer visible but
 		// still listening would swallow touches meant for whatever is there now.
-		// Draws nothing by itself - showFrameButtonsArea() repaints the spot.
+		// Draws nothing by itself - showCurrentImage() repaints the spot. Which
+		// is why this uses makeNonDrawable and not hide(): hide() would let the
+		// tree paint over that rect straight away, and the drawing here has to
+		// stay within the regions showCurrentImage() picks out.
 		void setFrameButtonsPresent(bool bPresent)
 		{
 			for (BUTTON* pButton : arFrameButtons)
 			{
-				// Mind the second parameter of enable/disable/setDrawable: it is
+				// Mind the parameter of enable/disable/makeDrawable: it is
 				// bIncludeChildren, not the state. A button does have a child - its
 				// label - and that one has to follow along.
-				pButton->setDrawable(bPresent, true);
-
 				if (bPresent)
 				{
+					pButton->makeDrawable(true);
 					pButton->enable(true);
 				}
 				else
 				{
+					pButton->makeNonDrawable(true);
 					pButton->disable(true);
 				}
 			}
@@ -493,7 +507,7 @@ namespace crt
 			// The caption lies outside those regions and changes every time. It is
 			// opaque, so this single call blanks the old line and writes the new
 			// one in one pass.
-			captionText.redraw();
+			captionText.redraw(false);
 
 			const Image* pImage = arAllImages[indexImage];
 			ESP_LOGI(taskName, "%s (%dx%d, %s, spritesheet %dx%d, frame %s) in %d us",
@@ -562,7 +576,13 @@ namespace crt
 			bFrameButtonsDrawn = isSpritesheet(arAllImages[indexImage]);
 			setFrameButtonsPresent(bFrameButtonsDrawn);
 			applyCurrentImage();
-			page1.show(true);
+
+			// redraw en geen show: setFrameButtonsPresent() heeft het kruisje
+			// hierboven mogelijk net uitgezet, en show() zou de hele boom weer
+			// tekenbaar maken - inclusief die vier knoppen. De disable() daar
+			// blijft daardoor staan; wie hem voor dubbelop aanziet en opruimt,
+			// krijgt onzichtbare knoppen die tikken opslokken.
+			page1.redraw(true);
 			asyncDisplay.present();
 
 			while (true)
