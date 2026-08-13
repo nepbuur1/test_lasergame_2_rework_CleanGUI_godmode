@@ -98,6 +98,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../libs/CleanGUI_for_TFT_eSPI/examples/Inputfield"
 "../libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer"
 "../libs/CleanGUI_for_TFT_eSPI/examples/MultiPanel"
+"../libs/CleanGUI_for_TFT_eSPI/examples/ShowEnableSemantics"
 "../libs/CleanGUI_for_TFT_eSPI"
 
 "../libs"
