@@ -3,6 +3,12 @@
 #pragma once
 #include "crt_typesAndConstants.h"
 
+// Zegt dat show, enable en tekenen drie losse assen zijn (zie IWidget
+// hieronder). Bedoeld voor code die tegen zowel de oude als de nieuwe API moet
+// compileren - het voorbeeld ShowEnableSemantics doet dat, en meet daarmee het
+// verschil. Nieuwe code hoeft er niet naar te kijken.
+#define CLEANGUI_HAS_DRAW_ENABLE_SPLIT 1
+
 namespace crt
 {
 	enum class WidgetType :int
@@ -40,11 +46,21 @@ namespace crt
 		virtual Alignment getAlignment() = 0;
 
 	// drawing
-		// Draws just this widget, nothing else, and without touching its
-		// visibility or enable state. That last part is what separates it from
-		// show(): a widget that is being moved must not toggle its touch
-		// handling on every step.
+		// Draws just this widget, nothing else. Panel and Text implement it;
+		// a plain Widget has nothing of its own to draw.
 		virtual void paint() = 0;
+
+		// Draws this widget - and, if asked, its children - right now, over its
+		// whole rect. Touches no flag at all: a widget does not become drawable
+		// or touchable by being redrawn.
+		//
+		// That is the whole point of it existing next to show(). A widget that
+		// is being animated, or a page that is being refreshed, must not have
+		// its touch handling switched back on as a side effect of being drawn.
+		//
+		// A non-drawable widget draws nothing, and neither do its children: the
+		// subtree is cut off here.
+		virtual void redraw(bool bIncludeChildren) = 0;
 
 		// Redraws this widget and its children, but only those that overlap the
 		// given region. Combine with IDisplayDraw::setClipRect to repaint just a
@@ -52,15 +68,30 @@ namespace crt
 		// moved, which is how whatever was underneath comes back.
 		virtual void redrawRegion(const Vec2& topLeftPix, const Vec2& sizePix) = 0;
 
-	// enabling, disabling
-		virtual void show(bool bIncludeChildren) = 0;		  // show/hide is about the visual aspect of a widget.
-		virtual void hide(bool bIncludeChildren) = 0;        // show immediately draws it. hide immediately undraws it.
-		virtual bool isShown() = 0;
-		virtual void setDrawable(bool bDrawable, bool bIncludeChildren) = 0;	// switches the below at runtime.
-		virtual bool isDrawable() = 0;   // false: widget takes part in the tree and input handling,
-		                                 // but never sends drawing commands to the display.
-		virtual void enable(bool bIncludeChildren) = 0;	  // enable/disable is about the functional aspect of 
-		virtual void disable(bool bIncludeChildren) = 0;   // a widget: wether it continues to responde to input,
-		virtual bool isEnabled() = 0;   // for instance.
+	// The three axes. They are deliberately independent: "do I belong to the
+	// picture", "am I touchable", and "draw now" are three different questions,
+	// and answering one of them used to answer the other two.
+	//
+	//   makeDrawable / makeNonDrawable   the flag. Draws nothing, erases nothing.
+	//   enable / disable                 touch handling. Draws nothing.
+	//   redraw                           draws. Touches no flag.
+	//
+	// show() and hide() are the two combinations that are wanted often enough to
+	// have a name; they live on Widget itself, because they are nothing but
+	// makeDrawable + redraw and makeNonDrawable + repaintRegion.
+		virtual void makeDrawable(bool bIncludeChildren) = 0;
+
+		// false: the widget still takes part in the tree and in input handling,
+		// but never sends drawing commands to the display.
+		// Mind that this draws nothing by itself - neither the widget nor what
+		// it covered. Repaint the region it occupied afterwards, or use hide().
+		// Almost always pass bIncludeChildren = true: a button whose panel is
+		// not drawable but whose label still is, would draw a floating label.
+		virtual void makeNonDrawable(bool bIncludeChildren) = 0;
+		virtual bool isDrawable() = 0;
+
+		virtual void enable(bool bIncludeChildren) = 0;
+		virtual void disable(bool bIncludeChildren) = 0;
+		virtual bool isEnabled() = 0;
 	};
 };

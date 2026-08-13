@@ -27,7 +27,6 @@ namespace crt
 		Vec2 _sizePix;                   
 		CoordType _coordTypeSize;
 		Alignment _alignment;
-		bool _bVisible;
 		bool _bEnabled;
 		bool _bDrawable;
 
@@ -47,7 +46,7 @@ namespace crt
 			_globPosOfParent(0,0), _sizeOfParent(0,0),
 			_locPos(locPos), _coordTypeLocPos(coordTypeLocPos),
 			_size(size), _coordTypeSize(coordTypeSize), _alignment(alignment),
-			_bVisible(false), _bEnabled(true), _bDrawable(bDrawable), _nofChildren(0)
+			_bEnabled(true), _bDrawable(bDrawable), _nofChildren(0)
 		{
 			for (int i = 0; i < MaxNofChildren; i++)
 			{
@@ -299,39 +298,70 @@ namespace crt
 			return _alignment;
 		}
 
-		// show immediately draws it.
-		// note: WidgetProps only serves as a node in the display-tree.
-		//       It conains the props and links to children.
-		//       The actual (un-)display functionality is to be implemented
-		//       by the specific widget class (like TouchScreenButton),
-		//       which is derived from IWidget as well.
-		// show implies enabling.
-		/*override*/ virtual void show(bool bIncludeChildren)
+		// Draws this widget, and its children if asked, over its whole rect.
+		//
+		// Touches no flag: not _bDrawable, not _bEnabled. That is what separates
+		// it from show(), and it is the reason it exists. A page that refreshes
+		// itself, or a widget that is being animated, must not have its touch
+		// handling switched back on just because it was drawn - and before this
+		// existed there was no other way to draw, so it always was.
+		//
+		// Not drawable means: draw nothing, and cut the subtree off here. Same
+		// rule as redrawRegion, so a widget cannot be drawn by one route and
+		// skipped by the other.
+		//
+		// Does not clip. That is deliberate and carries no risk: drawing outside
+		// the screen is routine in these apps (a keyboard parked at
+		// y = screenHeight), the adapter always has a viewport, and every
+		// TFT_eSPI primitive starts by testing it.
+		/*override*/ virtual void redraw(bool bIncludeChildren)
 		{
-			_bVisible = true;
-			this->enable(false);	// true would cause a needless avalanche: recursively below, the show of every child already calls enable.
+			if (!_bDrawable)
+			{
+				return;
+			}
+
+			paint();
+
 			if (bIncludeChildren)
 			{
 				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
-					_arChildren[i]->show(true);
+					_arChildren[i]->redraw(true);
 				}
 			}
 		}
 
-		// hide immediately undraws it.
-		// hide implies disabling.
-		/*override*/ virtual void hide(bool bIncludeChildren)
+		// The two combinations that are wanted often enough to have a name.
+		// Neither is virtual, and neither needs to be: everything they do
+		// happens through calls that already dispatch by themselves.
+		//
+		// Note what show() does NOT do any more: it does not enable. Nor does
+		// hide() disable. Those used to come along for free, which meant there
+		// was no way to redraw a page without resurrecting every button on it -
+		// and no way to hide one without silently dropping a press that was in
+		// progress. If a page must also become touchable, say so: enable(true).
+		void show(bool bIncludeChildren)
 		{
-			_bVisible = false;
-			this->disable(false);	// true would cause a needless avalanche: recursively below, the show of every child already calls disable.
-			if (bIncludeChildren)
-			{
-				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
-				{
-					_arChildren[i]->hide(true);
-				}
-			}
+			makeDrawable(bIncludeChildren);
+			redraw(bIncludeChildren);
+		}
+
+		// Undraws it: what was underneath comes back, because the repaint runs
+		// from the root down. Not a fill with this widget's own background
+		// colour - that guesses at what belongs there, and guesses wrong as soon
+		// as anything else has drawn in that spot.
+		//
+		// Mind that this therefore DOES send drawing commands. A widget that
+		// must disappear without any drawing at all - because another task is
+		// already painting over that area - wants makeNonDrawable() instead.
+		void hide(bool bIncludeChildren)
+		{
+			Vec2 topLeftPix = getGlobPosPix();
+			Vec2 sizePix = _sizePix;
+
+			makeNonDrawable(bIncludeChildren);
+			repaintRegion(topLeftPix, sizePix);
 		}
 
 		// A plain Widget has nothing of its own to draw; Panel and Text override this.
@@ -354,7 +384,13 @@ namespace crt
 
 		/*override*/ void redrawRegion(const Vec2& topLeftPix, const Vec2& sizePix)
 		{
-			if (!_bVisible)
+			// Cut off whole subtrees that are not part of the picture. This used
+			// to test _bVisible, and that never fired: one page.show(true) set it
+			// on the entire tree, so a subtree that had been switched off was
+			// still walked node by node, each one deciding for itself that it had
+			// nothing to draw. _bDrawable says the same thing honestly and says
+			// it at the root of the subtree.
+			if (!_bDrawable)
 			{
 				return;
 			}
@@ -380,10 +416,8 @@ namespace crt
 		// Moves this widget, and repairs the screen where it used to be.
 		//
 		// Deliberately NOT hide() + setLocPos() + show(): that erases the whole
-		// widget before redrawing it (which is what flickers), it fills the old
-		// spot with the widget's own _colBg rather than restoring what was
-		// underneath, and hide/show would toggle _bVisible and _bEnabled - so the
-		// touch handling would blink on and off during an animation.
+		// widget before redrawing it (which is what flickers), and it would
+		// repaint the vacated spot twice over.
 		void moveTo(const Vec2& newLocPos, CoordType coordTypeLocPos)
 		{
 			Vec2 oldTopLeftPix = getGlobPosPix();
@@ -391,7 +425,7 @@ namespace crt
 
 			setLocPos(newLocPos, coordTypeLocPos, _alignment);   // moves, draws nothing
 
-			if (!_bVisible || (_display == nullptr))
+			if (!_bDrawable || (_display == nullptr))
 			{
 				return;
 			}
@@ -461,6 +495,15 @@ namespace crt
 		// does not matter - it always redraws through the root.
 		void repaintRegion(const Vec2& topLeftPixIn, const Vec2& sizePixIn)
 		{
+			// A widget that was never added to a tree has no display. That used
+			// to be unreachable here; since hide() goes through this function it
+			// no longer is, and a page that is hidden before it is built would
+			// dereference a null pointer.
+			if (_display == nullptr)
+			{
+				return;
+			}
+
 			Vec2 topLeftPix = topLeftPixIn;
 			Vec2 sizePix = sizePixIn;
 			if (!clipToRoot(topLeftPix, sizePix))
@@ -515,11 +558,6 @@ namespace crt
 		}
 
 	public:
-		/*override*/ bool isShown()
-		{
-			return _bVisible;
-		}
-
 		// false: widget takes part in the tree and input handling,
 		// but never sends drawing commands to the display.
 		/*override*/ bool isDrawable()
@@ -527,22 +565,41 @@ namespace crt
 			return _bDrawable;
 		}
 
-		// Switches that off and on again at runtime. Use it for a widget that is
-		// only of use part of the time: it then stays out of show(), out of
-		// repaintRegion() and out of the tree's drawing altogether, without being
-		// removed from it.
-		// Mind that this draws nothing by itself - neither the widget nor what it
-		// covered. Repaint the region it occupied afterwards.
-		// Almost always pass bIncludeChildren = true: a button whose panel is not
-		// drawable but whose label still is, would draw a floating label.
-		/*override*/ void setDrawable(bool bDrawable, bool bIncludeChildren)
+		// Says that this widget belongs to the picture again. Draws nothing -
+		// it is a flag, not an instruction. redraw() or show() puts it on the
+		// screen.
+		/*override*/ void makeDrawable(bool bIncludeChildren)
 		{
-			_bDrawable = bDrawable;
+			_bDrawable = true;
 			if (bIncludeChildren)
 			{
 				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
 				{
-					_arChildren[i]->setDrawable(bDrawable, true);
+					_arChildren[i]->makeDrawable(true);
+				}
+			}
+		}
+
+		// Says that it does not. Use it for a widget that is only of use part of
+		// the time: it then stays out of redraw(), out of repaintRegion() and out
+		// of the tree's drawing altogether, without being removed from it.
+		//
+		// Erases nothing - neither this widget nor what it covered. Repaint the
+		// region it occupied afterwards, or use hide(), which is exactly this
+		// plus that repaint.
+		//
+		// Almost always pass bIncludeChildren = true. Passing false switches off
+		// only this node, and since a non-drawable node cuts its whole subtree
+		// out of the drawing anyway, the children stay behind marked drawable
+		// while nothing of them appears.
+		/*override*/ void makeNonDrawable(bool bIncludeChildren)
+		{
+			_bDrawable = false;
+			if (bIncludeChildren)
+			{
+				for (int i = 0; (MaxNofChildren > 0) && (i < _nofChildren); i++)
+				{
+					_arChildren[i]->makeNonDrawable(true);
 				}
 			}
 		}
