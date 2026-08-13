@@ -88,8 +88,9 @@ namespace pong_cleangui_dg_adv
 	{
 		enum State
 		{
-			STATE_HIDDEN,
-			STATE_SHOWN
+			STATE_HIDDEN,				// pagina uit beeld
+			STATE_SHOWN_HALLOFFAME,		// in beeld: de lijst met de knop eronder; de fakkels branden
+			STATE_SHOWN_NAME_INPUT		// in beeld: het invoerveld met het toetsenbord ervoor
 		};
 
 		enum Phase
@@ -165,7 +166,6 @@ namespace pong_cleangui_dg_adv
 		Pool<HallOfFameData> poolHallOfFame;
 
 		State state;
-		Phase phase;
 
 		// Waar het toetsenbord staat als het uit beeld is, en als het in beeld is.
 		int32_t yKeyboardDownPix;
@@ -197,7 +197,6 @@ namespace pong_cleangui_dg_adv
 			flagNewKey(this),
 			timerTorch(this),
 			state (STATE_HIDDEN),
-			phase (PHASE_HALLOFFAME),
 			yKeyboardDownPix(0),
 			yKeyboardUpPix(0),
 			bKeyboardIsUp(false)
@@ -232,6 +231,10 @@ namespace pong_cleangui_dg_adv
 		return &inputfield;
 	}
 
+	// De volgende twee wissen elkaars vlag, en dat doet meer dan "alleen de laatste
+	// wens telt": er wordt per toestand nog maar op een deel van de vlaggen gewacht,
+	// en deze twee clears zijn wat garandeert dat een overruled show of deshow niet
+	// blijft staan om een ronde later alsnog te vuren.
 	void showGameOverPage()
 	{
 		flagDeshowGameOverPage.clear();	// alleen de laatste wens telt.
@@ -382,10 +385,8 @@ namespace pong_cleangui_dg_adv
 		// en niet hide(): hide() zou een wisvlak insturen, en dat is bij een pagina
 		// die als geheel opnieuw wordt getekend zowel overbodig als riskant - zie
 		// GameDisplayControl::hidePage().
-		void drawAndEnableWidgetsForPhase(Phase newPhase)
+		void drawAndEnableWidgetsForPhase(Phase phase)
 		{
-			phase = newPhase;
-
 			bool bName = (phase == PHASE_NAME_INPUT);
 
 			// De titel hoort bij de lijst: in de naamfase staat het invoerveld op
@@ -404,18 +405,6 @@ namespace pong_cleangui_dg_adv
 			makeDrawableIf(buttonStart, !bName);
 			makeDrawableIf(arTorchPanels[0], !bName);
 			makeDrawableIf(arTorchPanels[1], !bName);
-
-			// De klok loopt alleen als de fakkels te zien zijn: elke tik is een
-			// volledige hertekening, en tijdens het intypen valt er niets te
-			// flakkeren.
-			if (bName)
-			{
-				timerTorch.stop();
-			}
-			else
-			{
-				timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
-			}
 
 			// Tekenen zet de aanraakbaarheid niet meer terug, dus dit is de enige
 			// plek die hem per fase bepaalt - en uitzetten moet hier dan ook echt
@@ -546,11 +535,11 @@ namespace pong_cleangui_dg_adv
 
 		// Zie de toelichting bij GameDisplayControl::showPage/hidePage - dit is
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
-		void showPage(PageRoot<22 + 2*NofHallOfFameEntries>& page)
+		void showPage(PageRoot<22 + 2*NofHallOfFameEntries>& page, Phase phaseToShow)
 		{
 			page.makeDrawable(true);
-			page.enable(true);							// eerst de hele pagina aan, ...
-			drawAndEnableWidgetsForPhase(phase);		// ... dan uit wat niet bij deze fase hoort - die volgorde is dragend
+			page.enable(true);								// eerst de hele pagina aan, ...
+			drawAndEnableWidgetsForPhase(phaseToShow);		// ... dan uit wat niet bij deze fase hoort - die volgorde is dragend
 			page.redraw(true);
 		}
 
@@ -562,6 +551,42 @@ namespace pong_cleangui_dg_adv
 			// De disable staat er los bij; niet-tekenbaar maakt niet doof.
 			page.makeNonDrawable(true);
 			page.disable(true);
+		}
+
+		// Verbergen gaat vanuit beide zichtbare toestanden hetzelfde, dus staat het
+		// hier en niet twee keer in de lus.
+		void enterHidden(PageRoot<22 + 2*NofHallOfFameEntries>& page)
+		{
+			// Het toetsenbord springt terug in plaats van te schuiven: er staat niets
+			// meer in beeld om het langs te zien gaan.
+			if (bKeyboardIsUp)
+			{
+				touchscreenKeyboard.setLocPos(Vec2(0, yKeyboardDownPix), CoordType::Pixels, Alignment::TopLeft);
+				bKeyboardIsUp = false;
+			}
+
+			// stop() laat een tik die al gevallen is gewoon staan - daar is clear()
+			// voor (zie crt_Timer.h). Buiten de lijstfase wacht niemand meer op de
+			// klok, dus zonder deze regel valt die tik pas binnen als de pagina
+			// terugkomt, met een fakkelstap en een volledige hertekening op het
+			// moment van verschijnen.
+			timerTorch.stop();
+			timerTorch.clear();
+
+			// De pagina verdwijnt, dus haar openstaande wensen ook. Er wordt per
+			// toestand nog maar op een deel van de vlaggen gewacht, dus wat hier
+			// blijft staan vuurt een ronde later alsnog - en een lijstwens die in de
+			// naamfase binnenvalt haalt het toetsenbord weg terwijl MainControl nog
+			// op de naam staat te wachten.
+			// Dat mag omdat GameOverPageControl::doGameOver de twee show-wensen
+			// alleen vóór wait(flagStartPressed) stuurt en pas daarna verbergt,
+			// met een hele doGame() ertussen voordat er een nieuwe kan komen.
+			// Gooit iemand die volgorde om, dan gaat dit als eerste stuk.
+			flagShowNameInput.clear();
+			flagShowHallOfFame.clear();
+			flagNewKey.clear();
+
+			hidePage(page);
 		}
 
 		void initKeyboardPos()
@@ -609,84 +634,197 @@ namespace pong_cleangui_dg_adv
 			drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
 			hidePage(pageGameOver);		// bij het eerste opstarten is er nog niets verloren.
 
+			// Elke toestand wacht alleen op de vlaggen die daar kunnen vallen, dus
+			// waar ze vandaan komen is hier dragend geworden. "Play Again" is alleen
+			// in de lijstfase enabled en TouchscreenButton::touchPressed keert terug
+			// op !isEnabled(), dus een deshow kan niet in de naamfase of buiten beeld
+			// ontstaan. Het toetsenbord is alleen in de naamfase enabled en pas na de
+			// slide (TouchscreenButtonGroup::touchPressed doet hetzelfde), dus
+			// flagNewKey ontstaat nergens anders dan daar - plus in de DEL-lus.
+			//
+			// En let op hasFired(): latestResult van waitAny is de hele event group,
+			// niet alleen de gevraagde bits. Vraag hem daarom alleen naar waitables
+			// die ook echt in de wachtset stonden.
 			while (true)
 			{
 				dumpStackHighWaterMarkIfIncreased(); 		// This function call takes about 0.25ms! It should be called while debugging only.
 
-				waitAny(flagShowGameOverPage + flagDeshowGameOverPage +
-				        flagShowNameInput + flagShowHallOfFame + flagNewKey + timerTorch);
-
-				if (hasFired(timerTorch))
+				switch(state)
 				{
-					TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
-					pageGameOver.redraw(true);
-					timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
-				}
+					case STATE_HIDDEN:
+						// Ook hier op beide vlaggen wachten: wie er niet in staat
+						// wordt niet gewekt, en dan blijft een wens onopgemerkt
+						// hangen. Zie GameDisplayControl, dat hetzelfde vlaggenpaar
+						// net zo behandelt.
+						waitAny(flagShowGameOverPage + flagDeshowGameOverPage);
 
-				if(hasFired(flagDeshowGameOverPage))
-				{
-					if (bKeyboardIsUp)
-					{
-						touchscreenKeyboard.setLocPos(Vec2(0, yKeyboardDownPix), CoordType::Pixels, Alignment::TopLeft);
-						bKeyboardIsUp = false;
-					}
-					timerTorch.stop();
-					hidePage(pageGameOver);
-					state = STATE_HIDDEN;
-				}
-				else if(hasFired(flagShowGameOverPage))
-				{
-					if (state == STATE_HIDDEN)
-					{
-						showPage(pageGameOver);
-						state = STATE_SHOWN;
-					}
-				}
-				else if(hasFired(flagShowNameInput))
-				{
-					// Het veld leegmaken. Inputfield kent geen setTextValue, dus via
-					// dezelfde weg als het toetsenbord: DEL tot er niets meer staat.
-					// Dat zet onze eigen flagNewKey, en die halen we er meteen weer
-					// af - anders tekent de lus hieronder de pagina nog een keer.
-					for (int i = 0; i < MaxNofNameFieldChars; i++)
-					{
-						inputfield.keyPressed("DEL");
-					}
-					flagNewKey.clear();
+						if(hasFired(flagDeshowGameOverPage))
+						{
+							// Al uit beeld, dus niets te doen - en dat is zeker:
+							// hideGameOverPage() heeft één aanroeper
+							// (GameOverPageControl::doGameOver, na
+							// wait(flagStartPressed)), en daar is de toestand altijd
+							// STATE_SHOWN_HALLOFFAME.
+							//
+							// Zet hier géén enterHidden() neer om het netjes te
+							// maken: die wist flagShowNameInput en flagShowHallOfFame,
+							// en juist in deze toestand mogen die blijven staan - er
+							// wordt hier niet op gewacht, dus ze horen bij de
+							// eerstvolgende show alsnog af te gaan.
+						}
+						else if(hasFired(flagShowGameOverPage))
+						{
+							// De lijstfase, en niet "die van de vorige keer": elke
+							// ronde eindigt met showHallOfFame() voordat er verborgen
+							// wordt, dus dat was hij altijd al. Daarmee vervalt het
+							// lid dat hem tussen twee rondes door onthield.
+							showPage(pageGameOver, PHASE_HALLOFFAME);
 
-					drawAndEnableWidgetsForPhase(PHASE_NAME_INPUT);
-					pageGameOver.redraw(true);
+							// De klok loopt alleen zolang de fakkels in beeld staan:
+							// elke tik is een volledige hertekening. Eenmalig, zodat
+							// elke wachttijd gerandomiseerd kan worden.
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
+							state = STATE_SHOWN_HALLOFFAME;
+						}
+						break;
 
-					if (!bKeyboardIsUp)
-					{
-						slideKeyboard(pageGameOver, yKeyboardDownPix, yKeyboardUpPix);
-					}
-				}
-				else if(hasFired(flagShowHallOfFame))
-				{
-					if (bKeyboardIsUp)
-					{
-						slideKeyboard(pageGameOver, yKeyboardUpPix, yKeyboardDownPix);
-					}
+					case STATE_SHOWN_HALLOFFAME:
+						waitAny(flagDeshowGameOverPage + flagShowGameOverPage +
+						        flagShowNameInput + flagShowHallOfFame + timerTorch);
 
-					fillHallOfFameLines();
-					drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
-					pageGameOver.redraw(true);
-				}
-				else if(hasFired(flagNewKey))
-				{
-					const char* strKey;
-					poolNewKey.read(strKey);
+						if(hasFired(flagDeshowGameOverPage))
+						{
+							enterHidden(pageGameOver);
+							state = STATE_HIDDEN;
+						}
+						else if(hasFired(flagShowGameOverPage))
+						{
+							// al in beeld: niets te doen.
+						}
+						else if(hasFired(flagShowNameInput))
+						{
+							// De fakkels gaan uit beeld, dus de klok mag stil; clear()
+							// erachter omdat stop() een tik die al gevallen is laat
+							// staan en dit de enige toestand is die er nog op wacht.
+							timerTorch.stop();
+							timerTorch.clear();
 
-					// Wat ENTER betekent gaat deze pagina niet aan - dat is UC03
-					// stap 1b, en die zit in NameInputControl. Hier telt alleen dat
-					// Inputfield::keyPressed er niets mee doet, dus dat er ook niets
-					// te hertekenen valt. Elke andere toets verandert het veld wel,
-					// en dan moet met een backbuffer de hele pagina opnieuw.
-					if (strncmp(strKey, "ENTER", 5) != 0)
-					{
-						pageGameOver.redraw(true);
-					}
+							// Het veld leegmaken. Inputfield kent geen setTextValue,
+							// dus via dezelfde weg als het toetsenbord: DEL tot er
+							// niets meer staat. Dat zet onze eigen flagNewKey, en die
+							// halen we er meteen weer af - anders tekent de naamfase
+							// de pagina nog een keer. Het is meteen de enige plek die
+							// een aanslag uit de vorige ronde opruimt: buiten de
+							// naamfase wacht niemand meer op die vlag.
+							for (int i = 0; i < MaxNofNameFieldChars; i++)
+							{
+								inputfield.keyPressed("DEL");
+							}
+							flagNewKey.clear();
+
+							drawAndEnableWidgetsForPhase(PHASE_NAME_INPUT);
+							pageGameOver.redraw(true);
+
+							if (!bKeyboardIsUp)
+							{
+								slideKeyboard(pageGameOver, yKeyboardDownPix, yKeyboardUpPix);
+							}
+							state = STATE_SHOWN_NAME_INPUT;
+						}
+						else if(hasFired(flagShowHallOfFame))
+						{
+							// Een nieuwe lijst op de pagina die er al staat. Geen
+							// schuivend toetsenbord: omhoog staan kan het alleen in
+							// de naamfase.
+							fillHallOfFameLines();
+							drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
+							pageGameOver.redraw(true);
+
+							// De klok liep al, maar hem hier opnieuw opwinden houdt
+							// de regel overeind dat elke tak die de lijst neerzet ook
+							// de fakkels aanzwengelt. Anders hangt het branden ervan
+							// aan het feit dat een gemiste tik gelatched blijft staan,
+							// en dat is een aanname die niemand hier ziet.
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
+						}
+						else if(hasFired(timerTorch))
+						{
+							TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
+							pageGameOver.redraw(true);
+
+							// Eenmalige timer, zodat elke wachttijd gerandomiseerd kan
+							// worden.
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
+						}
+						break;
+
+					case STATE_SHOWN_NAME_INPUT:
+						// Geen timerTorch: de fakkels staan hier niet in beeld en hun
+						// klok is gestopt. Geen flagShowNameInput: doQueryName() staat
+						// tot ENTER stil, dus een tweede vraag kan er niet zijn.
+						waitAny(flagDeshowGameOverPage + flagShowGameOverPage +
+						        flagShowHallOfFame + flagNewKey);
+
+						if(hasFired(flagDeshowGameOverPage))
+						{
+							enterHidden(pageGameOver);
+							state = STATE_HIDDEN;
+						}
+						else if(hasFired(flagShowGameOverPage))
+						{
+							// al in beeld: niets te doen.
+						}
+						else if(hasFired(flagShowHallOfFame))
+						{
+							if (bKeyboardIsUp)
+							{
+								slideKeyboard(pageGameOver, yKeyboardUpPix, yKeyboardDownPix);
+							}
+
+							fillHallOfFameLines();
+							drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
+							pageGameOver.redraw(true);
+
+							// De naamfase is voorbij, dus een tweede vraag om een naam
+							// ook. Zou die blijven staan, dan keert de eerstvolgende
+							// waitAny hieronder er meteen op terug: de zojuist
+							// getoonde lijst springt terug naar het invoerveld,
+							// buttonStart gaat uit, en MainControl wacht daarna voor
+							// altijd op flagStartPressed. Dit is het enige latchpad in
+							// dit bestand dat niet op een hertekening maar op een hang
+							// uitkomt.
+							flagShowNameInput.clear();
+
+							// De fakkels staan weer in beeld.
+							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
+							state = STATE_SHOWN_HALLOFFAME;
+						}
+						else if(hasFired(flagNewKey))
+						{
+							const char* strKey;
+							poolNewKey.read(strKey);
+
+							// Wat ENTER betekent gaat deze pagina niet aan - dat is
+							// UC03 stap 1b, en die zit in NameInputControl. Hier telt
+							// alleen dat Inputfield::keyPressed er niets mee doet, dus
+							// dat er ook niets te hertekenen valt. Elke andere toets
+							// verandert het veld wel, en dan moet met een backbuffer
+							// de hele pagina opnieuw.
+							if (strncmp(strKey, "ENTER", 5) != 0)
+							{
+								pageGameOver.redraw(true);
+							}
+						}
+						break;
+
+					default:
+						// De wachtoproep zit nu binnen de switch, dus een toestand
+						// die hier niet staat laat de lus vrij rondtollen - en assert
+						// is in een release-build leeg. Terug naar een toestand die
+						// wel blokkeert.
+						assert(false);
+						state = STATE_HIDDEN;
+						break;
 				}
 			}
 		}
