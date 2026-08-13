@@ -174,17 +174,30 @@ namespace pong_cleangui_dg_adv
 
 		// Zie de toelichting bij GameDisplayControl::showPage/hidePage - dit is
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
+		//
+		// De enable() en de disable() hieronder dragen het hele aan/uit-gedrag van
+		// de playknop, want tekenbaar en aanraakbaar zijn losse assen. Zonder de
+		// enable() is de knop al vanaf de eerste hidePage() dood en begint er
+		// nooit een spel; zonder de disable() blijft hij het hele spel en de
+		// game-over-pagina door aanraakbaar op dezelfde rect als de peddel-touch,
+		// en vervalt de bPressed-reset van TouchscreenButton::disable().
 		void showPage(IWidget& page)
 		{
-			page.setDrawable(true, true);
-			page.show(true);
+			// Los uitgeschreven omdat page hier een IWidget& is; show() en hide()
+			// zijn geen interfacefuncties meer.
+			page.makeDrawable(true);
+			page.redraw(true);
 			page.enable(true);
 		}
 
+		// Uit beeld en met opzet zonder ook maar een pixel te sturen - vandaar
+		// makeNonDrawable en niet hide(): hide() wist zijn vlak wel degelijk, en
+		// dat mag hier niet terwijl de taak van de volgende pagina al in dezelfde
+		// commandobuffer tekent. Het hoeft ook niet: elke pagina begint met een
+		// schermvullend backgroundPanel en wist daarmee wat hier blijft staan.
 		void hidePage(IWidget& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
+			page.makeNonDrawable(true);
 			page.disable(true);
 		}
 
@@ -248,7 +261,7 @@ namespace pong_cleangui_dg_adv
 						else if (hasFired(timerTorch))
 						{
 							selectNextAnimationFrameOfTorches();
-							pageStart.show(true);
+							pageStart.redraw(true);
 
 							// Eenmalige timer, zodat elke wachttijd gerandomiseerd kan worden,
 							// tbv een "stochastischer vlameffect".

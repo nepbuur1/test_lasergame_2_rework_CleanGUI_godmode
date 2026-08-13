@@ -31,7 +31,10 @@
 //
 // Twee fasen op een PageRoot en niet twee PageRoots: er mag er maar een tegelijk
 // in beeld staan (zie de opmerking boven crt_PageRoot.h), en die eis geldt binnen
-// deze taak net zo goed als ertussen. Wisselen gaat met setDrawable().
+// deze taak net zo goed als ertussen. Wisselen gaat met makeDrawable /
+// makeNonDrawable, hertekenen met redraw(true) - en nooit met show(true) op deze
+// root: show() maakt de hele boom weer tekenbaar en zet daarmee de naaminvoer en
+// de hall of fame over elkaar heen.
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
@@ -347,8 +350,36 @@ namespace pong_cleangui_dg_adv
 			buttonStart.setImage(&imageButtonPlayAgain);
 		}
 
-		// Alleen de widgets van de gevraagde fase tekenbaar maken. setDrawable en
-		// niet hide(): hide() zou een wisvlak insturen, en dat is bij een pagina
+		// Welke widgets bij een fase horen is een runtime-bool, en tekenbaarheid
+		// en aanraakbaarheid zijn elk twee losse werkwoorden. Vandaar deze twee
+		// vertalertjes: ze sturen de bool door en doen verder niets - geen pixel,
+		// geen wisvlak.
+		static void makeDrawableIf(IWidget& widget, bool bDrawable)
+		{
+			if (bDrawable)
+			{
+				widget.makeDrawable(true);
+			}
+			else
+			{
+				widget.makeNonDrawable(true);
+			}
+		}
+
+		static void enableIf(IWidget& widget, bool bEnabled)
+		{
+			if (bEnabled)
+			{
+				widget.enable(true);
+			}
+			else
+			{
+				widget.disable(true);
+			}
+		}
+
+		// Alleen de widgets van de gevraagde fase tekenbaar maken. makeNonDrawable
+		// en niet hide(): hide() zou een wisvlak insturen, en dat is bij een pagina
 		// die als geheel opnieuw wordt getekend zowel overbodig als riskant - zie
 		// GameDisplayControl::hidePage().
 		void drawAndEnableWidgetsForPhase(Phase newPhase)
@@ -359,20 +390,20 @@ namespace pong_cleangui_dg_adv
 
 			// De titel hoort bij de lijst: in de naamfase staat het invoerveld op
 			// die hoogte.
-			hallOfFameTitlePanel.setDrawable(!bName, true);
+			makeDrawableIf(hallOfFameTitlePanel, !bName);
 
-			typeYourNameText.setDrawable(bName, true);
-			inputfield.setDrawable(bName, true);
-			touchscreenKeyboard.setDrawable(bName, true);
+			makeDrawableIf(typeYourNameText, bName);
+			makeDrawableIf(inputfield, bName);
+			makeDrawableIf(touchscreenKeyboard, bName);
 
 			for (int i = 0; i < NofHallOfFameEntries; i++)
 			{
-				arHallOfFameNames[i].setDrawable(!bName, true);
-				arHallOfFameScores[i].setDrawable(!bName, true);
+				makeDrawableIf(arHallOfFameNames[i], !bName);
+				makeDrawableIf(arHallOfFameScores[i], !bName);
 			}
-			buttonStart.setDrawable(!bName, true);
-			arTorchPanels[0].setDrawable(!bName, true);
-			arTorchPanels[1].setDrawable(!bName, true);
+			makeDrawableIf(buttonStart, !bName);
+			makeDrawableIf(arTorchPanels[0], !bName);
+			makeDrawableIf(arTorchPanels[1], !bName);
 
 			// De klok loopt alleen als de fakkels te zien zijn: elke tik is een
 			// volledige hertekening, en tijdens het intypen valt er niets te
@@ -386,9 +417,17 @@ namespace pong_cleangui_dg_adv
 				timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 			}
 
-			inputfield.enable(bName);
-			touchscreenKeyboard.enable(bName && bKeyboardIsUp);
-			buttonStart.enable(!bName);
+			// Tekenen zet de aanraakbaarheid niet meer terug, dus dit is de enige
+			// plek die hem per fase bepaalt - en uitzetten moet hier dan ook echt
+			// gebeuren. "Play Again" staat op dezelfde hoogte als de onderste
+			// toetsenrijen: een knop die tijdens het intypen aan blijft, meldt bij
+			// elke aanslag daar ook een druk.
+			//
+			// Het toetsenbord blijft doof zolang het nog niet omhoog staat; de
+			// schuifbeweging zet het aan zodra het er ligt.
+			enableIf(inputfield, bName);
+			enableIf(touchscreenKeyboard, bName && bKeyboardIsUp);
+			enableIf(buttonStart, !bName);
 		}
 
 		void fillHallOfFameLines()
@@ -458,6 +497,9 @@ namespace pong_cleangui_dg_adv
 			const int32_t stepPix = 16;
 			int32_t step = (yToPix > yFromPix) ? stepPix : -stepPix;
 
+			// Zolang het schuift mag er geen aanslag binnenkomen. Het hertekenen
+			// per stap raakt geen enkele vlag aan, dus deze disable houdt het hele
+			// eind vol - tot de enable onderaan.
 			touchscreenKeyboard.disable(true);
 
 			int32_t distancePix = (yToPix > yFromPix) ? (yToPix - yFromPix) : (yFromPix - yToPix);
@@ -480,7 +522,7 @@ namespace pong_cleangui_dg_adv
 				// deel van de boom; de hele pagina moet daarna opnieuw. Zonder dat
 				// blijft het toetsenbord op zijn oude plek in de buffer staan.
 				touchscreenKeyboard.setLocPos(Vec2(0, y), CoordType::Pixels, Alignment::TopLeft);
-				page.show(true);
+				page.redraw(true);
 
 				indexStep++;
 				int64_t timeTargetUs = timeStartUs + (SlideDurationUs * indexStep) / nofSteps;
@@ -494,6 +536,10 @@ namespace pong_cleangui_dg_adv
 			bKeyboardIsUp = (yToPix < yFromPix);
 			if (bKeyboardIsUp)
 			{
+				// Na een schuifbeweging omhoog is dit wat de veertig toetsen
+				// terugzet. Wordt de slide overgeslagen omdat het toetsenbord al
+				// omhoog stond, dan doet drawAndEnableWidgetsForPhase het via
+				// enableIf(touchscreenKeyboard, ...).
 				touchscreenKeyboard.enable(true);
 			}
 		}
@@ -502,16 +548,19 @@ namespace pong_cleangui_dg_adv
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
 		void showPage(PageRoot<22 + 2*NofHallOfFameEntries>& page)
 		{
-			page.setDrawable(true, true);
-			drawAndEnableWidgetsForPhase(phase);		// zet meteen weer uit wat niet bij deze fase hoort
-			page.show(true);
-			page.enable(true);
+			page.makeDrawable(true);
+			page.enable(true);							// eerst de hele pagina aan, ...
+			drawAndEnableWidgetsForPhase(phase);		// ... dan uit wat niet bij deze fase hoort - die volgorde is dragend
+			page.redraw(true);
 		}
 
 		void hidePage(PageRoot<22 + 2*NofHallOfFameEntries>& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
+			// Zonder ook maar een tekencommando, want een andere pagina schrijft
+			// al in dezelfde commandobuffer (zie de kop van dit bestand). Daarom
+			// geen hide(): die zou vanaf de wortel over dit vlak heen gaan.
+			// De disable staat er los bij; niet-tekenbaar maakt niet doof.
+			page.makeNonDrawable(true);
 			page.disable(true);
 		}
 
@@ -570,7 +619,7 @@ namespace pong_cleangui_dg_adv
 				if (hasFired(timerTorch))
 				{
 					TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
-					pageGameOver.show(true);
+					pageGameOver.redraw(true);
 					timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 				}
 
@@ -606,7 +655,7 @@ namespace pong_cleangui_dg_adv
 					flagNewKey.clear();
 
 					drawAndEnableWidgetsForPhase(PHASE_NAME_INPUT);
-					pageGameOver.show(true);
+					pageGameOver.redraw(true);
 
 					if (!bKeyboardIsUp)
 					{
@@ -622,7 +671,7 @@ namespace pong_cleangui_dg_adv
 
 					fillHallOfFameLines();
 					drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);
-					pageGameOver.show(true);
+					pageGameOver.redraw(true);
 				}
 				else if(hasFired(flagNewKey))
 				{
@@ -636,7 +685,7 @@ namespace pong_cleangui_dg_adv
 					// en dan moet met een backbuffer de hele pagina opnieuw.
 					if (strncmp(strKey, "ENTER", 5) != 0)
 					{
-						pageGameOver.show(true);
+						pageGameOver.redraw(true);
 					}
 				}
 			}
