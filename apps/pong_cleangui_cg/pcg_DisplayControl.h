@@ -406,7 +406,7 @@ namespace pong_cleangui_cg
 		void initBallAndPaddlePosition()
 		{
 			// Bal en peddel eerst op hun nieuwe plek zetten, en pas
-			// daarna tonen. Anders tekent show(true) ze nog even op de
+			// daarna tonen. Anders tekent redraw(true) ze nog even op de
 			// plek van het vorige spel - en voor de bal is dat onder de
 			// doellijn, buiten het speelveld. De moveTo() die daar
 			// meteen op volgt herstelt die plek niet: buiten
@@ -425,34 +425,39 @@ namespace pong_cleangui_cg
 			paddlePanel.setLocPos(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()),
 									CoordType::Pixels, Alignment::MidMid);
 
-			flagBallPositionUpdated.clear();		// zojuist verwerkt; show(true) tekent ze.
+			flagBallPositionUpdated.clear();		// zojuist verwerkt; redraw(true) tekent ze.
 			flagPaddlePositionUpdated.clear();
 		}
 
 		// Een pagina in en uit beeld. IWidget& en niet het paneeltype zelf: de
-		// drie pagina's zijn Panel<8>, Panel<2> en Panel<1>, en show/hide/enable/
-		// disable/setDrawable zitten allemaal in IWidget.
+		// drie pagina's zijn Panel<8>, Panel<2> en Panel<1>. Los uitgeschreven
+		// omdat show() en hide() geen interfacefuncties zijn; makeDrawable,
+		// makeNonDrawable, redraw, enable en disable zijn dat wel.
 		//
-		// Deze twee zijn gelijk aan die van de _dg-variant. Het verbergen tekent
-		// niets - setDrawable(false) eerst, zodat Panel::hide() zijn wisvlak
-		// overslaat. Hier is dat niet nodig om races te vermijden (er tekent maar
-		// een taak), maar het scheelt wel de zwarte flits tussen twee pagina's in,
-		// en het houdt de twee varianten vergelijkbaar.
-		//
-		// Het mag omdat elke pagina begint met een schermvullend paneel: de
-		// volgende pagina wist wat de vorige achterlaat.
+		// De enable() en de disable() dragen het hele aan/uit-gedrag van de
+		// knoppen op deze pagina's: tekenbaar en aanraakbaar zijn losse assen, dus
+		// tonen enablet niet mee en verbergen disabelt niet mee. Wie ze opruimt
+		// laat de knoppen van een pagina die niet in beeld staat gewoon
+		// doorwerken, en verliest de bPressed-reset van
+		// TouchscreenButton::disable() - waarna een knop die onder je vinger
+		// verdween voorgoed ingedrukt blijft staan.
 		void showPage(IWidget& page)
 		{
-			page.setDrawable(true, true);
-			page.show(true);
+			page.makeDrawable(true);
+			page.redraw(true);
 			page.enable(true);
 		}
 
+		// Uit beeld en met opzet zonder ook maar een pixel te sturen - vandaar
+		// makeNonDrawable en nadrukkelijk niet hide(). Die zou hier of niets doen
+		// (op het moment van verbergen staat alles al op niet-tekenbaar) of, als
+		// de volgende pagina al is getekend, die pagina schermvullend opnieuw
+		// laten tekenen. Wissen hoeft sowieso niet: elke pagina begint met een
+		// schermvullend paneel dat wist wat de vorige achterlaat.
 		void hidePage(IWidget& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
 			page.disable(true);
+			page.makeNonDrawable(true);
 		}
 
 		static Vec2 ballSizePix()   { return Vec2(BallSizePix, BallSizePix); }
@@ -470,16 +475,17 @@ namespace pong_cleangui_cg
 
 			PageRoot<20> pageRoot("rootSceneDisplay",display);
 
-			// De root moet zelf zichtbaar staan, anders tekent hij nooit iets.
-			// redrawRegion() breekt namelijk meteen af op een onzichtbare widget,
+			// De root blijft tekenbaar - dat is hij bij constructie al, en zo moet
+			// hij blijven: redrawRegion() breekt af op een niet-tekenbare widget,
 			// en moveTo() laat juist via de root de vrijgekomen strook herstellen
-			// en de bal opnieuw tekenen. Zonder deze regel verschijnt het beeld
-			// wel (show() tekent rechtstreeks) maar beweegt er daarna niets meer.
+			// en de bal opnieuw tekenen. Maak hem dus nooit niet-tekenbaar.
 			//
-			// show(false) en niet show(true): true zou alle drie de pagina's
-			// tegelijk tonen. De root zelf tekent niets - hij is een kale Widget -
-			// dus dit zet alleen de vlag om.
-			pageRoot.show(false);
+			// Wat hier evenmin mag: show(true) op de root. Onder deze ene root
+			// hangen alle drie de pagina's, en show() maakt de hele boom tekenbaar
+			// - dus zouden ze alle drie over elkaar heen komen. redraw(true) mag
+			// wel: die raakt geen vlag aan en kapt elke niet-tekenbare subboom af,
+			// dus daar komt alleen de pagina uit die op dat moment aan staat. Per
+			// pagina blijft duidelijker; daar is showPage voor.
 
 			// Game Page toevoegen aan de pageRoot
 			initGamePanels();
@@ -564,21 +570,47 @@ namespace pong_cleangui_cg
 				}
 				else if(hasFired(flagShowPaddle))
 				{
-					paddlePanel.show(true);
-					paddlePanel.enable(true);
-					buttonLeft.show(true);
-					buttonLeft.enable(true);
-					buttonRight.show(true);
-					buttonRight.enable(true);
+					// Alleen als de spelpagina er ook werkelijk staat. show() is
+					// makeDrawable + redraw, dus zonder deze test heft een
+					// achtergebleven peddelwens de vlag op die hidePage(gamePanel)
+					// net zette, en tekent de peddel dwars over de startpagina.
+					// Vroeger kon dat niet: show() zette alleen een vlag en het
+					// tekenen liep dood op !isDrawable().
+					//
+					// De twee zusterapps hebben deze test niet nodig - daar zit de
+					// hele tak in een case STATE_SHOWN. Deze taak bedient drie
+					// pagina's onder een root en heeft die toestand niet.
+					if (gamePanel.isDrawable())
+					{
+						// De enable() staat er expliciet bij omdat show() niet meer
+						// enablet. Dubbelop met de page.enable(true) van showPage(),
+						// maar hij houdt deze tak op zichzelf kloppend, en het is de
+						// plek waar TouchscreenButton::enable() een verouderde
+						// bPressed weggooit.
+						paddlePanel.show(true);
+						paddlePanel.enable(true);
+						buttonLeft.show(true);
+						buttonLeft.enable(true);
+						buttonRight.show(true);
+						buttonRight.enable(true);
+					}
 				}
 				else if(hasFired(flagHidePaddle))
 				{
-					paddlePanel.hide(true);
+					// Hier wel hide() en geen makeNonDrawable: de gamepagina staat
+					// op dit moment nog in beeld, dus peddel en knoppen moeten er
+					// echt af. De boom tekent terug wat eronder zat.
+					//
+					// Eerst uitschakelen en dan pas weghalen: dat tekenwerk loopt
+					// via de commandobuffer van AsyncDisplay, en in het venster
+					// daartussen komt de touch-taak langs. Een knop die al van het
+					// scherm is mag geen druk meer melden.
 					paddlePanel.disable(true);
-					buttonLeft.hide(true);
+					paddlePanel.hide(true);
 					buttonLeft.disable(true);
-					buttonRight.hide(true);
+					buttonLeft.hide(true);
 					buttonRight.disable(true);
+					buttonRight.hide(true);
 				}
 				else if(hasFired(flagPaddlePositionUpdated))
 				{
@@ -591,8 +623,8 @@ namespace pong_cleangui_cg
 					// maakt bij 25 beelden per seconde.
 					//
 					// Staat de gamepagina niet in beeld, dan verzet dit alleen de
-					// coordinaten: moveTo() keert vroeg terug op een onzichtbare
-					// widget.
+					// coordinaten: moveTo() keert vroeg terug op een
+					// niet-tekenbare widget.
 					paddlePanel.moveTo(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels);
 				}
 				else if(hasFired(flagBallPositionUpdated))

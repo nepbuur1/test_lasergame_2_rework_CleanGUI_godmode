@@ -125,15 +125,23 @@ namespace pong_cleangui_dg
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
 		void showPage(PageRoot<20>& page)
 		{
-			page.setDrawable(true, true);
 			page.show(true);
+
+			// Dragend, geen dubbeling: tekenen maakt niets meer aanraakbaar. Wie
+			// deze regel weghaalt laat de startknop doof achter, en dan is er geen
+			// weg meer uit de game-over-pagina.
 			page.enable(true);
 		}
 
+		// Verbergen mag hier niets tekenen (zie GameDisplayControl), dus gaat
+		// alleen de tekenvlag om. hide() zou juist wel over dit vlak gaan, en dat
+		// kruist het tekenwerk van de taak van de pagina die daarna in beeld komt.
 		void hidePage(PageRoot<20>& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
+			page.makeNonDrawable(true);
+
+			// Ook dragend: de vlag hierboven houdt de pagina alleen uit het
+			// tekenwerk, niet uit de touchafhandeling.
 			page.disable(true);
 		}
 

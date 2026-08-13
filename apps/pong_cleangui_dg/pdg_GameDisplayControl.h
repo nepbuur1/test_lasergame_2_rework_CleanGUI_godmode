@@ -313,26 +313,29 @@ namespace pong_cleangui_dg
 		}
 
 		// De hele pagina in beeld. show(true) op de PageRoot zelf mag hier - en
-		// moet zelfs: redrawRegion() breekt af op een onzichtbare widget, en
-		// moveTo() laat de bal juist via de root opnieuw tekenen. Dat de root
-		// meteen ook alle kinderen toont is precies de bedoeling, want deze root
-		// draagt maar een pagina. (In een opzet met drie pagina's onder een
+		// moet zelfs: hidePage() laat de hele boom niet-tekenbaar achter, en
+		// zowel redrawRegion() als moveTo() breken af op een niet-tekenbare
+		// widget. Alleen redraw(true) zou hier dus niets doen, en daarna zou ook
+		// de bal nergens meer verschijnen. Dat show(true) alle kinderen meeneemt
+		// is hier precies de bedoeling: deze root draagt maar een pagina en er
+		// staat niets met opzet uit. (In een opzet met drie pagina's onder een
 		// gedeelde root zou show(true) ze alle drie over elkaar heen tekenen.)
 		void showPage(PageRoot<20>& page)
 		{
 			initBallAndPaddlePosition();
-			page.setDrawable(true, true);
 			page.show(true);
-			page.enable(true);
+			page.enable(true);		// show() enablet niet mee; zonder deze regel blijft de pagina doof.
 		}
 
-		// Uit beeld, en met opzet ZONDER iets te tekenen: setDrawable(false) eerst,
-		// zodat Panel::hide() zijn wisvlak overslaat.
+		// Uit beeld, en met opzet ZONDER iets te tekenen: makeNonDrawable() zet
+		// alleen de tekenvlag om. Een hide() hoort hier juist NIET: die laat de
+		// boom vanaf de wortel over het vrijgekomen vlak gaan, en dat tekenwerk
+		// is precies wat hier niet mag ontstaan.
 		//
 		// Dat is wat deze opzet met meerdere tekentaken werkbaar houdt. Zou het
-		// verbergen wel tekenen, dan zet deze taak een zwart vlak in de
+		// verbergen wel tekenen, dan schuift deze taak dat tekenwerk in de
 		// commandobuffer terwijl de taak van de volgende pagina daar al zijn
-		// tekenwerk in schuift - en welke van de twee er als laatste uitkomt ligt
+		// eigen beeld in zet - en welke van de twee er als laatste uitkomt ligt
 		// niet vast. Dan wist het ene beeld het andere.
 		//
 		// Het mag omdat elke pagina begint met een schermvullend backgroundPanel:
@@ -341,9 +344,8 @@ namespace pong_cleangui_dg
 		// pagina's in.
 		void hidePage(PageRoot<20>& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
-			page.disable(true);
+			page.disable(true);		// een niet-tekenbare knop meldt nog gewoon drukken.
+			page.makeNonDrawable(true);
 
 			// Een peddelwens van het vorige spel mag niet blijven staan:
 			// PaddleControl zet flagHidePaddle op het moment dat het spel eindigt,
@@ -407,6 +409,13 @@ namespace pong_cleangui_dg
 						}
 						else if(hasFired(flagShowPaddle))
 						{
+							// De enable() bij de twee knoppen is dragend: tekenen en
+							// aanraakbaarheid zijn losse assen, dus show() zet ze alleen
+							// terug op het scherm. Zonder die twee blijft de peddel staan,
+							// want hij beweegt uitsluitend op knopdruk en
+							// TouchscreenButton::touchPressed keert terug bij !isEnabled().
+							// Bij paddlePanel staat hij er voor de symmetrie; een Panel
+							// leest zijn _bEnabled nergens.
 							paddlePanel.show(true);
 							paddlePanel.enable(true);
 							buttonLeft.show(true);
@@ -416,12 +425,17 @@ namespace pong_cleangui_dg
 						}
 						else if(hasFired(flagHidePaddle))
 						{
-							paddlePanel.hide(true);
+							// Disable voor hide, niet erna: hide() tekent, en dat loopt via
+							// de commandobuffer van AsyncDisplay. Staat de disable erachter,
+							// dan kan de touch-taak in dat gaatje nog een druk melden op een
+							// knop die al van het scherm is. TouchscreenButton::disable()
+							// gooit meteen een half afgemaakte druk weg.
 							paddlePanel.disable(true);
-							buttonLeft.hide(true);
+							paddlePanel.hide(true);
 							buttonLeft.disable(true);
-							buttonRight.hide(true);
+							buttonLeft.hide(true);
 							buttonRight.disable(true);
+							buttonRight.hide(true);
 						}
 						else if(hasFired(flagPaddlePositionUpdated))
 						{

@@ -113,16 +113,22 @@ namespace pong_cleangui_dg
 		// dezelfde afspraak, en die moet voor alle drie de pagina's gelden.
 		void showPage(PageRoot<20>& page)
 		{
-			page.setDrawable(true, true);
 			page.show(true);
+
+			// Dragend, geen dubbeling: show() maakt niet langer aanraakbaar.
+			// Weg is een startknop die netjes in beeld staat en nergens op reageert.
 			page.enable(true);
 		}
 
 		void hidePage(PageRoot<20>& page)
 		{
-			page.setDrawable(false, true);
-			page.hide(true);
+			// Dragend, geen dubbeling: onzichtbaar maken maakt niet doof. Een knop
+			// die uit beeld is meldt anders nog gewoon drukken, en disable() is de
+			// enige plek die de bPressed opruimt van de druk waarmee deze pagina
+			// zojuist is weggezet.
 			page.disable(true);
+
+			page.makeNonDrawable(true);		// met opzet geen hide(); zie regel 112.
 		}
 
 		/*override keyword not supported*/
