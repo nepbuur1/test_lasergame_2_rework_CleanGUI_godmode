@@ -1,5 +1,186 @@
 # Claude log
 
+## 2026-08-13 — show, enable en tekenen zijn drie assen geworden
+
+Task 2 uit `devdocs/Claude_instructions/` is uitgevoerd, alle tien de stappen,
+op de branch `show_drawable_enable_refactoring`. Eén commit per stap. De
+handmatige eindtest staat nog open; wat daar precies aan te kijken valt staat in
+`MIGRATION_STATUS.md` in de repo-root.
+
+### Wat er mis was
+
+`show(bIncludeChildren)` deed drie dingen tegelijk: een zichtbaarheidsvlag
+zetten, tekenen, en de hele subboom enablen. Daardoor was er geen manier om te
+hertekenen zonder je enable-toestand kwijt te raken. Het symptoom dat het aan
+het licht bracht: een knop die zijn eigen pagina wegzet bleef voorgoed verzonken
+staan, omdat `show()` → `enable(false)` de lopende druk wegpoetste waarna
+`touchReleased()` geen bericht meer stuurde.
+
+Drie apps werkten er met commentaar en al omheen.
+
+### Wat het geworden is
+
+| | was | is |
+|---|---|---|
+| tekenbaar | `setDrawable(bool, bIncludeChildren)` | `makeDrawable(b)` / `makeNonDrawable(b)` |
+| aanraakbaar | `enable`/`disable`, overschreven door elke `show` | `enable`/`disable`, ongemoeid |
+| tekenen | zat vast aan `show(true)` | `redraw(b)` — nieuw, raakt geen vlag |
+| `show`/`hide` | zetten `_bVisible` én enablen/disablen | `makeDrawable + redraw` en `makeNonDrawable + repaintRegion` |
+| `_bVisible` / `isShown()` | logboek van het laatste show/hide-commando | **weg** |
+
+`_bVisible` weghalen leverde code op in plaats van dat het er kostte. De guard
+in `redrawRegion` die erop leunde vuurde namelijk nooit: één `page.show(true)`
+zette de vlag op de hele boom, dus een uitgezette subboom werd alsnog knoop voor
+knoop afgelopen, waarbij elke knoop voor zichzelf concludeerde dat hij niets te
+tekenen had. Met `_bDrawable` wordt die subboom bij de wortel afgekapt.
+
+`hide()` gaat nu via `repaintRegion` in plaats van het eigen vlak met `colBg` te
+vullen. Dat laatste was een gok naar wat er hoort te staan, en die gok was fout
+zodra een ander daar iets had neergezet — bij het opstarten viel het wisvlak van
+de peddel (135,167)-(185,179) precies over de startknop. Een transparante `Text`
+kon zichzelf trouwens nooit wissen (hij weet niet welke kleur er achter hem zit)
+en verdween alleen doordat het paneel eronder overtekende; via `repaintRegion`
+geldt dat nu ook voor een `Text` zonder `Panel` eronder.
+
+### Autonoom testen: dit kán dus wel
+
+De hele refactoring is gebouwd, geflasht en gemeten zonder dat er iemand naar
+het scherm hoefde te kijken. Twee dingen maken dat mogelijk, en ze zijn het
+onthouden waard voor volgende keren.
+
+**Aanrakingen zijn na te maken.** `ITouchListener` is de complete grens tussen
+hardware en widgets, en `TouchscreenButton::touchPressed(pos)` is publiek. De
+touch-detector doet letterlijk niets anders dan die aanroep, dus testcode die
+hem zelf doet loopt exact hetzelfde pad — en de callback komt synchroon terug,
+in de aanroepende taak, dus een gewone teller volstaat.
+
+**Pixels zijn terug te lezen.** De PAL8-adapter tekent in een schermvullende
+8-bits sprite in DRAM waarin elke byte een palet-index is. Daar is
+`readPaletteIndexAt(x, y)` bij gekomen, plus `paletteIndexForColour()` zodat een
+test niet tegen een hardgecodeerd getal hoeft te vergelijken. Na
+`asyncDisplay.waitUntilDrawn()` staat er wat de widgets werkelijk hebben
+getekend.
+
+Samen betrapt dat precies de bug: *pixel is achtergrond* **én** *touch levert
+nul callbacks*.
+
+Het voorbeeld **`ShowEnableSemantics`** doet daarmee 37 controles. Het is met
+opzet zo geschreven dat het tegen zowel de oude als de nieuwe API compileert
+(`cgRedraw` en twee zusters, geschakeld op `CLEANGUI_HAS_DRAW_ENABLE_SPLIT`).
+Tegen de oude bibliotheek faalden er zeven — precies de zeven die vooraf waren
+aangewezen, geen achtste. Tegen de nieuwe slagen alle 37, zonder dat er iets aan
+het testbestand veranderde behalve het weghalen van hun *verwacht stuk*-vlag.
+
+Twee gereedschappen zijn ervoor bijgekomen en blijven nuttig:
+`tools/select_app.py` zet de actieve `#include` in `main/main.cpp` om (de run
+deed dat een stuk of vijftien keer), en `tools/serial_capture.py` leest de
+seriële uitvoer met een tijdslimiet en een `--until`-patroon, wat `idf.py
+monitor` niet kan omdat die een terminal wil en op een toetsaanslag stopt.
+
+### Wat de vorige poging deed stranden, en waarom het nu wel ging
+
+De nachtelijke poging van 11 augustus liep vast doordat elke app zijn eigen
+schermrotatie kiest en er maar één kalibratie in `/TouchCalData1` paste. Sinds
+12 augustus staan alle vier de rotaties naast elkaar in dat bestand. Het bord
+bleek voor alle vier gekalibreerd (`gekalibreerde rotaties: 0 1 2 3`), dus alle
+dertien doelen konden achter elkaar geflasht worden zonder ook maar één keer om
+hoeken te vragen. Dat was het verschil.
+
+### De valkuilen die de compiler niet aanwijst
+
+Het luide deel van de migratie was `setDrawable(bool, bool)` → twee losse
+werkwoorden: twee argumenten worden er één, dus elke call site breekt. Dat was
+met opzet zo gekozen, en het werkte — de compiler zette je met je neus op de
+regels ernaast, waar het stille deel zit.
+
+Het stille deel, in volgorde van hoe vaak het beet:
+
+1. **`show()` enablet niet meer, `hide()` disabelt niet meer.** Elke plek die
+   daarop leunde heeft nu een eigen `enable()`/`disable()`. De regels die er
+   vandaag "dubbelop" bij stonden zijn juist dragend geworden; wie ze voor
+   dubbeling aanziet en opruimt, krijgt een dode startknop of een onzichtbaar
+   vignet dat tikken opslokt. Dat staat er nu bij, mét wat er misgaat.
+2. **`show(true)` zet `_bDrawable` op de héle boom.** In `pong_cleangui_dg_adv`
+   staan vijftig balpanels, vijf crates, vijf vuurkorven en het GAME
+   OVER-vignet met opzet uit. Daar hoort `redraw(true)`. In MultiPanel,
+   ImageViewer en Inputfield precies zo. Maar in AsyncDisplay juist níet: die
+   lus verbergt zijn paneel elke omloop en `show(true)` is de enige plek die
+   het terugzet.
+3. **`hide()` tekent voortaan wél.** Drie apps zetten met opzet
+   `setDrawable(false, true)` vóór `hide(true)` zodat verbergen niets in de
+   gedeelde commandobuffer schuift — drie tekentaken delen die buffer, en welke
+   er als laatste uitkomt ligt niet vast. Daar is de vertaling
+   `makeNonDrawable(true) + disable(true)` en vervalt de `hide()`.
+4. **`disable()` hoort vóór `hide()`.** De oude `hide()` disabelde als eerste en
+   tekende daarna; de nieuwe tekent, en dat loopt via de commandobuffer. In dat
+   venster komt de touch-taak nog langs, en dan meldt een widget die al van het
+   scherm is nog een druk.
+
+### Drie dingen die geen migratie bleken
+
+`keukenweegschaal` en `apps/pong/pong` tellen samen zeven call sites op
+`.enable(` en `.disable(`, maar dat zijn een OLED-display en een eigen
+`ISceneDisplayControl` — geen CleanGUI-widgets. Een zoek-en-vervang was er dwars
+overheen gegaan. (`weegcontrol_obs.h` is bovendien nergens geïncludeerd en heeft
+een ontbrekende puntkomma die daarom nooit is opgevallen.)
+
+### Wat er onderweg is gerepareerd
+
+- **`pdga_GameDisplayControl::showPage`**: `initBallAndPaddlePosition()` stond
+  vóór `setDrawable(true, true)`. Die apply-functies zetten juist de slots uit
+  die niet in het spel zijn, waarna de `setDrawable` ze allemaal weer aanzette
+  en `show(true)` ze tekende — vijftig ballen op het veldmidden, alle crates in
+  de hoek. Volgorde omgedraaid.
+- **`pcg_DisplayControl`**, de tak die de peddel toont: die taak bedient drie
+  pagina's onder één root en heeft geen statemachine, dus liep die tak
+  ongeguard. Onder de oude API kon dat geen kwaad (`show()` zette een vlag en
+  het tekenen liep dood op `!isDrawable()`); onder de nieuwe zou een
+  achtergebleven peddelwens de peddel over de startpagina tekenen. Er staat nu
+  `if (gamePanel.isDrawable())` omheen.
+- **`crt_Widget::repaintRegion`** heeft een nullptr-test op het display
+  gekregen. Die was voorheen onbereikbaar; sinds `hide()` er langsgaat niet
+  meer, en een pagina die vóór het opbouwen wordt verborgen zou een nulpointer
+  volgen.
+
+### Stap 10: de game-over-pagina wacht per toestand
+
+Los van de rest, en het lastigst te verifiëren omdat het harnas het niet dekt.
+Er stond één `while(true)` met een `waitAny` op alle zes de waitables; nu zijn
+er drie toestanden — uit beeld, de lijst, het invoerveld — die elk alleen wachten
+op wat daar kan gebeuren.
+
+Het lastige daaraan is dat CleanRTOS-vlaggen **latchen**. Wie elke ronde op
+alles wacht, consumeert ook de vlaggen die hij negeert; wie per toestand een
+kleinere set neemt, laat ze staan tot een toestand die er wel op wacht. Per vlag
+is nagegaan wat dat doet. Het show/deshow-paar blijft daarom in élke wachtset
+staan, met lege takken waar het niet van toepassing is — precies zoals
+`GameDisplayControl` hetzelfde paar behandelt. De naamfase wist
+`flagShowNameInput` bij het verlaten: dat is het enige latchpad in dat bestand
+dat niet op een extra hertekening uitkomt maar op een hang, waarbij de lijst
+terugspringt naar het invoerveld en `MainControl` voorgoed op `flagStartPressed`
+blijft wachten.
+
+Eén gevolg is het opschrijven waard. De fakkelklok hoort nu bij de toestand in
+plaats van bij het tekenen van widgets, en liep voorheen vanaf het opstarten
+ononderbroken door — ook tijdens het hele spel, op een onzichtbare pagina. Die
+klok trok elke 45 tot 130 ms uit dezelfde `rand()`-reeks als `BallControl` en de
+crate-plaatsing. **Balbanen en `PONG_MEASURE`-metingen van vóór deze branch zijn
+dus niet meer te reproduceren.**
+
+### Hoe het gelopen is
+
+Tien stappen, tien commits, en een `MIGRATION_STATUS.md` in de repo-root als
+geheugen tussendoor. De migratie van de 20 app- en voorbeeldbestanden is per
+bestand gedaan met daarnaast een tegenspreker die expliciet fouten moest zoeken
+in plaats van te bevestigen. Dat verdiende zich terug: de tegensprekers vonden
+de `disable`-vóór-`hide`-volgorde, het ongeguarde peddelpad in `pcg`, het
+latchpad in stap 10 dat op een hang uitkomt, en een stuk of zes commentaren die
+iets beweerden dat niet klopt — waaronder de bewering dat
+`paddlePanel.enable(true)` dragend zou zijn, terwijl een `Panel` zijn
+`_bEnabled` nergens leest; alleen `TouchscreenButton` en
+`TouchscreenButtonGroup` doen dat. In een codebase waar commentaar uitlegt
+waarom iets zo staat, is een onjuiste uitleg erger dan geen.
+
 ## 2026-08-12 — Touchkalibratie per schermrotatie, en de nachtopdracht naar git
 
 Twee dingen, en het tweede is de reden voor het eerste.

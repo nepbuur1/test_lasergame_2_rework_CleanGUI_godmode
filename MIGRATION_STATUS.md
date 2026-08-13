@@ -16,12 +16,20 @@ dit bestand genoeg om verder te kunnen.
 | 2 | testharnas `ShowEnableSemantics` tegen de huidige API | **gedaan** | dit |
 | 3 | `Widget` + `IWidget`: de nieuwe API | **gedaan** | `06b3f9e` |
 | 4 | `Panel`, `Text`, `TouchscreenKeyboard` | **gedaan** | `32f94b8` |
-| 5 | `pong_cleangui_dg_adv` | bezig | |
-| 6 | de 8 examples | te doen | |
-| 7 | testharnas opnieuw — alles moet slagen | te doen | |
-| 8 | `pong_cleangui_dg`, `pong_cleangui_cg`, `keukenweegschaal` | te doen | |
-| 9 | `apps/pong/pong` | te doen | |
-| 10 | `GameOverDisplayControl` opsplitsen in states | te doen | |
+| 5 | `pong_cleangui_dg_adv` | **gedaan** | `6e5fa97` |
+| 6 | de 8 examples | **gedaan** | `74b30f2` |
+| 7 | testharnas opnieuw — alles moet slagen | **gedaan, GROEN** | `fc9fb78` |
+| 8 | `pong_cleangui_dg`, `pong_cleangui_cg`, `keukenweegschaal` | **gedaan** | `27a0e09` |
+| 9 | `apps/pong/pong` | **gedaan** (geen wijziging nodig) | `27a0e09` |
+| 10 | `GameOverDisplayControl` opsplitsen in states | **gedaan** | `ef7fb42` |
+
+**Alle stappen zijn af.** Alle dertien doelen zijn gebouwd, geflasht en
+opgestart zonder crash of watchdog: de acht examples, de drie pongvarianten met
+touchscreen, de console-pong, en het testharnas. Het harnas staat op 37 van de
+37.
+
+Wat er nog moet gebeuren: de handmatige eindtest (zie onderaan). Daarna kan
+deze branch naar `main`.
 
 ## Nulmeting (stap 0)
 
@@ -110,6 +118,14 @@ worden)*
   `makeDrawableIf`/`enableIf`.** Met de oude naam bleef `grep -rn setDrawable`
   dit bestand aanwijzen, en dat is uitgerekend het commando waarmee de
   voortgang van deze migratie wordt afgevinkt.
+- **`keukenweegschaal` en `apps/pong/pong` hoeven niets.** De inventarisatie
+  telde daar zeven call sites, maar dat zijn heel andere functies: in
+  `weegcontrol.h` is `display` een OLED met een eigen `enable()`/`disable()`
+  zonder argument, en in `apps/pong/pong/crt_GameControl.h` gaat het om
+  `ISceneDisplayControl`. Geen van beide is een CleanGUI-widget. Een
+  zoek-en-vervang op `.enable(` was hier overheen gewalst.
+  (`weegcontrol_obs.h` is bovendien dood: nergens geïncludeerd, en er staat een
+  ontbrekende puntkomma in die nooit is opgevallen. Met rust gelaten.)
 - **Eén bug is en passant gerepareerd** in `pdga_GameDisplayControl.h::showPage`.
   Daar stond `initBallAndPaddlePosition()` vóór `setDrawable(true, true)`, en
   die zette dus alle vijftig balslots, vijf crates en vijf vuurkorven weer aan
@@ -118,4 +134,37 @@ worden)*
 
 ## Wat de gebruiker nog handmatig moet doen
 
-- De eindtest op het bord. Pas daarna mag deze branch naar `main`.
+Alles wat een vinger op het scherm vraagt. Het harnas dekt de semantiek van
+`show`/`enable`/`redraw` en de pixels, maar niet of de apps prettig spelen.
+Op volgorde van hoe waarschijnlijk het is dat er iets is blijven liggen:
+
+1. **`pong_cleangui_dg_adv`, het eerste beeld van een nieuw spel.** Daar is een
+   volgordebug gerepareerd (zie BESLUIT hierboven): eerder werden alle vijftig
+   balslots en de crates weer aangezet en getekend. Kijk of het veldmidden en
+   de linkerbovenhoek schoon zijn bij het starten.
+2. **`pong_cleangui_dg_adv`, de game-over-pagina.** Stap 10 heeft die
+   herschreven van één wachtlus naar drie toestanden. Loop de hele route af:
+   spel afgelopen zonder highscore → lijst → PLAY AGAIN; en met highscore →
+   naam invoeren → toetsenbord omhoog → tikken → ENTER → lijst → PLAY AGAIN.
+   Let op de fakkels: die horen in de lijstfase te branden en in de naamfase
+   stil te staan.
+3. **`pong_cleangui_cg`, de peddel.** De tak die de peddel toont heeft een
+   nieuwe test gekregen (`gamePanel.isDrawable()`). Controleer dat de peddel
+   verschijnt bij het starten en niet blijft staan of over de startpagina komt.
+4. **De drie pongvarianten, de peddelknoppen.** Elke `enable()` die vroeger
+   overbodig was is nu dragend. Een knop die niet reageert of ingedrukt blijft
+   staan wijst op een gemiste `enable()`/`disable()`.
+5. **`TouchscreenKeyboard` en `Inputfield`.** Toetsenbord verbergen door
+   ernaast te tikken, en weer terug.
+
+Daarna kan deze branch naar `main`.
+
+## Het testharnas opnieuw draaien
+
+```
+python3 tools/select_app.py ShowEnableSemantics
+idf.py build && idf.py -p /dev/ttyUSB0 flash
+python3 tools/serial_capture.py --seconds 60 --until "EINDE TEST"
+```
+
+De laatste regel is het oordeel. `GROEN` betekent: geen enkele verrassing.

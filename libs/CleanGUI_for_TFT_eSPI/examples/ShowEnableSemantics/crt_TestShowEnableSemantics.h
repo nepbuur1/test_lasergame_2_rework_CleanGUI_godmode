@@ -366,9 +366,10 @@ namespace crt
 		}
 
 		// Een ouder die zelf niet tekenbaar is, hoort de hele subboom af te
-		// kappen. Vandaag niet: redrawRegion() kijkt naar _bVisible, en dat
-		// staat na een page.show(true) overal op true - dus het kind tekent
-		// vrolijk door onder een ouder die er niet meer hoort te zijn.
+		// kappen. Tegen de oude bibliotheek lukte dat niet: redrawRegion()
+		// keek naar _bVisible, en dat stond na een page.show(true) overal op
+		// true - dus tekende het kind vrolijk door onder een ouder die er niet
+		// meer hoorde te zijn.
 		template <typename PAGE> void testNonDrawableParentCutsSubtree(PAGE& page)
 		{
 			resetScene(page);

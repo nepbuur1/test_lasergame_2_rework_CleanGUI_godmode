@@ -52,6 +52,13 @@ DE VIER VERTAALPATRONEN — dit is waar het misgaat als je niet oplet:
 4. Een gewone hide() die WEL moet wissen blijft gewoon hide().
    Dat is nu zelfs beter: er komt terug wat eronder zat in plaats van een
    vulling met de eigen colBg.
+
+5. disable() hoort VOOR hide(), niet erna.
+   De oude hide() disabelde als eerste en tekende daarna pas. De nieuwe tekent,
+   en dat gaat via de commandobuffer van AsyncDisplay - dus er zit een venster
+   tussen waarin de touch-taak langskomt. Staat de disable erna, dan kan een
+   widget die al van het scherm is in dat venster nog een druk melden. Zet hem
+   ervoor; dat kost niets.
 `
 
 const files = args

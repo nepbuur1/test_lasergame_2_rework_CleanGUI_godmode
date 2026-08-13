@@ -6,7 +6,13 @@ This file contains tasks for Claude. Claude should only perform such a task afte
 | # | taak | status | beschrijving |
 |---|---|---|---|
 | 1 | Image-assets in flash zonder CMakeLists-wijzigingen | gedaan | hieronder |
-| 2 | CleanGUI: drie orthogonale assen (show / enable / draw) | te doen | [CleanGUI_show_enable_refactor.md](CleanGUI_show_enable_refactor.md) |
+| 2 | CleanGUI: drie orthogonale assen (show / enable / draw) | uitgevoerd, wacht op handtest | [CleanGUI_show_enable_refactor.md](CleanGUI_show_enable_refactor.md) |
+
+Task 2 is uitgevoerd op de branch `show_drawable_enable_refactoring`, alle tien
+de stappen, één commit per stap. Wat er nog met een vinger op het scherm
+gecontroleerd moet worden staat in `MIGRATION_STATUS.md` in de repo-root; het
+verslag staat in het logboek onder 2026-08-13. Na die handtest kan de branch
+naar `main`.
 
 ## Task 1
 Eerder had je een mooi plan gemaakt:
