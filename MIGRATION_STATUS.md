@@ -132,6 +132,44 @@ worden)*
   die de `apply*States` net hadden uitgezet — waarna `show(true)` ze ook tekende.
   De volgorde is omgedraaid. Dit is een gedragswijziging, geen vertaling.
 
+## Wat er wel en niet is aangeraakt, en waarom
+
+**Aangepast — 9 doelen, 13 bestanden.**
+
+| doel | bestanden |
+|---|---|
+| `pong_cleangui_dg_adv` | `pdga_GameDisplayControl.h`, `pdga_GameOverDisplayControl.h`, `pdga_StartPageDisplayControl.h` |
+| `pong_cleangui_dg` | `pdg_GameDisplayControl.h`, `pdg_GameOverDisplayControl.h`, `pdg_StartPageDisplayControl.h` |
+| `pong_cleangui_cg` | `pcg_DisplayControl.h` |
+| examples | `AsyncDisplay`, `ImageViewer`, `Inputfield`, `MultiPanel`, `Panel`, `TouchscreenKeyboard` |
+
+Plus het nieuwe example `ShowEnableSemantics`.
+
+**Gebruiken de aangepaste functies wél, maar hoefden niet mee** — twee examples,
+elk met één `page1.show(true)` aan het eind van de boomopbouw:
+`TouchscreenButton` (r.154) en `TouchscreenButtonGroup` (r.222). Die aanroep
+betekent nu `makeDrawable(true) + redraw(true)`; in die twee bomen staat niets
+op niet-tekenbaar, dus de `makeDrawable` verandert niets, en het verdwenen
+enable-neveneffect werd er nooit gebruikt — er wordt nergens iets uitgeschakeld
+en `_bEnabled` staat vanaf de constructor op `true`. Beide gebouwd en geflasht
+ter bevestiging.
+
+**Lijken mee te moeten, maar zijn geen CleanGUI-widgets.** Een grep op
+`.enable(` / `.disable(` raakt nog zes bestanden. Ze landen geen van alle op een
+widget, en dat is aan de aanroep zelf te zien: `IWidget::enable` neemt altijd een
+`bIncludeChildren`, en deze zijn argumentloos.
+
+| bestand | waar het op landt |
+|---|---|
+| `pdga_GameControl.h`, `pdg_GameControl.h`, `pcg_GameControl.h` | `PaddleControl` — een `Task` met `IButtonListener` |
+| `apps/pong/pong/crt_GameControl.h` | `ISceneDisplayControl` |
+| `apps/keukenweegschaal/weegcontrol.h` en `weegcontrol_obs.h` | een OLED-display (`showString`) |
+
+`TouchCalibrateAll` raakt de widgetboom helemaal niet aan — geen `PageRoot`,
+geen `Panel` — en valt dus buiten al deze lijsten. Wel gebouwd (groen); niet
+geflasht, want dat voorbeeld hérkalibreert alle vier de rotaties en vraagt om
+zestien hoektikken.
+
 ## Wat de gebruiker nog handmatig moet doen
 
 Alles wat een vinger op het scherm vraagt. Het harnas dekt de semantiek van
