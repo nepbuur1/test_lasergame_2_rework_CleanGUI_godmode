@@ -220,6 +220,66 @@ namespace crt
             return _bBackBufferAllocated;
         }
 
+        // De palet-index van een pixel in de backbuffer, of -1 als er geen
+        // backbuffer is of de coordinaat er buiten valt. Dat onderscheid is er
+        // met opzet: een test die -1 terugkrijgt weet dat hij niets heeft
+        // gemeten, in plaats van een geldige index te vergelijken die nergens
+        // vandaan komt.
+        //
+        // Hiermee is te controleren of een widget wel of niet getekend is
+        // zonder dat er iemand naar het scherm hoeft te kijken. Dat maakt de
+        // helft van deze codebase automatisch testbaar - de andere helft zijn
+        // de aanrakingen, en die zijn na te maken via ITouchListener.
+        //
+        // Roep het aan nadat het tekenwerk werkelijk is uitgevoerd. Loopt het
+        // via AsyncDisplay, dan is dat na waitUntilDrawn(): tot dan staan de
+        // commando's nog in de queue en meet je de vorige stand.
+        //
+        // Rechtstreeks uit de buffer, net als de blit hierboven, en niet via
+        // TFT_eSprite::readPixelValue: die rekent met dezelfde stride maar gaat
+        // door de rotatie-afhandeling heen, en allocateBackBufferIfNeeded()
+        // heeft al vastgesteld dat de sprite niet gedraaid is.
+        int32_t readPaletteIndexAt(int32_t xPix, int32_t yPix)
+        {
+            if (!_bBackBufferAllocated)
+            {
+                return -1;
+            }
+
+            if ((xPix < 0) || (yPix < 0) || (xPix >= _widthPix) || (yPix >= _heightPix))
+            {
+                return -1;
+            }
+
+            const uint8_t* pBuffer = (const uint8_t*)_backBuffer.getPointer();
+            if (pBuffer == nullptr)
+            {
+                return -1;
+            }
+
+            return (int32_t)pBuffer[yPix * _widthPix + xPix];
+        }
+
+        // Welke palet-index deze adapter voor een kleur zou kiezen. Zonder dit
+        // zou een test de uitkomst van readPaletteIndexAt() alleen met een
+        // hardgecodeerd getal kunnen vergelijken, en dan test hij het palet mee
+        // in plaats van wie er getekend heeft.
+        int32_t paletteIndexForColour(uint32_t colour)
+        {
+            if (!_bBackBufferAllocated)
+            {
+                return -1;
+            }
+            return (int32_t)indexForColour(colour);
+        }
+
+        // De index die "hier heeft niemand getekend" betekent: waarmee de
+        // backbuffer wordt gevuld voordat er een beeld in staat.
+        static int32_t getIndexTransparent()
+        {
+            return (int32_t)IndexTransparent;
+        }
+
         // Een PAL8-plaatje in een PAL8-buffer: de bytes zijn al schermindices, dus
         // dit is kopieren. Precies waar de hele paletted opzet het om te doen was.
         /*override*/ void drawImage(const Vec2& topLeftPix, const Vec2& sizePix, const Image& image, Alignment alignment,
