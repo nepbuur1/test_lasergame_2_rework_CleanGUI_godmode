@@ -94,14 +94,6 @@ namespace crt
 			return _bOpaque;
 		}
 
-		// Redraws just this text, without touching whatever is behind it.
-		// Only flicker-free if this Text is opaque - otherwise the previous text
-		// is still there and the two will overlap.
-		void redraw()
-		{
-			showText();
-		}
-
 		uint8_t getFontScale()
 		{
 			return _fontScale;
@@ -171,33 +163,44 @@ namespace crt
 			updateSize();
 		}
 
-		// show immediately draws it. hide immediately undraws it.
-		// note: _widgetProps only serves as a node in the display-tree.
-		//       It conains the props and links to children.
-		//       The actual (un-)display functionality is to be implemented
-		//       by the specific widget class (like TouchScreenButton),
-		//       which is derived from IWidget as well.
+		// Tekent de tekst op zijn eigen plek.
+		//
+		// Wissen kan een Text niet, en dat hoeft ook niet meer. Een transparante
+		// Text wist zichzelf sowieso niet - hij weet niet welke kleur er achter
+		// hem zit - en verdween alleen doordat het paneel eronder overtekende.
+		// Widget::hide() doet nu precies dat, vanaf de wortel, dus het geldt
+		// voortaan ook voor een Text zonder Panel eronder.
+		//
+		// Alleen flikkervrij te vervangen als deze Text opaak is (setOpaque);
+		// anders staat de vorige tekst er nog en lopen de twee door elkaar. Zie
+		// TouchscreenButton::updateText().
 		/*override*/ void paint()
 		{
-			showText();
-		}
-
-		/*override*/ void show(bool bIncludeChildren)
-		{
-			showText();
-			WBase::show(bIncludeChildren); // set the boolean bVisible to remember.
-		}
-
-		// show immediately draws it. hide immediately undraws it.
-		// Wissen alleen als er ook echt iets stond - zie de uitleg bij
-		// Panel::hide().
-		/*override*/ void hide(bool bIncludeChildren)
-		{
-			if (WBase::isShown())
+			if (!WBase::isDrawable())
 			{
-				hideText();
+				return;
 			}
-			WBase::hide(bIncludeChildren); // sets the boolean bVisible to false to remember.
+
+			Vec2 pos = calcOriginPix() + WBase::getLocPosPix();
+
+			if (_bOpaque)
+			{
+				// Het datum een marge naar binnen. De adapter leidt de
+				// gereserveerde box uit dit punt af, dus zonder deze verschuiving
+				// begint die box op de rand van de ouder - en dan veegt de
+				// glyphcel precies de bevel weg die de marge moest beschermen.
+				// Verticaal ging dat al goed: calcPaddingSizePix() kort de hoogte
+				// aan twee kanten in en de box ligt om het datum gecentreerd, dus
+				// daar ontstaat de inspringing vanzelf.
+				pos += Vec2(calcOpaqueOffsetXPix(), 0);
+
+				WBase::getDisplay()->drawStringOpaque(WBase::getName(), pos, WBase::getAlignment(),
+					_font, _fontScale, _color, _colBg, calcPaddingSizePix());
+			}
+			else
+			{
+				WBase::getDisplay()->drawString(WBase::getName(), pos, WBase::getAlignment(), _font, _fontScale, _color);
+			}
 		}
 
 		// CoordType can be Pixels or Promillage
@@ -232,43 +235,6 @@ namespace crt
 
 			Vec2 size(display->getTextWidth(WBase::getName(), _font) * _fontScale, display->getFontHeight(_font) * _fontScale);
 			WBase::setSize(size, CoordType::Pixels);
-		}
-
-		void showText()
-		{
-			if (!WBase::isDrawable())
-			{
-				return;
-			}
-
-			drawTextOrPadding(WBase::getName());
-		}
-
-		// Issues the actual draw call for str, at this Text's own position.
-		// Split off from showText so that hideText can reuse the very same
-		// geometry by passing an empty string.
-		void drawTextOrPadding(const char* str)
-		{
-			Vec2 pos = calcOriginPix() + WBase::getLocPosPix();
-
-			if (_bOpaque)
-			{
-				// Het datum een marge naar binnen. De adapter leidt de
-				// gereserveerde box uit dit punt af, dus zonder deze verschuiving
-				// begint die box op de rand van de ouder - en dan veegt de
-				// glyphcel precies de bevel weg die de marge moest beschermen.
-				// Verticaal ging dat al goed: calcPaddingSizePix() kort de hoogte
-				// aan twee kanten in en de box ligt om het datum gecentreerd, dus
-				// daar ontstaat de inspringing vanzelf.
-				pos += Vec2(calcOpaqueOffsetXPix(), 0);
-
-				WBase::getDisplay()->drawStringOpaque(str, pos, WBase::getAlignment(),
-					_font, _fontScale, _color, _colBg, calcPaddingSizePix());
-			}
-			else
-			{
-				WBase::getDisplay()->drawString(str, pos, WBase::getAlignment(), _font, _fontScale, _color);
-			}
 		}
 
 		// The area this Text may paint in: from its own origin to the edge of its
@@ -389,27 +355,6 @@ namespace crt
 			}
 
 			return origin;
-		}
-
-		void hideText()
-		{
-			if (!WBase::isDrawable())
-			{
-				return;
-			}
-
-			if (!_bOpaque)
-			{
-				// A transparent Text has no idea what colour is behind it, so it
-				// cannot paint itself away. It disappears only because the panel
-				// it sits on repaints over it - which is why a Text without a
-				// Panel underneath cannot be hidden at all.
-				return;
-			}
-
-			// Draw an empty string over the reserved width: nothing is written,
-			// and the whole padded area is blanked with _colBg.
-			drawTextOrPadding("");
 		}
 	};
 };

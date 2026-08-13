@@ -97,14 +97,14 @@ namespace crt
 		}
 
 		// Replaces the label WITHOUT repainting the panel underneath.
-		// That is the whole point: a normal show(true) first fills the panel -
+		// That is the whole point: redrawing the button first fills the panel -
 		// wiping the old text - and only then draws the new one, which is exactly
 		// the gap you see as flicker. Requires setOpaqueText(true), otherwise the
 		// previous label is still on screen and the two overlap.
 		void updateText(const char* str)
 		{
 			setText(str);
-			text.redraw();
+			text.redraw(false);		// alleen het label, niet de knop eronder
 		}
 
 		/* override */ WidgetType getWidgetType()
@@ -275,7 +275,9 @@ namespace crt
 		//
 		// Dat is precies wat er gebeurt bij een knop die zijn eigen pagina wegzet:
 		// druk -> listener verbergt en disabelt de pagina -> de vinger gaat los in
-		// het niets. Widget::hide() disabelt ook, dus dit dekt hide() mee.
+		// het niets. Widget::hide() disabelt sinds de splitsing van de assen niet
+		// meer mee, dus wie een pagina verbergt moet er zelf een disable() bij
+		// zetten - en dan komt hij hier langs.
 		/*override*/ void disable(bool bIncludeChildren)
 		{
 			bPressed = false;
@@ -298,10 +300,13 @@ namespace crt
 			// verouderde druk weggooien van een knop die ondertussen uit stond -
 			// niet een druk wissen die op dit moment loopt.
 			//
-			// Dat laatste gebeurde wel, want Widget::show() roept enable(false)
-			// aan. Wie de knop ingedrukt tekent, deed dus tegelijk alsof hij nooit
-			// was ingedrukt: touchReleased() ziet bPressed == false en stuurt geen
-			// bericht meer, waarna de knop voorgoed verzonken bleef staan.
+			// Dat laatste gebeurde wel, want Widget::show() riep enable(false)
+			// aan. Wie de knop ingedrukt tekende, deed dus tegelijk alsof hij
+			// nooit was ingedrukt: touchReleased() zag bPressed == false en
+			// stuurde geen bericht meer, waarna de knop voorgoed verzonken bleef
+			// staan. Sinds show() en enable() losse assen zijn kan tekenen dit
+			// niet meer veroorzaken; de test hieronder blijft staan voor het
+			// geval iemand wél expliciet enablet terwijl er een vinger op ligt.
 			if (!PBase::isEnabled())
 			{
 				bPressed = false;

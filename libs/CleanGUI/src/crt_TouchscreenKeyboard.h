@@ -260,7 +260,7 @@ namespace crt
 			updateButtonLabel(tsButtonN, "n");
 			updateButtonLabel(tsButtonM, "m");
 			updateButtonLabel(tsButtonToggleNumeric, "123");
-			Base::show(true); // redraw this keyboard.
+			Base::redraw(true); // teken dit toetsenbord opnieuw met de nieuwe labels.
 		}
 
 		void switchToUpperCaseAlphabet()
@@ -292,7 +292,7 @@ namespace crt
 			updateButtonLabel(tsButtonN, "N");
 			updateButtonLabel(tsButtonM, "M");
 			updateButtonLabel(tsButtonToggleNumeric, "123");
-			Base::show(true); // redraw this keyboard.
+			Base::redraw(true); // teken dit toetsenbord opnieuw met de nieuwe labels.
 		}
 
 		void switchToNumerical()
@@ -324,7 +324,7 @@ namespace crt
 			updateButtonLabel(tsButtonN, ".");
 			updateButtonLabel(tsButtonM, "?");
 			updateButtonLabel(tsButtonToggleNumeric, "abc");
-			Base::show(true); // redraw this keyboard.
+			Base::redraw(true); // teken dit toetsenbord opnieuw met de nieuwe labels.
 		}
 
 	public:

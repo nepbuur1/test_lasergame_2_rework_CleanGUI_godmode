@@ -178,7 +178,7 @@ namespace crt
 		{
 			// _cornerRadius rather than _cornerRadiusPix: that one is only
 			// computed at draw time and is -1 until then. A bevel overrules the
-			// radius - see showPanel - and does fill everything.
+			// radius - see paint() - and does fill everything.
 			if ((_cornerRadius > 0) && !_bBeveled)
 			{
 				return false;
@@ -195,39 +195,47 @@ namespace crt
 			return (_pImage != nullptr) && !_pImage->bHasTransparency;
 		}
 
-		// show immediately draws it. hide immediately undraws it.
-		// note: _widgetProps only serves as a node in the display-tree.
-		//       It conains the props and links to children.
-		//       The actual (un-)display functionality is to be implemented
-		//       by the specific widget class (like TouchScreenButton),
-		//       which is derived from IWidget as well.
+		// Tekent het paneel: het vlak, en daarop het plaatje als er een is.
+		//
+		// Dit is het enige dat een Panel zelf tekent. Wissen kan hij niet meer -
+		// dat deed hij door zijn eigen vlak met colBg te vullen, en dat is een
+		// gok naar wat er hoort te staan. Zodra een andere taak daar ondertussen
+		// iets had neergezet was die gok fout: bij het opstarten viel het
+		// wisvlak van de peddel (135,167)-(185,179) precies over de startknop.
+		// Widget::hide() laat de boom vanaf de wortel over dat vlak tekenen, en
+		// dan komt terug wat er werkelijk hoort.
 		/*override*/ void paint()
 		{
-			showPanel();
-		}
-
-		/*override*/ void show(bool bIncludeChildren)
-		{
-			showPanel();
-			Widget<MaxNofChildren>::show(bIncludeChildren); // set the boolean bVisible to remember.
-		}
-
-		// show immediately draws it. hide immediately undraws it.
-		//
-		// Wissen doet hij alleen als er ook echt iets van hem stond. Een pagina
-		// die na het opbouwen meteen verborgen wordt - wat hier elk van de drie
-		// pagina's doet - heeft nog nooit een pixel gezet, en vulde anders bij
-		// dat verbergen alsnog zijn eigen vlak met colBg. Dat hoeft niet alleen
-		// niet, het is ook fout zodra een andere taak daar ondertussen wel iets
-		// heeft neergezet: bij het opstarten viel op die manier het wisvlak van
-		// de peddel (135,167)-(185,179) precies over de startknop.
-		/*override*/ void hide(bool bIncludeChildren)
-		{
-			if (WBase::isShown())
+			if (!WBase::isDrawable())
 			{
-				hidePanel();
+				return;
 			}
-			WBase::hide(bIncludeChildren); // sets the boolean bVisible to false to remember.
+
+			updateCornerRadiusPixIfNeeded();
+
+			Vec2 pos = WBase::getGlobPosOfParent() + WBase::getLocPosPix();
+			Vec2 size = WBase::getSizePix();
+
+			if (needsBackground(size))
+			{
+				if (_bBeveled)
+				{
+					WBase::getDisplay()->fillBeveledRect(pos, size, _colFg, _colHighlight, _colShadow, _bevelStyle);
+				}
+				else if (_cornerRadiusPix > 0)
+				{
+					WBase::getDisplay()->fillSmoothRoundRect(pos, size, _cornerRadiusPix, _colFg, _colBg);
+				}
+				else
+				{
+					WBase::getDisplay()->fillRect(pos, size, _colFg);
+				}
+			}
+
+			if (_pImage != nullptr)
+			{
+				WBase::getDisplay()->drawImage(pos, size, *_pImage, WBase::getAlignment(), _frameRow, _frameCol);
+			}
 		}
 
 	private:
@@ -280,53 +288,5 @@ namespace crt
 			return (widthPix < sizePix.x) || (heightPix < sizePix.y);
 		}
 
-		void showPanel()
-		{
-			if (!WBase::isDrawable())
-			{
-				return;
-			}
-
-			updateCornerRadiusPixIfNeeded();
-
-			Vec2 pos = WBase::getGlobPosOfParent() + WBase::getLocPosPix();
-			Vec2 size = WBase::getSizePix();
-			//ESP_LOGI("Panel", "showPanel called: pos(%ld,%ld) size(%ld,%ld) colFg=0x%08lX cornerRadius=%ld",
-			//	(long)pos.x, (long)pos.y, (long)size.x, (long)size.y, (unsigned long)_colFg, (long)_cornerRadiusPix);
-
-			if (needsBackground(size))
-			{
-				if (_bBeveled)
-				{
-					WBase::getDisplay()->fillBeveledRect(pos, size, _colFg, _colHighlight, _colShadow, _bevelStyle);
-				}
-				else if (_cornerRadiusPix > 0)
-				{
-					WBase::getDisplay()->fillSmoothRoundRect(pos, size, _cornerRadiusPix, _colFg, _colBg);
-				}
-				else
-				{
-					WBase::getDisplay()->fillRect(pos, size, _colFg);
-				}
-			}
-
-			if (_pImage != nullptr)
-			{
-				WBase::getDisplay()->drawImage(pos, size, *_pImage, WBase::getAlignment(), _frameRow, _frameCol);
-			}
-			//ESP_LOGI("Panel shown", "globparent Y = %d", _widgetProps.getGlobPosOfParent().y);
-			//ESP_LOGI("Panel shown", "locpospix Y = %d", _widgetProps.getLocPosPix().y);
-			//ESP_LOGI("Panel shown", "locpos Y = %d", _widgetProps.getLocPos().y);
-		}
-
-		void hidePanel()
-		{
-			if (!WBase::isDrawable())
-			{
-				return;
-			}
-
-			WBase::getDisplay()->fillRect(WBase::getGlobPosOfParent() + WBase::getLocPosPix(), WBase::getSizePix(), _colBg);
-		}
 	};
 };
