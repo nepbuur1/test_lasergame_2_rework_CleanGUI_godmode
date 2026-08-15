@@ -219,7 +219,7 @@ namespace pong_cleangui_dg_adv
 			// UC04, uitzondering: "Game Over" over het spelscherm heen, en weg na
 			// een tik of drie seconden - wat het eerst komt. Het spelbord blijft
 			// eronder staan; pas daarna gaat de pagina uit.
-			showGameOverLabel();
+			doShowGameOverLabel();
 
 			gameDisplayControl.hideGamePage();
 		}
@@ -292,7 +292,7 @@ namespace pong_cleangui_dg_adv
 			return (spawnables.getNofBallsInUse() == 0);
 		}
 
-		void showGameOverLabel()
+		void doShowGameOverLabel()
 		{
 			logger.logText("STATE_SHOW_GAME_OVER_LABEL");
 

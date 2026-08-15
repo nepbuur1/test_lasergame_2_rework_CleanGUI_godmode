@@ -73,6 +73,7 @@ namespace pong_cleangui_dg_adv
 			if (hallOfFame.isQualifyingScore(score))
 			{
 				char strName[MaxNofNameChars + 1];
+				// STATE_WAITING_FOR_USER_NAME
 				nameInputControl.doQueryName(strName, sizeof(strName));
 
 				hallOfFame.insert(strName, score);
@@ -84,7 +85,7 @@ namespace pong_cleangui_dg_adv
 			gameOverDisplayControl.showHallOfFame(hallOfFame.getHallOfFameData());
 			flagStartPressed.clear();
 
-			// One and only state: STATE_WAITING_FOR_START
+			// STATE_WAITING_FOR_START
 			pTask->wait(flagStartPressed);
 
 			gameOverDisplayControl.hideGameOverPage();
