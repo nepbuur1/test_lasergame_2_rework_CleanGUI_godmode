@@ -213,6 +213,34 @@ namespace crt
 			}
 		}
 
+		// Het veld leegmaken zonder de weg van een toetsaanslag te nemen.
+		//
+		// Hier stond bij de aanroeper een lus die MaxTextSize keer "DEL" naar
+		// keyPressed stuurde. Dat werkte, maar het was ook MaxTextSize keer een
+		// hertekening van het label en MaxTextSize keer een inputNewKey naar elke
+		// luisteraar - voor toetsen die niemand heeft ingedrukt. Dat laatste is
+		// het echte bezwaar: een luisteraar die aanslagen telt of op een bepaalde
+		// toets wacht, krijgt zo een reeks te verwerken die niet bestaan heeft.
+		// Vandaar dat deze functie niets doorgeeft.
+		//
+		// Een enkele updateButtonLabel is genoeg om het beeld bij te werken: het
+		// label is opaak en reserveert de hele knopbreedte (zie
+		// TouchscreenButton::setOpaqueText), dus een langere vorige tekst wordt in
+		// diezelfde pass gewist. De DEL-lus deed het letter voor letter, maar
+		// eindigde op precies deze ene aanroep.
+		/* override */ void clearInput()
+		{
+			// crt::string houdt zelf geen afsluitende nul bij - clear() zet alleen
+			// current_length op 0 (zie crt_string.h) - en begin() gaat hieronder
+			// als C-string mee. Die nul dus zelf zetten, net als de DEL-tak
+			// hierboven doet. Via begin() en niet via operator[]: die geeft na
+			// clear() een dummy terug, want de index ligt dan buiten de lengte.
+			_strFieldContent.clear();
+			*_strFieldContent.begin() = '\0';
+
+			updateButtonLabel(tsInputfieldButton, _strFieldContent.begin());
+		}
+
 		// /* override */ void getTextValue(std::string_base& strFieldContent)
 		// {
 		// 	poolFieldContent.write(_strFieldContent); // transfer the content via the pool.

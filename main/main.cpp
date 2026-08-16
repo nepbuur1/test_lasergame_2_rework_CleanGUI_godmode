@@ -71,6 +71,10 @@ namespace crt
 //#include <Pong_CleanGUI_dg.ino>			// touchscreen-versie, apps/pong_cleangui_dg
 #include <Pong_CleanGUI_dg_adv.ino>			// touchscreen-versie, apps/pong_cleangui_dg_adv
 
+// **** Gereedschap, apps/pong_cleangui_dg_adv/tools ****
+//#include <ClearHallOfFame.ino>				// wist de top-5 in /hallOfFame
+//#include <ClearCalibrations.ino>			// wist de touchkalibratie in /TouchCalData1 - kost een vinger om terug te krijgen
+
 // **** TFT_eSPI DMA examples ****
 // Let op: de map heet "DMA test" mét spatie. Die kan niet in
 // COMPONENT_ADD_INCLUDEDIRS (de legacy register_component() splitst de lijst

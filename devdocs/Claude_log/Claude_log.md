@@ -1,5 +1,203 @@
 # Claude log
 
+## 2026-08-15 — de game-over-fasen sommen zelf op wat erbij hoort
+
+Vervolg op stap 10 van 13 augustus, in
+`apps/pong_cleangui_dg_adv/pdga_GameOverDisplayControl.h`. Daar bepaalde één
+functie met een `Phase`-parameter wat er per fase te zien en aan te raken was, en
+die stuurde elke widget een bool door: `makeDrawableIf(hallOfFameTitlePanel,
+!bName)`. Wie één zo'n regel las moest twee fasen tegelijk in zijn hoofd houden,
+en de helft van de regels stond er alleen om iets *uit* te zetten.
+
+Nu zijn er twee functies, `showHallOfFamePhase` en `showNameInputPhase`. Elke
+begint met `makeAllNonDrawableAndDisabled(page)` — de hele boom niet-tekenbaar en
+doof — en somt daarna alleen op wat er wél bij die fase hoort. Geen negaties
+meer, en niets dat impliciet uit een vorige fase blijft staan. `enum Phase`,
+`makeDrawableIf` en `enableIf` zijn daarmee verdwenen.
+
+### Waarom de wortel er meteen weer bij moet
+
+De twee regels die er raar uitzien:
+
+```cpp
+makeAllNonDrawableAndDisabled(page);
+page.makeDrawable(false);		// alleen de wortel, zonder kinderen
+page.enable(false);
+```
+
+`Widget::redraw()` begint met `if (!_bDrawable) return;` en pas *daarna* volgt de
+recursie naar de kinderen (`crt_Widget.h:317-333`). Een niet-tekenbare wortel
+kapt dus de hele boom af: een kind aanzetten daaronder levert geen enkele pixel
+op. Hetzelfde geldt voor `repaintRegion()`, dat altijd via `getRoot()` gaat
+(`:496-517`) — zolang de wortel uit staat doen `hide()` en `moveTo()` voor
+niemand meer iets.
+
+Dat is precies waarom de oude `showPage()` de volgorde andersom had ("eerst de
+hele pagina aan, dan uit wat niet bij deze fase hoort - die volgorde is
+dragend"). Het patroon dat het nu geworden is — alles uit, dan de wortel terug,
+dan aanzetten wat erbij hoort — komt op hetzelfde neer, maar met de opsomming aan
+de goede kant.
+
+De enable-as heeft dat probleem niet: de touchdispatch is een platte lus over wat
+er bij `display.addTouchListener()` is aangemeld
+(`crt_TFT_eSPI_TouchDetector.h:190-200`), dus daar telt alleen de eindstand per
+widget. In dit bestand zijn dat er drie: `buttonStart`, `inputfield` en
+`touchscreenKeyboard`. Panels en Texts hebben geen listener, dus dat die nu
+disabled eindigen in plaats van enabled verandert niets.
+
+### Twee dingen die onderweg opvielen
+
+`backgroundPanel` stond in geen van de fasen genoemd. Hij was tekenbaar via
+`page.makeDrawable(true)` in `showPage`, en dat viel niet op zolang niemand hem
+hoefde te noemen. Nu staat hij in beide fasen expliciet.
+
+En de regel `drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME)` vlak voor de
+`hidePage()` bij het opstarten was al dood: `hidePage` zet de hele boom recursief
+uit en overschreef dus meteen alles wat die regel had gezet. Weg.
+
+### Gedragsverschil om te weten
+
+`buttonStart` krijgt nu een `disable()` gevolgd door een `enable()` waar hij
+eerder alleen een `enable()` kreeg terwijl hij al aanstond.
+`TouchscreenButton::disable()` zet `bPressed = false`
+(`crt_TouchscreenButton.h:281-285`). Een druk die op "Play Again" bezig is wordt
+dus afgebroken als er ondertussen een nieuwe lijst binnenkomt. Dat is de nettere
+uitkomst — een verse fase hoort geen halve druk te erven — maar het is een
+verschil.
+
+Aan de wachtsets, de vlaggen en de latchanalyse van stap 10 is niets veranderd;
+dit raakt alleen de draw/enable-as.
+
+### Nog een opruimpje
+
+De pagina werd rondgegeven als `PageRoot<22 + 2*NofHallOfFameEntries>&`, in vier
+signaturen. Alles wat die functies ervan gebruiken staat op `IWidget`
+(`crt_IWidget.h:63,82-94`), zoals `defineDisplayHierarchy` in hetzelfde bestand al
+deed. `slideKeyboard`, `showPage`, `hidePage` en `enterHidden` nemen nu `IWidget&`,
+en dat magische getal staat nog op één plek: waar de `PageRoot` wordt aangemaakt.
+
+### Stand
+
+Bouwt schoon, geen nieuwe waarschuwingen. Geflasht en schoon opgestart. De
+handtest van de game-over-pagina uit `MIGRATION_STATUS.md` staat nog open — die
+vraagt een vinger op het scherm en dekt precies wat hier veranderd is.
+
+### En daarna de toestandsmachine er helemaal uit
+
+Stap 10 maakte er op 13 augustus drie: uit beeld, de lijst, het invoerveld.
+Vandaag eerst naar twee (zoals `StartPageDisplayControl`), en toen bleek dat ook
+die twee er nog een te veel waren. Wat er nu staat is één `waitAny` op alle zes
+de waitables met een tak per vlag, en verder niets — geen `enum State`, geen
+lid, geen `switch`.
+
+De reden is niet "korter". De volgorde stáát al ergens, en wel in
+`GameOverControl::doGameOver`: `showGameOverPage`, dan eventueel `showNameInput`
+met het wachten op ENTER erin, dan `showHallOfFame`, dan wachten op de knop, dan
+`hideGameOverPage` — strikt na elkaar vanuit één taak. Die volgorde in de
+DisplayControl nog eens nabouwen levert twee machines op die hetzelfde zeggen.
+Dat zijn er één te veel: ze kunnen uit elkaar gaan lopen, en dan is de vraag
+welke van de twee gelijk heeft.
+
+Twee dingen worden er meetbaar eenvoudiger van:
+
+- **De latchanalyse verdampt.** Alle zes de vlaggen staan in dezelfde wachtset,
+  dus er kan er geen één blijven staan tot een moment waarop hij niet meer hoort.
+  Dat was in de toestandsversies het lastigste stuk om over na te denken — de
+  commitboodschap van `ef7fb42` gaat er voor de helft over.
+- **`hasFired` mag naar alles gevraagd worden.** `latestResult` is de hele event
+  group, niet alleen de gevraagde bits, dus bij een smallere wachtset moest je
+  uitkijken welke bits je uitleest. Met één wachtset is die val weg.
+
+Twee takken zijn er ook één geworden: "een nieuwe lijst terwijl de lijst al
+staat" en "de terugkeer uit de naamfase" deden bijna hetzelfde in twee
+verschillende states. Nu is het één tak, met `bKeyboardIsUp` als het enige
+verschil — alleen op de tweede weg staat het toetsenbord omhoog en moet het
+eerst omlaag schuiven.
+
+De functies die iets tonen of verbergen zijn gebleven zoals ze waren:
+`showHallOfFamePhase`, `showNameInputPhase`, `hidePage`, `enterHidden` en
+`makeAllNonDrawableAndDisabled`. Alleen de lus eromheen is verdwenen.
+
+**Wat het kost, en dat hoort erbij:** deze lus toetst niet meer of een wens past
+bij wat er in beeld staat. Komt `showNameInput` terwijl de pagina uit beeld is,
+dan zet hij hem alsnog neer. Dat `GameOverControl` dat niet doet is de hele
+garantie, en die staat daar. Eén regel is als verzekering blijven staan: de
+`flagShowNameInput.clear()` bij de terugkeer naar de lijst. Niet omdat het kan
+gebeuren, maar omdat dat het enige pad in dit bestand is dat niet op een extra
+hertekening uitkomt maar op een hang.
+
+### Inputfield::clearInput()
+
+Om het veld leeg te maken stuurde de game-over-pagina `MaxNofNameFieldChars` keer
+`keyPressed("DEL")` naar het invoerveld. Dat werkte, maar het was ook net zoveel
+keer een hertekening van het label en net zoveel keer een `inputNewKey` naar
+élke luisteraar — voor toetsen die niemand heeft ingedrukt. Dat laatste is het
+echte bezwaar: een luisteraar die aanslagen telt of op een bepaalde toets wacht,
+kreeg een reeks te verwerken die niet bestaan heeft. Hier viel dat mee omdat de
+aanroeper de eigen vlag er meteen weer afhaalde, maar dat is een pleister.
+
+`IInputfield` heeft er nu `clearInput()` bij, en `Inputfield` implementeert hem:
+leegmaken, één keer het label bijwerken, en niets doorgeven. Eén
+`updateButtonLabel` is genoeg omdat het label opaak is en de hele knopbreedte
+reserveert (`TouchscreenButton::setOpaqueText`) — de DEL-lus deed het letter voor
+letter maar eindigde op precies diezelfde ene aanroep.
+
+Eén valkuil zat in `crt::string`: die houdt geen afsluitende nul bij. `clear()`
+zet alleen `current_length` op 0, en `begin()` gaat als C-string mee naar het
+label. Die nul wordt daarom expliciet gezet — via `begin()` en niet via
+`operator[]`, want die geeft na `clear()` een dummy terug omdat de index dan
+buiten de lengte ligt. De DEL-tak deed hetzelfde, alleen minder zichtbaar.
+
+De `flagNewKey.clear()` bij de aanroeper blijft staan, maar nu om nog maar één
+reden: een aanslag uit de vorige ronde kan gelatched zijn blijven staan, want
+buiten de naamfase wacht niemand op die vlag.
+
+### En een gereedschapskist erbij
+
+`apps/pong_cleangui_dg_adv/tools/`, met een submap per gereedschap — net als de
+voorbeelden in `libs/`. Twee bewoners, elk met hun includepad in
+`main/CMakeLists.txt`; draaien gaat zoals alles hier, door in `main/main.cpp`
+die ene `#include` aan te zetten.
+
+**`ClearHallOfFame/`** wist de top-5 in `/hallOfFame`.
+
+Het schrijft een lege lijst van de huidige bestandsversie terug in plaats van
+het bestand weg te gooien, en het formatteert al helemaal niet — `LITTLEFS.format()`
+zou `/TouchCalData1` meenemen en dan mag je alle vier de rotaties opnieuw
+kalibreren. Daarna leest het opnieuw in vanaf de flash en drukt zijn eigen
+oordeel af, `GEWIST` of `MISLUKT`; geen scherm en geen aanraking nodig.
+
+Bij de eerste run bleek de lijst al leeg te zijn, en dan bewijst "GEWIST" niets.
+Vandaar `CLEAR_HALL_OF_FAME_SELFTEST`, standaard uit: aan schrijft het eerst via
+`insert()` een verzonnen lijst weg — dezelfde weg die het spel neemt — en wist
+die daarna. Zo gedraaid, en dat gaf:
+
+```
+voor:   1: zelftest een         300
+...
+na:     1: <leeg>               0
+GEWIST. /hallOfFame bevat een lege top-5.
+ZELFTEST GESLAAGD: een gevulde lijst is gelezen en gewist.
+```
+
+Daarna de schakelaar weer uit, het gereedschap nog een keer gedraaid, en
+`main.cpp` terug op de app gezet. Het bord draait weer Pong met een lege top-5.
+
+**`ClearCalibrations/`** wist de touchkalibratie in `/TouchCalData1`: het meldt
+eerst welke van de vier schermrotaties gekalibreerd waren en gooit het bestand
+daarna weg.
+
+Hier wél weggooien en niet leeg terugschrijven, anders dan bij de top-5. Leeg
+terugschrijven zou betekenen dat de v2-indeling op een tweede plek bekend moet
+zijn, en die staat met opzet op precies één plek
+(`crt_TFT_eSPI_DisplayAdapter.h`). Een ontbrekend bestand is bovendien de weg
+die de adapter zelf al netjes afhandelt. Lézen doet het gereedschap wel — dat is
+wat de melding vooraf de moeite waard maakt, en een leesfout kan hooguit "niet
+herkend" opleveren, nooit een verminkt bestand.
+
+Gebouwd, **niet gedraaid**: dit is het enige gereedschap hier dat een vinger
+kost om ongedaan te maken. Wie het draait, draait daarna `TouchCalibrateAll`.
+
 ## 2026-08-13 — show, enable en tekenen zijn drie assen geworden
 
 Task 2 uit `devdocs/Claude_instructions/` is uitgevoerd, alle tien de stappen,

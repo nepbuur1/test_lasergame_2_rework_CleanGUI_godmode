@@ -184,11 +184,17 @@ Op volgorde van hoe waarschijnlijk het is dat er iets is blijven liggen:
    balslots en de crates weer aangezet en getekend. Kijk of het veldmidden en
    de linkerbovenhoek schoon zijn bij het starten.
 2. **`pong_cleangui_dg_adv`, de game-over-pagina.** Stap 10 heeft die
-   herschreven van één wachtlus naar drie toestanden. Loop de hele route af:
+   herschreven van één wachtlus naar drie toestanden; op 15 aug is de
+   toestandsmachine er weer helemaal uit gegaan (één `waitAny`, een tak per vlag)
+   en is het tekenen per fase omgezet naar twee losse functies die met een
+   volledige reset beginnen. Zie het logboek. Loop de hele route af:
    spel afgelopen zonder highscore → lijst → PLAY AGAIN; en met highscore →
    naam invoeren → toetsenbord omhoog → tikken → ENTER → lijst → PLAY AGAIN.
    Let op de fakkels: die horen in de lijstfase te branden en in de naamfase
-   stil te staan.
+   stil te staan. Let ook op de achtergrond: die wordt sinds 15 aug per fase
+   expliciet aangezet, dus een zwart vlak waar hij hoort te staan wijst daarheen.
+   En tik tijdens het intypen op de onderste toetsenrij: PLAY AGAIN staat daar
+   vlak achter en mag niet meevuren.
 3. **`pong_cleangui_cg`, de peddel.** De tak die de peddel toont heeft een
    nieuwe test gekregen (`gamePanel.isDrawable()`). Controleer dat de peddel
    verschijnt bij het starten en niet blijft staan of over de startpagina komt.

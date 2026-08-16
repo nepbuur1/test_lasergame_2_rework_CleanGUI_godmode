@@ -141,6 +141,12 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../apps/pong_cleangui_dg"
 "../apps/pong_cleangui_dg_adv"
 
+# Gereedschap bij die laatste: losse programma's die aan de opslag op het
+# bord komen, elk in een eigen map. Zie de README daar. Ook hier geldt dat
+# een includepad op zichzelf niets compileert - main.cpp kiest.
+"../apps/pong_cleangui_dg_adv/tools/ClearHallOfFame"
+"../apps/pong_cleangui_dg_adv/tools/ClearCalibrations"
+
 #"../apps/TestHwLibGlcOled"
 # Adafruit libs for driving SSD1306 OLED:
 # "../libs/Adafruit_SSD1306"
