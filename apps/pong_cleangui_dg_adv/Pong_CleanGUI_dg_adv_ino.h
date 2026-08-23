@@ -21,7 +21,8 @@
 #include <crt_Logger.h>
 #include "pdga_StartPageDisplayControl.h"
 #include "pdga_GameDisplayControl.h"
-#include "pdga_GameOverDisplayControl.h"
+#include "pdga_NameInputPageDisplayControl.h"
+#include "pdga_HallOfFameDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_HallOfFame.h"
 #include "pdga_MainControl.h"
@@ -69,7 +70,7 @@ namespace pong_cleangui_dg_adv
 
 	// Elke pagina zijn eigen DisplayControl, elk met een eigen PageRoot en een
 	// eigen taak. Ze mogen naast elkaar bestaan omdat er steeds maar een van de
-	// drie in beeld staat - MainControl roept de pagina's strikt na elkaar aan.
+	// vier in beeld staat - MainControl roept de pagina's strikt na elkaar aan.
 	// Zie de opmerking boven crt_PageRoot.h.
 	//
 	// Let op de volgorde: elk object hieronder krijgt de objecten erboven mee.
@@ -105,8 +106,13 @@ namespace pong_cleangui_dg_adv
 	HallOfFame hallOfFame("/hallOfFame");
 
 	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
-	GameDisplayControl<20,10> gameDisplayControl("GameDisplayControl", 3 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
-	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	GameDisplayControl gameDisplayControl("GameDisplayControl", 3 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
+
+	// De game-over-afhandeling is twee pagina's, en dus twee taken: eerst de
+	// naaminvoer (alleen bij een top-5-score), daarna de hall of fame. Ze staan
+	// nooit tegelijk in beeld - GameOverControl roept ze strikt na elkaar aan.
+	NameInputPageDisplayControl nameInputPageDisplayControl("NameInputPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	HallOfFameDisplayControl hallOfFameDisplayControl("HallOfFameDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
 
@@ -119,7 +125,8 @@ namespace pong_cleangui_dg_adv
 	// updateSpawnables() aan, en daar hangt de balketen tot en met publishStates()
 	// onder. De Handler-taak die dat eerder deed had daar zijn eigen ~5,5 KB voor.
 	MainControl mainControl("MainControl", 1 /*priority*/, 9000 /*stack size*/, ARDUINO_RUNNING_CORE,
-	                        startPageDisplayControl, gameDisplayControl, gameOverDisplayControl,
+	                        startPageDisplayControl, gameDisplayControl,
+	                        nameInputPageDisplayControl, hallOfFameDisplayControl,
 	                        paddleControl, hallOfFame);
 }
 

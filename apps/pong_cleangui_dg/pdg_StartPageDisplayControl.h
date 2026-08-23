@@ -18,15 +18,11 @@ namespace pong_cleangui_dg
 {
 	// Zie pdg_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	class IStartPageDisplayControl
-	{
-		public:
-			virtual IButton* addStartPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void showStartPage() = 0;
-			virtual void hideStartPage() = 0;
-	};
-
-	class StartPageDisplayControl : public Task, public IStartPageDisplayControl
+	// Wat StartPageControl van deze pagina mag vragen, staat in het publieke blok
+	// na de constructor. Hier stond een IStartPageDisplayControl die datzelfde
+	// rijtje nog een keer opsomde - een interface met een implementatie, in
+	// hetzelfde bestand dat de aanroeper toch al includeert.
+	class StartPageDisplayControl : public Task
 	{
 		enum State
 		{

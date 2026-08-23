@@ -14,12 +14,12 @@ namespace pong_cleangui_dg
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		IGameOverDisplayControl& gameOverDisplayControl;
+		GameOverDisplayControl& gameOverDisplayControl;
 		IButton* pGameOverPageStartButton;
 		Flag flagStartPressed;
 
 	public:
-		GameOverControl(Task* pTask, IGameOverDisplayControl& gameOverDisplayControl) :
+		GameOverControl(Task* pTask, GameOverDisplayControl& gameOverDisplayControl) :
 			pTask(pTask),
 			gameOverDisplayControl(gameOverDisplayControl),
 			pGameOverPageStartButton(nullptr),

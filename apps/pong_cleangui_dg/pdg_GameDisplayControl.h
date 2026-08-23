@@ -45,7 +45,7 @@ namespace pong_cleangui_dg
 	//
 	// Ze staan in deze header en niet in een eigen bestand omdat ze de spelpagina
 	// beschrijven: BallControl en PaddleControl rekenen ermee en includeren deze
-	// header toch al voor IGameDisplayControl.
+	// header toch al voor GameDisplayControl.
 	const int FrameIntervalMs      = 40;	// 25 beelden per seconde.
 	const int WallThicknessPix     = 10;
 	const int BallSizePix          = 12;
@@ -54,23 +54,16 @@ namespace pong_cleangui_dg
 	const int BallSpeedPixPerFrame = 4;		// 100 pixels per seconde.
 	const int PaddleStepPix        = 6;		// 150 pixels per seconde zolang de knop ingedrukt blijft.
 
-	class IGameDisplayControl
-	{
-		public:
-			virtual int getWidth() = 0;
-			virtual int getHeight() = 0;
-			virtual IButton* addLeftButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual IButton* addRightButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void updateBallPosition(int x, int y) = 0;
-			virtual void updatePaddlePosition(int x) = 0;
-			virtual void showGamePage() = 0;
-			virtual void hideGamePage() = 0;
-			virtual void showPaddle() = 0;
-			virtual void hidePaddle() = 0;
-	};
-
-	template <int WIDTH, int HEIGHT>
-	class GameDisplayControl : public Task, public IGameDisplayControl
+	// Wat de control-objecten van deze pagina mogen vragen, staat in het publieke
+	// blok na de constructor. Zie pdg_StartPageDisplayControl.h voor waarom daar
+	// geen interface meer boven staat.
+	//
+	// De template-parameters die hier stonden (<int WIDTH, int HEIGHT>) zijn ook
+	// weg: ze werden nergens in de klasse gebruikt. Ze komen uit de console-versie
+	// (apps/pong/pong/crt_SceneDisplayControl.h), waar ze de maat van een
+	// CharMatrix bepalen; hier tekenen widgets het beeld en volgt elke maat uit de
+	// constanten hierboven.
+	class GameDisplayControl : public Task
 	{
 		enum State
 		{

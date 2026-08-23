@@ -63,7 +63,7 @@ namespace pong_cleangui_dg_adv
         };
 
 	private:
-        IGameDisplayControl* pGameDisplayControl;
+        GameDisplayControl* pGameDisplayControl;
 
         // Waar de bal vraagt of hij ergens tegenaan zit, en waar de peddel staat.
         // Hij kent de crates, vuurkorven en de peddel zelf niet - zie IBallCollisionCheck.
@@ -166,7 +166,7 @@ namespace pong_cleangui_dg_adv
 		{
 		}
 
-        void init(IGameDisplayControl& gameDisplayControl,
+        void init(GameDisplayControl& gameDisplayControl,
                   IBallCollisionCheck* pBallCollisionCheck, IDepot* pDepot, int indexSlot)
         {
             this->pGameDisplayControl = &gameDisplayControl;

@@ -47,7 +47,7 @@ namespace pong_cleangui_cg
 	// Let op de volgorde: elk object hieronder krijgt de objecten erboven mee.
 	// displayControl kent de schermmaat al in zijn constructor, dus de twee
 	// controls daaronder mogen daar meteen getWidth()/getHeight() van vragen.
-	DisplayControl<20,10> displayControl("DisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
+	DisplayControl displayControl("DisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, displayControl);
 	BallControl ballControl("BallControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, displayControl, paddleControl);

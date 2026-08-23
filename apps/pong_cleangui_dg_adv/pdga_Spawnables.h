@@ -49,7 +49,7 @@ namespace pong_cleangui_dg_adv
 		CrateDepot   crateDepot;
 		FireBinDepot fireBinDepot;
 
-		IGameDisplayControl& gameDisplayControl;
+		GameDisplayControl& gameDisplayControl;
 
 		// Worden elk beeld opnieuw gevuld en daarna weggeschreven. Als lid en niet
 		// als lokale variabele: samen zijn ze bijna een kilobyte, en dat elk beeld
@@ -65,7 +65,7 @@ namespace pong_cleangui_dg_adv
 		int paddlePositionThisFrame;
 
 	public:
-		Spawnables(IGameDisplayControl& gameDisplayControl) :
+		Spawnables(GameDisplayControl& gameDisplayControl) :
 			ballDepot("ballDepot"),
 			crateDepot("crateDepot"),
 			fireBinDepot("fireBinDepot"),

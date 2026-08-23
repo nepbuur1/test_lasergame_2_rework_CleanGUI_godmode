@@ -55,7 +55,7 @@ namespace pong_cleangui_dg
 	// gameDisplayControl kent de schermmaat al in zijn constructor, dus de twee
 	// controls daaronder mogen daar meteen getWidth()/getHeight() van vragen.
 	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 1 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
-	GameDisplayControl<20,10> gameDisplayControl("GameDisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
+	GameDisplayControl gameDisplayControl("GameDisplayControl", 1 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
 	GameOverDisplayControl gameOverDisplayControl("GameOverDisplayControl", 1 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
 	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);

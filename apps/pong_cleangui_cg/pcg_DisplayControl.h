@@ -46,36 +46,17 @@ namespace pong_cleangui_cg
 	const int BallSpeedPixPerFrame = 4;		// 100 pixels per seconde.
 	const int PaddleStepPix        = 6;		// 150 pixels per seconde zolang de knop ingedrukt blijft.
 
-	class IDisplayControl
-	{
-		public:
-			virtual int getWidth() = 0;
-			virtual int getHeight() = 0;
-			virtual IButton* addLeftButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual IButton* addRightButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual IButton* addStartPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual IButton* addGameOverPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void updateBallPosition(int x, int y) = 0;
-			virtual void updatePaddlePosition(int x) = 0;
-			// Per pagina een show en een hide, net als in de _dg-variant. Elk
-			// control-object toont zijn eigen pagina aan het begin van zijn
-			// do..()-functie en verbergt hem aan het eind; MainControl roept die
-			// strikt na elkaar aan, dus er staat er nooit meer dan een in beeld.
-			//
-			// Bewust geen select..(): dat zou beloven dat het tonen van de ene
-			// pagina de andere vanzelf uitzet, en dat doet het niet.
-			virtual void showStartPage() = 0;
-			virtual void hideStartPage() = 0;
-			virtual void showGamePage() = 0;
-			virtual void hideGamePage() = 0;
-			virtual void showGameOverPage() = 0;
-			virtual void hideGameOverPage() = 0;
-			virtual void showPaddle() = 0;
-			virtual void hidePaddle() = 0;
-	};
-
-	template <int WIDTH, int HEIGHT>
-	class DisplayControl : public Task, public IDisplayControl
+	// Wat de control-objecten van deze klasse mogen vragen, staat in het publieke
+	// blok na de constructor. Hier stond een IDisplayControl die datzelfde rijtje
+	// nog een keer opsomde - een interface met een implementatie, in hetzelfde
+	// bestand dat de aanroepers toch al includeren.
+	//
+	// De template-parameters die hier stonden (<int WIDTH, int HEIGHT>) zijn ook
+	// weg: ze werden nergens in de klasse gebruikt. Ze komen uit de console-versie
+	// (apps/pong/pong/crt_SceneDisplayControl.h), waar ze de maat van een
+	// CharMatrix bepalen; hier tekenen widgets het beeld en volgt elke maat uit de
+	// constanten hierboven.
+	class DisplayControl : public Task
 	{
 	private:
 		IDisplay& display;
@@ -243,6 +224,13 @@ namespace pong_cleangui_cg
 	// Per pagina een paar: alleen de laatste wens telt, dus de tegenhanger gaat
 	// leeg. Wat de andere pagina's doen staat hier los van - dat regelt de
 	// aanroeper met zijn eigen show/hide.
+	//
+	// Elk control-object toont zijn eigen pagina aan het begin van zijn
+	// do..()-functie en verbergt hem aan het eind; MainControl roept die strikt na
+	// elkaar aan, dus er staat er nooit meer dan een in beeld.
+	//
+	// Bewust geen select..(): dat zou beloven dat het tonen van de ene pagina de
+	// andere vanzelf uitzet, en dat doet het niet.
 	void showStartPage()
 	{
 		flagHideStartPage.clear();

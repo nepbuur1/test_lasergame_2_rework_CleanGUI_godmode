@@ -36,7 +36,7 @@ namespace pong_cleangui_dg_adv
 
 	// De lijst als los kopieerbaar geheel, om hem via een crt::Pool van de ene
 	// taak naar de andere te krijgen: GameOverControl bezit de HallOfFame, maar
-	// GameOverDisplayControl tekent hem.
+	// HallOfFameDisplayControl tekent hem.
 	struct HallOfFameData
 	{
 		HallOfFameEntry arEntry[NofHallOfFameEntries];

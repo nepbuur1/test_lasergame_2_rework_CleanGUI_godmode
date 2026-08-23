@@ -12,12 +12,12 @@ namespace pong_cleangui_dg
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		IStartPageDisplayControl& startPageDisplayControl;
+		StartPageDisplayControl& startPageDisplayControl;
 		IButton* pStartPageStartButton;
 		Flag flagStartPressed;
 
 	public:
-		StartPageControl(Task* pTask, IStartPageDisplayControl& startPageDisplayControl) :
+		StartPageControl(Task* pTask, StartPageDisplayControl& startPageDisplayControl) :
 			pTask(pTask),
 			startPageDisplayControl(startPageDisplayControl),
 			pStartPageStartButton(nullptr),

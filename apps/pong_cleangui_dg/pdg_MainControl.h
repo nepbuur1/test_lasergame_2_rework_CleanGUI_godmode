@@ -45,8 +45,8 @@ namespace pong_cleangui_dg
 		// binnen. Elk control-object krijgt precies die ene mee waar het iets van
 		// moet weten - GameControl kent de startpagina niet en andersom.
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
-					IStartPageDisplayControl& startPageDisplayControl, IGameDisplayControl& gameDisplayControl,
-					IGameOverDisplayControl& gameOverDisplayControl, BallControl& ballControl, PaddleControl& paddleControl) :
+					StartPageDisplayControl& startPageDisplayControl, GameDisplayControl& gameDisplayControl,
+					GameOverDisplayControl& gameOverDisplayControl, BallControl& ballControl, PaddleControl& paddleControl) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
 			gameControl(this, gameDisplayControl, ballControl, paddleControl),

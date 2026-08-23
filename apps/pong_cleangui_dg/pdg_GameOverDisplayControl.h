@@ -18,15 +18,10 @@ namespace pong_cleangui_dg
 {
 	// Zie pdg_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	class IGameOverDisplayControl
-	{
-		public:
-			virtual IButton* addGameOverPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void showGameOverPage() = 0;
-			virtual void hideGameOverPage() = 0;
-	};
-
-	class GameOverDisplayControl : public Task, public IGameOverDisplayControl
+	// Wat GameOverControl van deze pagina mag vragen, staat in het publieke blok na
+	// de constructor. Zie pdg_StartPageDisplayControl.h voor waarom daar geen
+	// interface meer boven staat.
+	class GameOverDisplayControl : public Task
 	{
 		enum State
 		{

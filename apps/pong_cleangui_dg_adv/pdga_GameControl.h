@@ -37,7 +37,7 @@ namespace pong_cleangui_dg_adv
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		IGameDisplayControl& gameDisplayControl;
+		GameDisplayControl& gameDisplayControl;
 		PaddleControl& paddleControl;
 
 		// Eigendom, geen verwijzing: dit object bezit de depots en dus de vijftig
@@ -83,7 +83,7 @@ namespace pong_cleangui_dg_adv
 		Timer timerFrame;
 
 	public:
-		GameControl(Task* pTask, IGameDisplayControl& gameDisplayControl,
+		GameControl(Task* pTask, GameDisplayControl& gameDisplayControl,
 					PaddleControl& paddleControl) :
 			pTask(pTask),
 			gameDisplayControl(gameDisplayControl),

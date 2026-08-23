@@ -27,7 +27,7 @@ namespace pong_cleangui_dg_adv
 
 	private:
 		State state;
-		IGameDisplayControl& gameDisplayControl;
+		GameDisplayControl& gameDisplayControl;
 		Pool<int> poolPaddlePos;
 		Flag flagEnable;
 		Flag flagDisable;
@@ -44,7 +44,7 @@ namespace pong_cleangui_dg_adv
 		IButton* pButtonRight;
 
 	public:
-		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& gameDisplayControl) :	
+		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, GameDisplayControl& gameDisplayControl) :	
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
 			state(STATE_DISABLED),
 			gameDisplayControl(gameDisplayControl),

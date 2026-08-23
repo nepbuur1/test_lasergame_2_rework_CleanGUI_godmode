@@ -40,7 +40,7 @@ namespace pong_cleangui_dg
 
 	private:
         Flag flagStart;
-        IGameDisplayControl& gameDisplayControl;
+        GameDisplayControl& gameDisplayControl;
         PaddleControl& paddleControl;
         IBallControlListener* pBallControlListener;
         int screenWidth;
@@ -52,7 +52,7 @@ namespace pong_cleangui_dg
         State state;
 
 	public:
-		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IGameDisplayControl& gameDisplayControl, PaddleControl& paddleControl) :
+		BallControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, GameDisplayControl& gameDisplayControl, PaddleControl& paddleControl) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
             flagStart(this),
             gameDisplayControl(gameDisplayControl),

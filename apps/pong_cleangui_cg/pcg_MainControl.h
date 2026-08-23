@@ -42,7 +42,7 @@ namespace pong_cleangui_cg
 		StartPageControl startPageControl;
 
 	public:
-		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, IDisplayControl& displayControl, BallControl& ballControl, PaddleControl& paddleControl) :
+		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, DisplayControl& displayControl, BallControl& ballControl, PaddleControl& paddleControl) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
 			gameControl(this, displayControl, ballControl, paddleControl),

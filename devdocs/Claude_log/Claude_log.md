@@ -1,5 +1,167 @@
 # Claude log
 
+## 2026-08-16 — dood hout: een template zonder parameters, interfaces zonder tweede implementatie
+
+Twee dingen weggehaald die niets deden, in alle drie de GUI-pongs.
+
+### `GameDisplayControl<20,10>` gebruikte zijn parameters niet
+
+`template <int WIDTH, int HEIGHT>` stond boven de klasse, en `WIDTH` en `HEIGHT`
+kwamen nergens anders in het bestand voor. In `pdg_GameDisplayControl.h` en
+`pcg_DisplayControl.h` net zo.
+
+Ze komen uit de console-versie: `apps/pong/pong/crt_SceneDisplayControl.h` heeft
+een `CharMatrix<WIDTH,HEIGHT> charMatrix`, een tekengrid van 20 bij 10 - vandaar
+de `<20,10>`. Bij het overzetten naar de touchscreen-versies is de CharMatrix
+vervangen door widgets en is de templateregel meegereisd.
+
+Weghalen kost niets en alloceert niets: alle vaste maten kwamen al uit constanten
+in dezelfde header (`MaxNofBalls`, `MaxNofCrates`, `MaxNofFireBins`,
+`NofScoreDigits`, `GamePageRoot`). Dat is de regel: een template-parameter
+verdien je pas als de *aanroeper* de maat moet kunnen kiezen, zoals bij
+`PageRoot<N>` of `TouchscreenButton<0,10>`, waarvan er meerdere maten naast
+elkaar bestaan. Van een DisplayControl bestaat er een, en die kiest zijn eigen
+maten.
+
+De console-versie houdt zijn template wel: daar is `CharMatrix<WIDTH,HEIGHT>`
+echt in gebruik.
+
+### De pagina-interfaces
+
+Weg in de drie GUI-apps:
+
+| app | weg |
+| --- | --- |
+| `pong_cleangui_dg_adv` | `IStartPageDisplayControl`, `IGameDisplayControl`, `INameInputPageDisplayControl`, `IHallOfFameDisplayControl` |
+| `pong_cleangui_dg` | `IStartPageDisplayControl`, `IGameDisplayControl`, `IGameOverDisplayControl` |
+| `pong_cleangui_cg` | `IDisplayControl` |
+
+Wat ze opleverden, geteld: geen substitutability (één implementatie, geen mocks)
+en geen compileerschot - interface en klasse stonden in hetzelfde bestand, dat de
+aanroeper toch al includeert voor `BallStates` en de spelmaten. Wat ze kostten:
+elke wijziging aan een pagina moest op twee plekken, en de toelichting bij een
+functie stond systematisch ergens anders dan de functie. Die toelichtingen zijn
+meeverhuisd naar het publieke blok van de implementatie, dat in dezelfde volgorde
+staat en dus net zo goed als inhoudsopgave leest.
+
+Wat je ervoor inlevert, en dat is echt iets: `crt_Task.h` heeft `start()`,
+`wait()` en `waitAny()` publiek. Een control-object kan nu bij de event-lus van
+de taak van zijn DisplayControl. Dat hoort niet, en er is niets meer dat het
+tegenhoudt.
+
+`ISceneDisplayControl` in de console-versie blijft daarom staan, en dat is geen
+inconsequentie maar hetzelfde criterium: `SceneDisplayControl<20,10>` is wél een
+echte template, en `BallControl`, `PaddleControl` en `GameControl` verwijzen naar
+de interface juist om die parameters niet te hoeven kennen. Dáár draagt hij iets.
+De luisteraars (`IBallListener`, `IButtonListener`, `IInputfieldListener`,
+`IBallControlListener`, `IDepot`, ...) blijven ook: die hebben wel degelijk
+meerdere implementaties.
+
+### Uitkomst
+
+Alle drie de apps bouwen (via de `#include`-regel in `main/main.cpp`, één per
+keer). `pong_cleangui_dg_adv` is geflasht en boot schoon. De binary werd 1.952
+bytes kleiner (`0x88840` → `0x880a0`) en `.bss` 16 bytes (40.376 → 40.360) - de
+vtables van vier interfaces.
+
+`models/pong_dg_adv.drawio` tekent de interfaces nog; de auteur past dat diagram
+zelf aan.
+
+## 2026-08-16 — de naaminvoer wordt een eigen pagina
+
+De twee fasen van `pdga_GameOverDisplayControl.h` zijn uit elkaar gehaald. Wat
+één taak met één PageRoot was, is nu twee taken met elk hun eigen pagina:
+
+| was | is |
+| --- | --- |
+| `pdga_GameOverDisplayControl.h` (fase NAAM + fase LIJST) | `pdga_NameInputPageDisplayControl.h` en `pdga_HallOfFameDisplayControl.h` |
+| `pdga_GameOverPageControl.h` (klasse `GameOverControl`) | `pdga_GameOverControl.h` (zelfde klasse) |
+
+`NameInputControl` hangt nu aan `INameInputPageDisplayControl` in plaats van aan
+de game-over-pagina; `GameOverControl` kent alleen nog de hall of fame en geeft
+de naampagina ongeopend door aan zijn `NameInputControl`. De ino maakt twee
+DisplayControls waar er één stond, en `MainControl` krijgt er één parameter bij.
+
+### Wat het delen van één pagina kostte
+
+Twee fasen op één PageRoot betekende: `drawAndEnableWidgetsForPhase()` die elke
+widget een bool doorstuurde (`makeDrawableIf(hallOfFameTitlePanel, !bName)`), een
+`showNameInput()` naast een `showHallOfFame()` op een pagina die niet allebei kon
+zijn, drie toestanden, en vijf vlaggen waarvan per toestand maar een deel werd
+afgewacht — met `clear()`-regels om te voorkomen dat de rest een ronde later
+alsnog vuurde. Eén daarvan (`flagShowNameInput.clear()` in de lijstfase) hield
+een echte hang tegen; dat stond er ook zo bij.
+
+Daar is nu niets meer van over. Beide pagina's hebben twee toestanden
+(`STATE_HIDDEN`/`STATE_SHOWN`), tekenbaar zijn is hetzelfde als in beeld zijn, en
+`enum Phase`, `makeDrawableIf`, `enableIf` en `drawAndEnableWidgetsForPhase` zijn
+verdwenen.
+
+### De ene plek waar het níet gratis was
+
+Verbergen tekent bij de andere drie pagina's niets, maar deze schuift eerst haar
+toetsenbord uit beeld — 400 ms tekenwerk *na* de aanroep. Wie ondertussen de hall
+of fame laat tekenen, staat er dwars doorheen, en dat is precies wat de regel
+"één PageRoot tegelijk in beeld" verbiedt. `doQueryName()` wacht daarom op een
+melding voordat het terugkeert; pas dan mag `GameOverControl` de volgende pagina
+tonen. De melding komt uit elke tak die een hide-wens verwerkt, ook uit
+`STATE_HIDDEN` — blijft ze één keer uit, dan is dat geen gemiste hertekening maar
+een taak die nooit meer verdergaat.
+
+Hoe die melding terugkomt, is bij de review rechtgezet. Hier stond eerst
+
+```cpp
+void hideNameInputPage(Flag* pFlagPageHidden)   // fout
+```
+
+en dat is een synchronisatie-element als parameter. Zo praten taken hier niet met
+elkaar: een taak roept een publieke functie van het andere object aan, en die
+zet een vlag van *dat* object — eventueel gebonden aan een taak die in zijn
+constructor is meegegeven — en schrijft desgewenst gegevens in een `Pool`. Er
+gaan geen vlaggen, timers of andere waitables als parameter mee.
+
+Het is nu de vorm die de app al twee keer heeft: een luisteraar van één functie,
+naar het model van `pdga_IBallListener.h`.
+
+```cpp
+// pdga_INameInputPageListener.h
+virtual void nameInputPageHidden() = 0;
+```
+
+`NameInputPageDisplayControl::setNameInputPageListener()` is letterlijk
+`BallControl::setBallListener()`, inclusief de nullptr-toets bij het aanroepen.
+`NameInputControl` implementeert de luisteraar en zet daarin zijn eigen
+`flagPageHidden` — net zoals het in `inputNewKey()` zijn eigen `flagNameEntered`
+zet en `GameControl` in `buttonPressed()` zijn eigen `flagGameOverLabelPressed`.
+De pagina weet niet meer wie er luistert en al helemaal niet wat de melding daar
+betekent; de `Pool<Flag*>` die de vlag onderweg bewaarde is verdwenen.
+
+### Twee dingen die onderweg meegingen
+
+- De DEL-lus die het invoerveld leegmaakte (`MaxNofNameFieldChars` keer
+  `keyPressed("DEL")`) is vervangen door `inputfield.clearInput()` — de functie
+  die daar in commit `df03953` voor is gemaakt en waar de aanroeper nog niet naar
+  was omgezet. De `flagNewKey.clear()` erachter is gebleven, maar betekent nu iets
+  anders: hij ruimt niet meer de eigen echo van die lus op, maar een toets die
+  tussen de ENTER en het verbergen nog is gevallen.
+- `doGameOver()` begon met `showGameOverPage()`, wat de hall of fame van de
+  vórige ronde een moment liet zien voordat er om een naam werd gevraagd. Die
+  flits is weg: de lijst wordt gevuld vóór de pagina in beeld komt, en bij een
+  top-5-score is de naampagina het eerste wat er verschijnt. Tot dan blijft het
+  spelscherm staan, precies zoals na `GameControl::hideGamePage()`.
+
+### Kosten
+
+Eén taak erbij: 10.000 bytes stack uit de heap, en 328 bytes statisch
+(`.bss` 40.048 → 40.376). Het bord boot ermee door — backbuffer (76.800 bytes),
+kalibratietabel en alle zeven taken komen op — dus die ruimte is er. Wie hem
+krap vindt: de watermerken van beide nieuwe taken staan in de log van
+`dumpStackHighWaterMarkIfIncreased()`.
+
+De verwijzingen naar `pdga_GameOverDisplayControl.h` in `MIGRATION_STATUS.md` en
+`devdocs/refactor_notes/` zijn met opzet blijven staan: dat zijn verslagen van
+een migratie die op dat bestand is gedaan, met regelnummers en al.
+
 ## 2026-08-15 — de game-over-fasen sommen zelf op wat erbij hoort
 
 Vervolg op stap 10 van 13 augustus, in

@@ -27,15 +27,12 @@ namespace pong_cleangui_dg_adv
 	// onderkant van het scherm: (124+240)/2 = 182, en de knop is 54 hoog.
 	const int PlayButtonTopPix = 155;
 
-	class IStartPageDisplayControl
-	{
-		public:
-			virtual IButton* addStartPageStartButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual void showStartPage() = 0;
-			virtual void hideStartPage() = 0;
-	};
-
-	class StartPageDisplayControl : public Task, public IStartPageDisplayControl
+	// Wat StartPageControl van deze pagina mag vragen, staat in het publieke blok
+	// na de constructor: addStartPageStartButtonListener, showStartPage en
+	// hideStartPage. Daar stond een IStartPageDisplayControl voor, met dezelfde
+	// drie regels in hetzelfde bestand; zie de toelichting boven
+	// pdga_GameDisplayControl.h::GameDisplayControl.
+	class StartPageDisplayControl : public Task
 	{
 		enum State
 		{

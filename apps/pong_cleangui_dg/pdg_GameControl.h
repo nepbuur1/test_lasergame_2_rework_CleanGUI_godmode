@@ -16,13 +16,13 @@ namespace pong_cleangui_dg
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		IGameDisplayControl& gameDisplayControl;
+		GameDisplayControl& gameDisplayControl;
 		BallControl& ballControl;
 		PaddleControl& paddleControl;
 		Flag flagBallMissedByPaddle;
 
 	public:
-		GameControl(Task* pTask, IGameDisplayControl& gameDisplayControl, BallControl& ballControl, PaddleControl& paddleControl) :
+		GameControl(Task* pTask, GameDisplayControl& gameDisplayControl, BallControl& ballControl, PaddleControl& paddleControl) :
 			pTask(pTask),
 			gameDisplayControl(gameDisplayControl),
 			ballControl(ballControl),

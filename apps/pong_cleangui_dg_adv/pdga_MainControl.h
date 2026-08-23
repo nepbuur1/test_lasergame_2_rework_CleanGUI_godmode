@@ -6,7 +6,7 @@
 #include "pdga_HallOfFame.h"
 #include "pdga_StartPageControl.h"
 #include "pdga_GameControl.h"
-#include "pdga_GameOverPageControl.h"
+#include "pdga_GameOverControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
 
@@ -33,20 +33,23 @@ namespace pong_cleangui_dg_adv
 		StartPageControl startPageControl;
 
 	public:
-		// Elke pagina heeft zijn eigen DisplayControl, dus die komen hier alle drie
-		// binnen. Elk control-object krijgt precies die ene mee waar het iets van
-		// moet weten - GameControl kent de startpagina niet en andersom.
+		// Elke pagina heeft zijn eigen DisplayControl, dus die komen hier alle vier
+		// binnen. Elk control-object krijgt precies die mee waar het iets van moet
+		// weten - GameControl kent de startpagina niet en andersom. De naampagina
+		// gaat door naar GameOverControl, dat hem meteen doorgeeft aan zijn
+		// NameInputControl en er zelf niets van hoeft te weten.
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
-					IStartPageDisplayControl& startPageDisplayControl, IGameDisplayControl& gameDisplayControl,
-					IGameOverDisplayControl& gameOverDisplayControl, PaddleControl& paddleControl,
+					StartPageDisplayControl& startPageDisplayControl, GameDisplayControl& gameDisplayControl,
+					NameInputPageDisplayControl& nameInputPageDisplayControl,
+					HallOfFameDisplayControl& hallOfFameDisplayControl, PaddleControl& paddleControl,
 					HallOfFame& hallOfFame) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_START_PAGE),
 			gameControl(this, gameDisplayControl, paddleControl),
-			gameOverControl(this, gameOverDisplayControl, hallOfFame),
+			gameOverControl(this, nameInputPageDisplayControl, hallOfFameDisplayControl, hallOfFame),
 			startPageControl(this, startPageDisplayControl)
 		{
-			// Dat de game-over-pagina meldt wanneer de naam is ingetypt (UC03 stap
+			// Dat de naampagina meldt wanneer de naam is ingetypt (UC03 stap
 			// 1b) regelt NameInputControl zelf: die wacht erop, dus die vraagt het
 			// aan. Hier stond daar een regel voor, en dat was een derde plek die van
 			// die melding moest weten.

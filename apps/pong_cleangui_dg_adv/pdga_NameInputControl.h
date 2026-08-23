@@ -4,14 +4,14 @@
 #include <crt_CleanRTOS.h>
 #include <string.h>
 
-#include "pdga_GameOverDisplayControl.h"
+#include "pdga_NameInputPageDisplayControl.h"
 
 // UC03 stap 1: de speler om zijn naam vragen en pas terugkomen als hij hem heeft
 // ingetypt.
 //
 // Dat zat verspreid over twee plekken die er geen van beide om hadden gevraagd. De
 // volgorde - vragen, wachten, ophalen - stond middenin GameOverControl::doGameOver,
-// en het herkennen van ENTER stond in de tekenlus van GameOverDisplayControl, die
+// en het herkennen van ENTER stond in de tekenlus van de DisplayControl, die
 // daarna een aparte listener nodig had om te vertellen wat ze net had gezien.
 //
 // Nu luistert dit object zelf naar het invoerveld, zoals GameControl zelf naar het
@@ -23,32 +23,44 @@
 // Een control-object en geen taak, net als StartPageControl en GameOverControl:
 // doQueryName() draait in de taak van de aanroeper en blokkeert die tot de naam er
 // is. Het tekenen gebeurt intussen gewoon door in de taak van
-// GameOverDisplayControl - die schuift het toetsenbord in beeld en werkt het veld
-// bij bij elke aanslag.
+// NameInputPageDisplayControl - die schuift het toetsenbord in beeld en werkt het
+// veld bij bij elke aanslag.
+//
+// Dat het hele bezoek aan de naampagina - tonen, wachten, weer weg - binnen deze
+// ene aanroep past, is wat GameOverControl ervan af houdt: die kent alleen de hall
+// of fame.
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	class NameInputControl : public IInputfieldListener
+	class NameInputControl : public IInputfieldListener, public INameInputPageListener
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		IGameOverDisplayControl& gameOverDisplayControl;
+		NameInputPageDisplayControl& nameInputPageDisplayControl;
 		IInputfield* pNameInputfield;
 		Flag flagNameEntered;
 
+		// Gezet in nameInputPageHidden() hieronder, zodra de pagina echt uit beeld
+		// is.
+		Flag flagPageHidden;
+
 	public:
-		NameInputControl(Task* pTask, IGameOverDisplayControl& gameOverDisplayControl) :
+		NameInputControl(Task* pTask, NameInputPageDisplayControl& nameInputPageDisplayControl) :
 			pTask(pTask),
-			gameOverDisplayControl(gameOverDisplayControl),
+			nameInputPageDisplayControl(nameInputPageDisplayControl),
 			pNameInputfield(nullptr),
-			flagNameEntered(pTask)
+			flagNameEntered(pTask),
+			flagPageHidden(pTask)
 		{
-			pNameInputfield = gameOverDisplayControl.addNameInputfieldListener(this);
+			pNameInputfield = nameInputPageDisplayControl.addNameInputfieldListener(this);
+			nameInputPageDisplayControl.setNameInputPageListener(this);
 		}
 
 		// Zie StartPageControl::doStartPage() en GameControl::doGame(): een deelstap
-		// van de aanroeper, van begin tot eind, in diens eigen taak.
+		// van de aanroeper, van begin tot eind, in diens eigen taak. En net als daar
+		// staat de pagina bij terugkeer weer uit beeld, zodat de aanroeper meteen de
+		// volgende mag laten tekenen.
 		//
 		// De naam komt terug via strName en niet als returnwaarde: er is geen heap,
 		// dus de buffer is van de aanroeper. nofCharsMax telt de afsluitende nul mee.
@@ -58,8 +70,9 @@ namespace pong_cleangui_dg_adv
 			// die is toen afgewacht - maar dit is de plek waar dat gegarandeerd
 			// wordt, en niet ergens verderop in de aanroeper.
 			flagNameEntered.clear();
+			flagPageHidden.clear();
 
-			gameOverDisplayControl.showNameInput();
+			nameInputPageDisplayControl.showNameInputPage();
 
 			// UC03 stap 1b. Alles ertussen - het toetsenbord dat in beeld schuift,
 			// het bijwerken van het veld bij elke aanslag - gebeurt in de taak van
@@ -74,6 +87,13 @@ namespace pong_cleangui_dg_adv
 
 			strncpy(strName, strFieldContent.begin(), nofCharsMax - 1);
 			strName[nofCharsMax - 1] = '\0';
+
+			// En de pagina weer weg. Wachten tot dat gebeurd is en niet alleen
+			// vragen: het toetsenbord schuift eerst naar beneden, en dat is nog een
+			// paar honderd milliseconden tekenwerk op een pagina die tot dan toe in
+			// beeld staat. Het einde daarvan komt binnen via nameInputPageHidden().
+			nameInputPageDisplayControl.hideNameInputPage();
+			pTask->wait(flagPageHidden);
 		}
 
 		// --- IInputfieldListener ---
@@ -94,13 +114,22 @@ namespace pong_cleangui_dg_adv
 
 		/* override */ void inputfieldPressed(IInputfield* pInputfield)
 		{
-			// Het toetsenbord staat al omhoog zodra de naamfase begint; een tik op
-			// het veld hoeft dus niets te doen.
+			// Het toetsenbord staat al omhoog zodra de naampagina in beeld komt; een
+			// tik op het veld hoeft dus niets te doen.
 		}
 
 		/* override */ void outsideInputfieldPressed(IInputfield* pInputfield)
 		{
 			// Waarschijnlijk het toetsenbord zelf.
+		}
+
+		// --- INameInputPageListener ---
+		// Draait in de taak van de pagina, net als de functies hierboven in die van
+		// de aanraking. En net als daar is een vlag zetten het enige dat hier hoort:
+		// de taak die op de naam wacht, wacht op deze.
+		/* override */ void nameInputPageHidden()
+		{
+			flagPageHidden.set();
 		}
 	}; // end class NameInputControl
 

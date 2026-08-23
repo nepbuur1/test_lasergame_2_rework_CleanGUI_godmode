@@ -170,7 +170,7 @@ namespace pong_cleangui_dg_adv
 	//
 	// Ze staan in deze header en niet in een eigen bestand omdat ze de spelpagina
 	// beschrijven: BallControl en PaddleControl rekenen ermee en includeren deze
-	// header toch al voor IGameDisplayControl.
+	// header toch al voor GameDisplayControl.
 	const int FrameIntervalMs      = 40;	// 25 beelden per seconde.
 	const int WallThicknessPix     = 10;
 	const int BallSizePix          = 12;
@@ -241,41 +241,14 @@ namespace pong_cleangui_dg_adv
 
 	typedef PageRoot<NofFixedGameWidgets + MaxNofBalls + MaxNofCrates + MaxNofFireBins + NofScoreDigits> GamePageRoot;
 
-	class IGameDisplayControl
-	{
-		public:
-			virtual int getWidth() = 0;
-			virtual int getHeight() = 0;
-			virtual IButton* addLeftButtonListener(IButtonListener* pButtonListener) = 0;
-			virtual IButton* addRightButtonListener(IButtonListener* pButtonListener) = 0;
-			// Een beeld: alle ballen en alle crates in een keer, met een enkele
-			// vlag erachter. Twee losse berichten zouden twee hertekeningen kunnen
-			// opleveren, en een present kost het hele scherm.
-			virtual void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates,
-			                               const FireBinStates& fireBinStates, int32_t score) = 0;
-
-			// De laagste speelveld-y waarop nog iets van de bal te zien is. Onder
-			// deze waarde is hij het scherm uit. Deze klasse beantwoordt dat en
-			// niet BallControl, omdat het antwoord van de spritemaat afhangt - een
-			// brandende bal draagt zijn vlammen mee - en die kent alleen de
-			// display.
-			virtual int getBallOffScreenY() = 0;
-			virtual void updatePaddlePosition(int x) = 0;
-			virtual void showGamePage() = 0;
-			virtual void hideGamePage() = 0;
-			virtual void showPaddle() = 0;
-			virtual void hidePaddle() = 0;
-
-			// De uitzondering van UC04: "Game Over" over het spelscherm heen, en
-			// aantikbaar. Een knop en geen panel, want er moet op geklikt kunnen
-			// worden.
-			virtual IButton* addGameOverLabelListener(IButtonListener* pButtonListener) = 0;
-			virtual void showGameOverLabel() = 0;
-			virtual void hideGameOverLabel() = 0;
-	};
-
-	template <int WIDTH, int HEIGHT>
-	class GameDisplayControl : public Task, public IGameDisplayControl
+	// Wat de control-objecten van deze pagina mogen vragen, staat in het publieke
+	// blok van de klasse hieronder (het eerste na de constructor). Hier stond een
+	// IGameDisplayControl die precies datzelfde rijtje nog een keer opsomde: een
+	// interface met een implementatie, in hetzelfde bestand, dat iedereen toch al
+	// includeert voor BallStates en de spelmaten. Wat hij afschermde was alleen de
+	// publieke kant van Task; wat hij kostte was een tweede plek die bij elke
+	// wijziging moest meebewegen.
+	class GameDisplayControl : public Task
 	{
 		enum State
 		{
@@ -431,6 +404,9 @@ namespace pong_cleangui_dg_adv
 		return &buttonRight;
 	}
 
+	// Een beeld: alle ballen en alle crates in een keer, met een enkele vlag
+	// erachter. Twee losse berichten zouden twee hertekeningen kunnen opleveren,
+	// en een present kost het hele scherm.
 	void updateGameObjects(const BallStates& ballStates, const CrateStates& crateStates,
 	                       const FireBinStates& fireBinStates, int32_t score)
 	{
@@ -441,11 +417,14 @@ namespace pong_cleangui_dg_adv
 		flagBallPositionUpdated.set();
 	}
 
-	// De bal is uit beeld zodra de bovenkant van zijn sprite onder de onderrand
-	// van het scherm ligt. In speelveldcoordinaten (oorsprong linksonder) telt y
-	// omhoog, dus dat is een negatief getal.
+	// De laagste speelveld-y waarop nog iets van de bal te zien is; daaronder is
+	// hij het scherm uit. De bal is uit beeld zodra de bovenkant van zijn sprite
+	// onder de onderrand van het scherm ligt. In speelveldcoordinaten (oorsprong
+	// linksonder) telt y omhoog, dus dat is een negatief getal.
 	//
-	// De vlammen horen bij de sprite en dus bij deze grens: zou hier de kale
+	// Deze klasse beantwoordt dat en niet BallControl, omdat het antwoord van de
+	// spritemaat afhangt - een brandende bal draagt zijn vlammen mee - en die kent
+	// alleen de display. Die vlammen horen dus bij deze grens: zou hier de kale
 	// BallSizePix staan, dan knipt het vuur weg terwijl het nog zichtbaar was.
 	int getBallOffScreenY()
 	{
@@ -482,6 +461,8 @@ namespace pong_cleangui_dg_adv
 		flagHidePaddle.set();
 	}
 
+	// De uitzondering van UC04: "Game Over" over het spelscherm heen, en
+	// aantikbaar. Een knop en geen panel, want er moet op geklikt kunnen worden.
 	IButton* addGameOverLabelListener(IButtonListener* pButtonListener)
 	{
 		buttonGameOverLabel.addButtonListener(pButtonListener);
