@@ -97,6 +97,25 @@ namespace crt
 			bChildWidgetsAdded = true;
 		}
 
+		// crt::std::string is lengtegebaseerd en schrijft zelf nooit een
+		// afsluitende nul: clear() zet alleen current_length op 0 en operator= is
+		// clear() += rhs (zie crt_string.h). begin() gaat hieronder wel als
+		// C-string mee naar het label, dus die nul moet er na elke wijziging zelf
+		// achter.
+		//
+		// Zonder dit las het label door de nieuwe tekst heen in wat de vorige
+		// erachter had laten staan. De eerste naam ging goed - het veld ligt in
+		// statisch geheugen en begint dus op nullen - maar de tweede kreeg de
+		// staart van de eerste erbij: na "MARIUS" en een clearInput() staat er nog
+		// "?ARIUS", en wie dan "AB" typt ziet "ABRIUS".
+		//
+		// Binnen content[MaxTextSize]: keyPressed laat de lengte niet boven
+		// MaxTextSize-1 komen, dus de nul past altijd.
+		void terminateFieldContent()
+		{
+			_strFieldContent.begin()[_strFieldContent.length()] = '\0';
+		}
+
 		void updateButtonLabel(TSButton& tsButton, const char* label)
 		{
 			tsButton.setButtonName(label); // because IButton does not have a setText function.
@@ -192,6 +211,7 @@ namespace crt
 					_strFieldContent[_strFieldContent.length()-1] = '\0';
 					_strFieldContent = _strFieldContent.range_find_length(0, _strFieldContent.length()-1);
 				}
+				terminateFieldContent();
 				updateButtonLabel(tsInputfieldButton, _strFieldContent.begin());
 			}
 			else
@@ -203,6 +223,7 @@ namespace crt
 				}
 				// if it is a normal key, add it to the inputfield.
 				_strFieldContent += strKey; // don't copy to pool yet - only when the result is requested.
+				terminateFieldContent();
 				updateButtonLabel(tsInputfieldButton, _strFieldContent.begin());
 			}
 
@@ -230,13 +251,8 @@ namespace crt
 		// eindigde op precies deze ene aanroep.
 		/* override */ void clearInput()
 		{
-			// crt::string houdt zelf geen afsluitende nul bij - clear() zet alleen
-			// current_length op 0 (zie crt_string.h) - en begin() gaat hieronder
-			// als C-string mee. Die nul dus zelf zetten, net als de DEL-tak
-			// hierboven doet. Via begin() en niet via operator[]: die geeft na
-			// clear() een dummy terug, want de index ligt dan buiten de lengte.
 			_strFieldContent.clear();
-			*_strFieldContent.begin() = '\0';
+			terminateFieldContent();
 
 			updateButtonLabel(tsInputfieldButton, _strFieldContent.begin());
 		}

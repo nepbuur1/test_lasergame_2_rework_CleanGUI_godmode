@@ -85,8 +85,20 @@ namespace pong_cleangui_dg_adv
 			crt::std::string<MaxNofNameFieldChars> strFieldContent;
 			pNameInputfield->getTextValue(strFieldContent);
 
-			strncpy(strName, strFieldContent.begin(), nofCharsMax - 1);
-			strName[nofCharsMax - 1] = '\0';
+			// Op lengte kopieren en niet met strncpy vanaf begin(): crt::std::string
+			// is lengtegebaseerd en houdt GEEN afsluitende nul bij. operator= is
+			// clear() += rhs (zie crt_string.h), en dat schrijft alleen length()
+			// tekens - wat er in de bufferruimte daarachter staat blijft ongemoeid.
+			// Hier is die ruimte stack, dus rommel, en strncpy leest daar dwars
+			// doorheen tot hij toevallig een nulbyte tegenkomt. Dat is precies wat
+			// er als vraagtekens achter de naam in de hall of fame terechtkwam.
+			int nofChars = (int)strFieldContent.length();
+			if (nofChars > (nofCharsMax - 1))
+			{
+				nofChars = nofCharsMax - 1;
+			}
+			memcpy(strName, strFieldContent.begin(), nofChars);
+			strName[nofChars] = '\0';
 
 			// En de pagina weer weg. Wachten tot dat gebeurd is en niet alleen
 			// vragen: het toetsenbord schuift eerst naar beneden, en dat is nog een

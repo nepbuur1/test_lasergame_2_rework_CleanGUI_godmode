@@ -4,7 +4,8 @@
 #include <crt_CleanRTOS.h>
 
 // Het stukje Depot dat een uitgegeven exemplaar zelf nodig heeft: zichzelf weer
-// vrijgeven.
+// vrijgeven. release() laat het concrete Depot ook reset() op het item aanroepen,
+// zodat het na teruggave weer in zijn herbruikbare ruststand staat.
 //
 // Waarom een interface en niet gewoon Depot<T,N>*: dat zou een cirkel opleveren.
 // Depot<Bal,50> bevat Bal-objecten, en een Bal die zichzelf wil vrijgeven zou dan

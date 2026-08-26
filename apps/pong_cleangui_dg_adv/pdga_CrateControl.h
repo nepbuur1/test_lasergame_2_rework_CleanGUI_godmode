@@ -4,6 +4,7 @@
 #include <crt_CleanRTOS.h>
 
 #include "pdga_IDepot.h"
+#include "pdga_IDepotItem.h"
 #include "pdga_GameDisplayControl.h"
 #include "pdga_IBallSpawner.h"
 
@@ -17,7 +18,7 @@
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	class CrateControl
+	class CrateControl : public IDepotItem
 	{
 	private:
 		IDepot* pDepot;
@@ -60,8 +61,17 @@ namespace pong_cleangui_dg_adv
 		// De functie moet er zijn omdat het Depot hem per ronde aanroept, en dat
 		// is precies de plek waar later een animatie of een aftellende klok komt
 		// te staan.
-		void update()
+		/*override*/ void update()
 		{
+		}
+
+		// Door Depot aangeroepen bij release() en releaseAll(). De vaste
+		// bedrading naar depot en ballenspawner blijft behouden.
+		/*override*/ void reset()
+		{
+			posX = 0;
+			posY = 0;
+			nofHitsLeft = 0;
 		}
 
 		int getPosX() const { return posX; }

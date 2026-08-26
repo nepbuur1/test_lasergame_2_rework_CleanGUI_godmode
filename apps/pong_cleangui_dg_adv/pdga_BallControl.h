@@ -5,6 +5,7 @@
 #include <esp_timer.h>
 #include <crt_CleanRTOS.h>
 #include "pdga_IDepot.h"
+#include "pdga_IDepotItem.h"
 
 #include "pdga_GameDisplayControl.h"
 #include "pdga_IBallCollisionCheck.h"
@@ -35,7 +36,7 @@ namespace pong_cleangui_dg_adv
 	// Dat past ook gewoon in deze codebase: GameControl, GameOverControl en
 	// StartPageControl zijn al kale control-objecten die in de taak van een ander
 	// meeliften.
-	class BallControl
+	class BallControl : public IDepotItem
 	{
         enum State
         {
@@ -239,7 +240,7 @@ namespace pong_cleangui_dg_adv
         // GameControl::doGame(), samen met de negenenveertig andere ballen en al het
         // andere dat daar per beeld aan hangt. Vandaar geen enkele wacht- of
         // slaapoproep, waar de oude taakversie een xTaskDelayUntil had.
-        void update()
+        /*override*/ void update()
         {
             switch (state)
             {
@@ -288,7 +289,6 @@ namespace pong_cleangui_dg_adv
                 {
                     // Opgebrand. Hij is nooit bij de doellijn gekomen; hij is
                     // gewoon op.
-                    state = STATE_IDLE;
                     assert(pDepot != nullptr);
                     pDepot->release(indexSlot);
                 }
@@ -322,8 +322,6 @@ namespace pong_cleangui_dg_adv
                         (elapsedMs > 0) ? (int)(droppedPix*1000/elapsedMs) : 0,
                         (int)(BallSpeedPixPerFrame*1000/FrameIntervalMs));
 #endif
-
-                    state = STATE_IDLE;
 
                     // Zichzelf teruggeven. Dit mag vanuit de eigen update():
                     // een Depot perst zijn administratie niet samen, dus de lus
@@ -366,6 +364,29 @@ namespace pong_cleangui_dg_adv
             default:
                 break;
             }
+        }
+
+        // Door Depot aangeroepen bij release() en releaseAll(). De vaste
+        // bedrading uit init() en setBallListener() blijft behouden; alleen alles
+        // wat bij één leven van deze bal hoort wordt teruggezet.
+        /*override*/ void reset()
+        {
+            posX = fieldWidth/2;
+            posY = fieldHeight/2;
+            vX = 0;
+            vY = 0;
+            state = STATE_IDLE;
+            nofBurnUpClockStepsLeft = 0;
+            indexBurnAnimationStep = 0;
+            bFlagSpawnInTheMiddle = false;
+            bFlagSpawnAt = false;
+            spawnAtPosX = 0;
+            spawnAtPosY = 0;
+#ifdef PONG_MEASURE
+            timeOfIgnitionUs = 0;
+            posYAtIgnition = 0;
+            nofBurningSteps = 0;
+#endif
         }
 
 	private:

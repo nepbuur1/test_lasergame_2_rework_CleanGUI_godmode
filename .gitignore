@@ -39,3 +39,7 @@ tools/venv/
 
 # lokale toestand van tools/allImg2rgb565.py, per images-map.
 allImg2rgb565_last_called.txt
+
+# NTFS-metadata die WSL laat staan bij bestanden die van Windows komen
+# (alternate data stream met de download-herkomst). Nooit inhoud, altijd ruis.
+*:Zone.Identifier

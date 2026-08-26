@@ -16,24 +16,16 @@ Doel is een eenvoudige voorbeeldgame, pong.
 | Beschrijving      | Splash ervaring bij start van het spel geven.                                                                                 |
 | Preconditie       | De main usecase (UC01_Main) heeft beslist dat dit nu moet gebeuren.                                                           |
 | Scenario          | 1. De titel van het spel wordt getoond.<br/>2. Er is een "Start Game" knop zichtbaar.<br/>3. Wacht tot die knop is ingedrukt. |
+| Invariant         | Toon voor de sfeer een paar geanimeerde toortsen aan de zijkant van het scherm.                                               |
 | Postconditie      | Keer terug naar UC01_Main.                                                                                                    |
-
-Nog leuke "Nice to Haves" om bovenstaand eventueel later toe te voegen:
-
-- Opluisteren met animaties (van de Titel zelf, of tierelantijntjes erbij)
 
 | UC03_GameOverHandling |                                                                                                                                                                                                                                                                                                                                                                |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Beschrijving          | Game over afhandeling.                                                                                                                                                                                                                                                                                                                                         |
 | Preconditie           | De main usecase (UC01_Main) heeft beslist dat dit nu moet gebeuren.                                                                                                                                                                                                                                                                                            |
 | Scenario              | 1. Als de score een top-5 plek heeft verdiend:<br/>  a. Toon een invoerveld met erboven "type uw naam".<br/>  b. Wacht op de invoer compleet (na ENTER)<br/>  c. Sla de bijgewerkte top-5 op in spif geheugen.<br/>2. Toon de hall of fame (top 5).<br/>    a. Met daaronder de knop "Play Again"<br/>3. Wacht op het indrukken van die "Play Again" knop<br/> |
+| Invariant             | Toon voor de sfeer een paar geanimeerde toortsen aan de zijkant van het scherm.                                                                                                                                                                                                                                                                                |
 | Postconditie          | Keer terug naar UC01_Main.                                                                                                                                                                                                                                                                                                                                     |
-
-Nog leuke "Nice to Haves"" om bovenstaand eventueel later toe te voegen:
-
-- Opluisteren met animaties (van de text Game Over zelf, of tierelantijntjes erbij).
-- Een high score list laten zien.
-- Bij voldoende score de speler zijn naam laten invoeren, om de high score list te updaten.
 
 | UC04_GamePlaying |                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -2,7 +2,9 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
+#include <type_traits>
 #include "pdga_IDepot.h"
+#include "pdga_IDepotItem.h"
 #include <crt_IHandlerListener.h>
 
 // Een Depot bezit een vast aantal geprealloceerde objecten, geeft ze uit met
@@ -21,10 +23,12 @@
 // want dan sleepte elk depot een eigen taak en een eigen klok mee.
 //
 // Eisen aan T:
+//   - afgeleid van IDepotItem. Daarmee zijn update() en reset() onderdeel van
+//     het expliciete depotcontract in plaats van toevallige duck typing.
 //   - een default constructor, want arItems[N] wordt in een keer gebouwd. Wat
 //     een exemplaar verder nodig heeft, geef je het daarna met een eigen
 //     init()-achtige functie via getItem().
-//   - een void update().
+//   - reset() wist alleen runtime-toestand en laat de bedrading uit init() staan.
 //
 // Er wordt niets gealloceerd: geen new, geen delete, geen heap.
 
@@ -33,6 +37,12 @@ namespace pong_cleangui_dg_adv
 {
 	template <typename T, unsigned int N> class Depot : public IDepot, public IHandlerListener
 	{
+		// ::std en niet std: CleanRTOS heeft een eigen crt::std (zie
+		// internals/crt__std_Stack.h), en met het using namespace crt hierboven
+		// is een kale std:: hier dubbelzinnig.
+		static_assert(::std::is_base_of<IDepotItem, T>::value,
+		              "Depot<T,N> vereist dat T van IDepotItem is afgeleid");
+
 	public:
 		static const int InvalidIndex = -1;
 
@@ -103,6 +113,9 @@ namespace pong_cleangui_dg_adv
 				return;
 			}
 
+			// Eerst het object zelf terugbrengen naar zijn herbruikbare ruststand.
+			// reset() mag de vaste bedrading uit init() niet verwijderen.
+			arItems[index].reset();
 			arInUse[index] = false;
 			nofInUse--;
 		}
@@ -115,6 +128,10 @@ namespace pong_cleangui_dg_adv
 		{
 			for (unsigned int i = 0; i < N; i++)
 			{
+				if (arInUse[i])
+				{
+					arItems[i].reset();
+				}
 				arInUse[i] = false;
 			}
 			nofInUse = 0;
