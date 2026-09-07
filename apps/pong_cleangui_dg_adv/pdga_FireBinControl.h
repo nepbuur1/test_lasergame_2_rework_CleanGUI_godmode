@@ -7,12 +7,12 @@
 #include "pdga_IDepotItem.h"
 #include "pdga_GameDisplayControl.h"
 
-// UC08_FireBinHandling: een vuurkorf wordt door UC04 in het veld gezet, staat er
+// FireBinHandling: een vuurkorf wordt door in het veld gezet, staat er
 // ongeveer vijf seconden, en verdwijnt dan weer. Een bal die hem raakt vliegt in
-// brand (UC05 stap 1d) - dat staat in BallControl, niet hier: de korf doet niets
+// brand - dat staat in BallControl, niet hier: de korf doet niets
 // met ballen, hij staat er alleen.
 //
-// Anders dan de present crate telt deze wel af: hij houdt zijn eigen levensduur
+// Anders dan de present crate telt de fire bin wel automatisch af: hij houdt zijn eigen levensduur
 // bij en geeft zichzelf terug aan het depot. En anders dan bij de crate is de cel
 // van de spritesheet hier geen teller maar een animatiefase - het vuur brandt
 // door zolang de korf er staat.
@@ -85,6 +85,7 @@ namespace pong_cleangui_dg_adv
 				{
 					bFlagSpawnAt = false;
 					startAt(spawnAtPosX, spawnAtPosY);
+					state = STATE_BURNING;
 				}
 				break;
 
@@ -93,12 +94,10 @@ namespace pong_cleangui_dg_adv
 				nofStepsLeft--;
 				if (nofStepsLeft <= 0)
 				{
-					// Uitgebrand. Zichzelf teruggeven mag hier, midden in de eigen
-					// update(): een Depot perst zijn administratie niet samen, dus de
-					// lus die ons aanroept raakt er niet van in de war. Het panel volgt
-					// vanzelf - de display tekent alleen de slots die in gebruik zijn.
+					// Uitgebrand. Tijd om zichzelf op te heffen.
 					assert(pDepot != nullptr);
 					pDepot->release(indexSlot);
+					state = STATE_IN_DEPOT;
 				}
 				break;
 
@@ -108,18 +107,24 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Door Depot aangeroepen bij release() en releaseAll(). Alleen de
-		// runtime-toestand wordt gewist; pDepot en indexSlot zijn vaste bedrading
-		// van dit exemplaar en blijven staan.
+		// runtime-toestand wordt gewist.
 		/*override*/ void reset()
 		{
 			posX = 0;
 			posY = 0;
 			nofStepsLeft = 0;
 			indexAnimationStep = 0;
-			state = STATE_IN_DEPOT;
 			bFlagSpawnAt = false;
 			spawnAtPosX = 0;
 			spawnAtPosY = 0;
+
+			state = STATE_IN_DEPOT; // Normaal gesproken geen toestandswijziging door
+			                        // publieke interface functies.
+									// Dit is een uitzondering, omdat het object
+									// als het ware geherinitialiseerd wordt,
+									// bijvoorbeeld via releaseAll() van het Depot.
+									// (en update niet meer wordt aangeroepen totdat
+									//  het object opnieuww geinitialisserd is)
 		}
 
 		int getPosX() const { return posX; }
@@ -130,11 +135,9 @@ namespace pong_cleangui_dg_adv
 		// twee, en dat is bij een korf van achtentwintig niet te zien.
 		bool isTouchedAtPos(int ballPosX, int ballPosY, int ballRadius) const
 		{
-			// Tussen obtain()/spawnAt() en de eerstvolgende update() is het slot
-			// al in gebruik, maar de nieuwe korf nog niet gestart. Hij mag dan nog
-			// niet op zijn positie uit een vorig leven geraakt kunnen worden.
-			if ((state != STATE_BURNING) || bFlagSpawnAt)
-			{
+			if (state != STATE_BURNING)
+			{ 
+				// De firebin zit nog ongebruikt in depot.
 				return false;
 			}
 
@@ -146,8 +149,9 @@ namespace pong_cleangui_dg_adv
 
 		FireBinState getFireBinState() const
 		{
-			if ((state != STATE_BURNING) || bFlagSpawnAt)
-			{
+			if (state != STATE_BURNING)
+			{ 
+				// De firebin zit nog ongebruikt in depot.
 				return FireBinState();
 			}
 
@@ -164,7 +168,6 @@ namespace pong_cleangui_dg_adv
 			this->posY = posY;
 			nofStepsLeft = NofFireBinSteps;
 			indexAnimationStep = 0;
-			state = STATE_BURNING;
 		}
 	}; // end class FireBinControl
 

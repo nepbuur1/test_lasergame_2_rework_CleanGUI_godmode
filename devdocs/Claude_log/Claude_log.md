@@ -1,5 +1,76 @@
 # Claude log
 
+## 2026-09-07 — pdga: defineDisplayHierarchy ook in GameDisplayControl
+
+In `apps/pong_cleangui_dg_adv` hadden `StartPageDisplayControl`,
+`HallOfFameDisplayControl` en `NameInputPageDisplayControl` het opbouwen van de
+widgetboom al afgesplitst naar een private `defineDisplayHierarchy(IWidget&)`.
+`GameDisplayControl` deed dat nog los in `main()`: 35 regels `addChildWidget`
+tussen de backbuffer-detectie en `hidePage()`.
+
+Dat blok staat nu in een eigen `defineDisplayHierarchy(IWidget& pageRoot)`,
+vlak boven `main()`, met dezelfde signatuur als bij de andere drie. De volgorde
+van de kinderen en het commentaar over die volgorde (crates vóór ballen, ballen
+bovenop, vignet als laatste) zijn ongewijzigd meegegaan. `main()` doet nu
+alleen nog `defineDisplayHierarchy(pageGame)` gevolgd door `hidePage(pageGame)`.
+
+### `paddlePanel.enable()` deed niets
+
+`paddlePanel` is een `Panel<0>`. `Panel` overschrijft `enable()` niet; de
+implementatie uit `Widget` zet alleen `_bEnabled` en gaat de kinderen langs. Die
+vlag wordt alleen gelezen door `TouchscreenButton` en `TouchscreenButtonGroup`,
+nergens in het tekenpad. `paddlePanel.enable(true)` en `.disable(true)` zetten
+dus een vlag die niemand uitleest. Ze zaten er sinds de eerste commit van de
+adv-versie, uit symmetrie met `buttonLeft`/`buttonRight`. Weggehaald (door de
+auteur zelf).
+
+### De vlagafhandeling in `STATE_SHOWN` in eigen functies
+
+Vijf clauses uit de `switch` in `main()` staan nu in private functies, naast
+`showPage()`/`hidePage()`:
+
+| vlag                       | functie                          |
+|----------------------------|----------------------------------|
+| `flagShowPaddle`           | `showPaddleAndButtons()`         |
+| `flagHidePaddle`           | `hidePaddleAndButtons()`         |
+| `flagShowGameOverLabel`    | `doShowGameOverLabel(page)`      |
+| `flagHideGameOverLabel`    | `doHideGameOverLabel()`          |
+| `flagPaddlePositionUpdated`| `syncPaddlePanelPos()`           |
+
+De gevraagde namen `showGameOverLabel`/`hideGameOverLabel` botsten met de
+publieke methoden van dezelfde naam, die vanuit `GameControl` alleen de vlag
+zetten. `hideGameOverLabel()` zou letterlijk dubbel zijn (compilefout);
+`showGameOverLabel(page)` een overload die twee heel verschillende dingen
+onder een naam zet. `GameControl` gebruikt voor precies dit onderscheid al
+`doShowGameOverLabel()`, vandaar het `do`-voorvoegsel.
+
+`doShowGameOverLabel` krijgt de page als parameter omdat `pageGame` een lokale
+van `main()` is, net als bij `showPage()`/`hidePage()`.
+
+### De `flagBallPositionUpdated`-clause in drie functies
+
+De laatste grote clause (~70 regels) is opgedeeld, namen door de auteur gekozen:
+
+| deel                                  | functie                                      |
+|---------------------------------------|----------------------------------------------|
+| vier pools lezen, vier `apply*`, meting | `applyGameState(BallStates& ballStates)`   |
+| if-tak, gebufferd                     | `redrawWholePage(GamePageRoot& page)`        |
+| else-tak, ongebufferd                 | `moveActiveBalls(const BallStates&)`         |
+
+Twee dingen die niet puur knippen-en-plakken waren:
+
+- `ballStates` is na de serie nog nodig in de ongebufferde tak (voor `moveTo`),
+  vandaar de out-parameter. Geen member van gemaakt: de klasse houdt
+  pool-kopieën overal als lokale.
+- De gebufferde tak las zelf de peddelpositie en zette hem met `setLocPos`.
+  Dat is precies wat `syncPaddlePanelPos()` in gebufferde modus al doet, dus
+  `redrawWholePage()` roept die aan en doet daarna `page.redraw(true)`.
+
+De fps-rapportage erna staat nog in `main()`: die gebruikt lokalen van `main()`
+en was niet gevraagd.
+
+Gebouwd met `idf.py build`; nog niet geflasht.
+
 ## 2026-08-16 — dood hout: een template zonder parameters, interfaces zonder tweede implementatie
 
 Twee dingen weggehaald die niets deden, in alle drie de GUI-pongs.

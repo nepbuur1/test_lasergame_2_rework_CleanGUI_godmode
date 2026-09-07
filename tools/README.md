@@ -1,7 +1,11 @@
 # tools
 
-Python-gereedschap voor het hele project. Wat hier staat is niet van één example
-of app: `img2rgb565.py` bedient elke images-boom die je aanlegt.
+Gereedschap voor het hele project. Wat hier staat is niet van één example of app:
+`img2rgb565.py` bedient elke images-boom die je aanlegt, `drawio-export.sh` elk
+model onder `apps/*/models/`.
+
+Het meeste is Python en deelt de venv hieronder; `drawio-export.sh` is bash en
+heeft er niets van nodig.
 
 ## Eenmalig opzetten
 
@@ -125,3 +129,42 @@ Vlaggen:
 `libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer` gebruikt dit alles: bronnen in
 `images/`, gegenereerde headers in `images/_rgb565/`, en een viewer die
 `arAllImages[]` afloopt met twee touchknoppen.
+
+## drawio-export.sh — een modelpagina bekijken
+
+```
+tools/drawio-export.sh <bestand.drawio> --list
+tools/drawio-export.sh <bestand.drawio> <paginanaam> [uitvoer.png] [schaal]
+```
+
+Rendert één pagina uit een `.drawio` naar PNG/SVG/PDF, door vanuit WSL de draw.io
+desktop-app op de Windows-kant aan te roepen. Het formaat volgt de extensie van de
+uitvoernaam; de schaal (default 2) geldt alleen voor bitmaps.
+
+```
+tools/drawio-export.sh apps/pong_cleangui_dg_adv/models/pong_dg_adv.drawio \
+    "STD BallControl" /tmp/ball.png
+```
+
+Waarom dit bestaat: de modellen zijn platte mxGraph-XML, dus je kunt ze met
+tekstgereedschap doorzoeken en bewerken — maar niet bekíjken, en zonder kijken is
+een diagram niet te controleren. Dit sluit die lus.
+
+**Op naam, niet op nummer.** `--page-index` van draw.io is 1-gebaseerd ondanks de
+naam (0 levert stilzwijgend niets op), en belangrijker: die nummers schuiven zodra
+er een pagina bijkomt. Een paginanaam blijft staan. Vandaar dat het script de
+lijst zelf opzoekt en jij nooit een index hoeft te noemen.
+
+**Het bestand moet dicht zijn in draw.io** als er ook geschreven wordt. Alleen
+exporteren mag met een open bestand, maar draw.io houdt de inhoud in het geheugen
+en schrijft die bij de eerstvolgende save volledig terug — wijzigingen die
+ondertussen van buitenaf in het bestand kwamen, zijn dan weg.
+
+Vindt het script draw.io niet, zet dan het pad in de omgeving:
+
+```
+DRAWIO="/mnt/c/Program Files/draw.io/draw.io.exe" tools/drawio-export.sh ...
+```
+
+De backupbestanden die draw.io naast een open model neerzet (`.$naam.drawio.bkp`)
+horen niet in de repo; `*.bkp` staat daarom in `.gitignore`.

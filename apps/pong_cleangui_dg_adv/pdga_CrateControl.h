@@ -8,12 +8,8 @@
 #include "pdga_GameDisplayControl.h"
 #include "pdga_IBallSpawner.h"
 
-// UC07_PresentHandling: een present crate wordt door UC04 in het veld gezet,
-// verliest een teller bij elke balaanraking (die begint op NofCrateHits), en
+// Een present crate verlaagt een teller bij elke balaanraking (die begint op NofCrateHits), en
 // levert bij nul een handvol nieuwe ballen op de plek waar hij stond.
-//
-// Net als een bal is dit geen taak maar een object in een Depot; zie
-// pdga_Depot.h voor waarom.
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
@@ -23,9 +19,7 @@ namespace pong_cleangui_dg_adv
 	private:
 		IDepot* pDepot;
 
-		// Waar de ballen vandaan komen als deze crate opengaat. Via een interface en
-		// niet via het depot zelf: een crate hoort niet te weten dat er zoiets als
-		// een baldepot bestaat. Zie pdga_IBallSpawner.h.
+		// Waar de ballen vandaan komen als deze crate opengaat. 
 		IBallSpawner* pBallSpawner;
 
 		int indexSlot;
@@ -58,15 +52,12 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Een crate doet uit zichzelf niets - hij staat stil en wacht op ballen.
-		// De functie moet er zijn omdat het Depot hem per ronde aanroept, en dat
-		// is precies de plek waar later een animatie of een aftellende klok komt
-		// te staan.
+		// De functie moet er zijn omdat het Depot afleiding van IDepotItem vereist.
 		/*override*/ void update()
 		{
 		}
 
-		// Door Depot aangeroepen bij release() en releaseAll(). De vaste
-		// bedrading naar depot en ballenspawner blijft behouden.
+		// Door Depot aangeroepen bij release() en releaseAll().
 		/*override*/ void reset()
 		{
 			posX = 0;
@@ -78,9 +69,6 @@ namespace pong_cleangui_dg_adv
 		int getPosY() const { return posY; }
 
 		// Raakt een bal op (ballPosX, ballPosY) met straal ballRadius dit kistje?
-		// Vierkant tegen vierkant: de bal is rond, maar op twaalf pixels is het
-		// verschil met zijn omhullende vierkant een pixel of twee, en dat is bij
-		// een kistje van achtentwintig niet te zien.
 		bool isHitAtPos(int ballPosX, int ballPosY, int ballRadius) const
 		{
 			int halfSize = CrateSizePix/2;
@@ -89,19 +77,9 @@ namespace pong_cleangui_dg_adv
 			return (dx < halfSize + ballRadius) && (dy < halfSize + ballRadius);
 		}
 
-		// Een bal heeft dit kistje geraakt (UC05 stap 1c). De teller omlaag, en bij
-		// nul gaat hij open: NofBallsPerCrate ballen op deze plek, en daarna geeft
-		// hij zichzelf terug aan het depot (UC07 stap 3).
-		//
-		// Dat dit hier staat en niet bij wie de crates bewaart, is precies de reden
-		// dat een crate zijn teller en zijn plek zelf heeft. Zichzelf vrijgeven is
-		// hetzelfde patroon als bij een bal die het scherm verlaat - zie
-		// BallControl.
-		//
-		// Dit draait binnen de update() van de bal die het meldt, en dus binnen de
-		// lus van het baldepot. Dat mag: een Depot perst zijn administratie niet
-		// samen, dus bijkomende ballen en dit vrijgegeven slot brengen die lus niet
-		// in de war.
+		// Verwerking van het bericht dat een bal dit kistje heeft geraakt: 
+		// De teller omlaag, en bij nul gaat hij open: er spawnen NofBallsPerCrate 
+		// ballen op deze plek, en daarna geeft hij zichzelf terug aan het depot.
 		void wasHit()
 		{
 			if (nofHitsLeft > 0)

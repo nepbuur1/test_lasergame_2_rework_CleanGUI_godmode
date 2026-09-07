@@ -11,16 +11,9 @@
 // obtain() en neemt ze terug met release(), en roept per ronde update() aan op
 // alleen de exemplaren die in gebruik zijn.
 //
-// Waarvoor: spelobjecten waarvan er veel tegelijk kunnen bestaan - ballen,
-// mijnen, kratten. Die elk hun eigen taak geven loopt vast op geheugen: vijftig
-// taken van 5000 bytes stack is 250 KB, en zoveel DRAM heeft een ESP32 zonder
-// PSRAM niet. Vandaar dat ze geen taak zijn maar een update(), en dat een
-// Handler ze aandrijft - zie crt_Handler.h, dat voor precies die reden bestaat.
-//
 // Een Depot is er voor EEN type. Depot<Bal,50> bevat alleen ballen; komen er
 // mijnen bij, dan is dat een tweede Depot<Mijn,10>. Ze mogen zich alle twee bij
-// dezelfde Handler aanmelden - en juist daarom is een Depot zelf geen Handler,
-// want dan sleepte elk depot een eigen taak en een eigen klok mee.
+// dezelfde Handler aanmelden (aangenomen dat ze dezelfde update klokfrequentie hebben).
 //
 // Eisen aan T:
 //   - afgeleid van IDepotItem. Daarmee zijn update() en reset() onderdeel van
@@ -28,7 +21,7 @@
 //   - een default constructor, want arItems[N] wordt in een keer gebouwd. Wat
 //     een exemplaar verder nodig heeft, geef je het daarna met een eigen
 //     init()-achtige functie via getItem().
-//   - reset() wist alleen runtime-toestand en laat de bedrading uit init() staan.
+//   - reset() wist alleen runtime-toestand en herstelt de toestand na init().
 //
 // Er wordt niets gealloceerd: geen new, geen delete, geen heap.
 
@@ -62,7 +55,7 @@ namespace pong_cleangui_dg_adv
 			}
 		}
 
-		// Claimt een vrij exemplaar en geeft zijn INDEX terug, niet een referentie.
+		// Claimt een vrij exemplaar en geeft zijn index terug, niet een referentie.
 		// De index is wat de aanroeper nodig heeft: hij wijst behalve het object
 		// ook alles aan wat er in andere arrays naast ligt - het panel waarmee dit
 		// object getekend wordt, bijvoorbeeld.
@@ -97,8 +90,7 @@ namespace pong_cleangui_dg_adv
 		// Dit mag een exemplaar ook over zichzelf aanroepen, midden in zijn eigen
 		// update(). Dat is veilig omdat arInUse nooit wordt samengeperst: de lus in
 		// update() hieronder loopt op index en raakt niet in de war van een slot
-		// dat onderweg vrijkomt. Precies daarom staat hier een bool-array en geen
-		// lijst van actieve indices.
+		// dat onderweg vrijkomt.
 		/*override*/ void release(int index)
 		{
 			if ((index < 0) || ((unsigned int)index >= N))
@@ -121,9 +113,7 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Alles in een keer terug. Bedoeld voor het opruimen tussen twee rondes
-		// door: exemplaren die op eigen voorwaarden verdwijnen - een crate die
-		// opengaat, een korf die uitbrandt - blijven anders in hun slot zitten als
-		// die voorwaarde nooit intreedt.
+		// door.
 		void releaseAll()
 		{
 			for (unsigned int i = 0; i < N; i++)
@@ -139,7 +129,7 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Ook voor niet-uitgegeven exemplaren: bij het opstarten moet de eigenaar
-		// ze alle N kunnen bedraden, ver voordat er een is geclaimd.
+		// ze alle N kunnen instellen, voordat er een is geclaimd.
 		T& getItem(int index)
 		{
 			assert((index >= 0) && ((unsigned int)index < N));

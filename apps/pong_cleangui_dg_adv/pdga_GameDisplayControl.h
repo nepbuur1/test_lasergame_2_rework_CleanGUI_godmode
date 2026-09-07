@@ -26,7 +26,7 @@
 // "loopt de klok goed", "houdt het tekenen het bij" en "wat gebeurt er in het
 // veld" af te lezen in plaats van te beredeneren.
 //
-// Uit, omdat het geld kost waar het gemeten wordt: een logregel is bij 115200
+// Uit, omdat het tijd kost waar het gemeten wordt: een logregel is bij 115200
 // baud zo'n 7 ms, en de spawn-regels lopen in de taak waarin ook de beeldklok
 // zit - een kwart van een beeld.
 //#define PONG_MEASURE
@@ -36,16 +36,13 @@ namespace pong_cleangui_dg_adv
 {
 	// Zie pdga_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	// Hoeveel ballen er tegelijk in de lucht kunnen zijn. Zie UC07: een present
+	// Hoeveel ballen er tegelijk in de lucht kunnen zijn. Een present
 	// crate spawnt er tien ineens. Ze liggen geprealloceerd in een Depot (zie
 	// pdga_Depot.h) en hebben elk een panel in de array hieronder, op dezelfde
 	// index.
 	const int MaxNofBalls = 50;
 
-	// Alles wat het tekenen van EEN bal nodig heeft. Het brandende bit reist met
-	// de positie mee en niet als losse vlag: de twee horen bij elkaar, en apart
-	// verstuurd kunnen ze in de verkeerde volgorde aankomen - dan vlamt de bal een
-	// beeld te vroeg of te laat.
+	// Alles wat het tekenen van EEN bal nodig heeft. 
 	struct BallState
 	{
 		BallState():posX(0),posY(0),bActive(false),bBurning(false),indexBurnAnimationStep(0){}
@@ -69,7 +66,7 @@ namespace pong_cleangui_dg_adv
 	};
 
 	// Hoeveel present crates er tegelijk in het veld kunnen staan, hoe groot ze
-	// zijn en hoeveel treffers ze verdragen. Zie UC04 en UC07: elke drie seconden
+	// zijn en hoeveel treffers ze verdragen. Elke drie seconden
 	// dat er geen bal de onderlijn passeert komt er een bij, en na NofCrateHits
 	// balaanrakingen gaat hij open en levert hij NofBallsPerCrate ballen op.
 	const int MaxNofCrates     = 5;
@@ -100,9 +97,9 @@ namespace pong_cleangui_dg_adv
 	};
 
 	// De vuurkorf (UC08). Hij staat FireBinLifetimeMs in het veld en verdwijnt dan
-	// weer; een bal die hem raakt brandt op in BallBurnUpMs (UC05 stap 1d).
+	// weer; een bal die hem raakt brandt op in BallBurnUpMs.
 	//
-	// De kans dat het beslismoment van UC04 een vuurkorf oplevert in plaats van
+	// De kans dat het beslismoment een vuurkorf oplevert in plaats van
 	// een present crate is evenredig met het aantal ballen in het veld: bij
 	// NofBallsForCertainFireBin of meer is het altijd een vuurkorf.
 	const int MaxNofFireBins            = 5;
@@ -159,29 +156,21 @@ namespace pong_cleangui_dg_adv
 
 	// ---- Spelmaten, allemaal in pixels ------------------------------------
 	//
-	// Het spel rekende eerst in cellen van een raster: een bal die per stap een
-	// hele cel verspringt. Dat is precies wat een tekstconsole aankan en wat een
-	// scherm niet nodig heeft. Alles hieronder is nu in pixels, en de bal legt er
-	// een paar per beeld af - dat is het verschil tussen verspringen en bewegen.
+	// Alles hieronder is in pixels, en de bal legt er
+	// een paar per frame af.
 	//
 	// De oorsprong van het speelveld ligt LINKSONDER: y=0 is de peddellijn en y
 	// loopt omhoog. GameDisplayControl is de enige die dat naar schermpixels
 	// omrekent (het scherm telt van boven).
-	//
-	// Ze staan in deze header en niet in een eigen bestand omdat ze de spelpagina
-	// beschrijven: BallControl en PaddleControl rekenen ermee en includeren deze
-	// header toch al voor GameDisplayControl.
 	const int FrameIntervalMs      = 40;	// 25 beelden per seconde.
 	const int WallThicknessPix     = 10;
 	const int BallSizePix          = 12;
 	const int PaddleWidthPix       = 50;
 	const int PaddleHeightPix      = 12;
 	const int BallSpeedPixPerFrame = 4;		// 100 pixels per seconde.
-	const int PaddleStepPix        = 8;		// 150 pixels per seconde zolang de knop ingedrukt blijft.
+	const int PaddleStepPix        = 8;		// 200 pixels per seconde zolang de knop ingedrukt blijft.
 
-	// De levensduren uit UC08 en UC05 in beeldstappen, want daarin rekenen de
-	// spelobjecten. Hier en niet bij de constanten hierboven, omdat ze
-	// FrameIntervalMs nodig hebben.
+	// De levensduren in frame steps.
 	const int NofFireBinSteps    = FireBinLifetimeMs / FrameIntervalMs;
 	const int NofBallBurnUpSteps = BallBurnUpMs / FrameIntervalMs;
 
@@ -193,21 +182,11 @@ namespace pong_cleangui_dg_adv
 	//
 	// Een bal die onder de doellijn door valt is binnen 700 ms weg en komt dus
 	// nooit verder dan het eerste stadium. Dat hoeft nergens apart geregeld te
-	// worden; het volgt uit de tijd.
+	// worden. Het volgt uit de tijd.
 	const int NofBurnStages         = 3;
 	const int NofFramesPerBurnStage = 5;
 	const int NofStepsPerBurnStage  = (BallBurnUpMs / NofBurnStages) / FrameIntervalMs;
 
-	// De maten hierboven staan ook in images/make_pong_images.py: daar bepalen ze
-	// hoe groot de PNG's worden. Verander je er een, dan hoort dat script opnieuw
-	// te draaien, gevolgd door tools/img2rgb565.py --pal8. Vergeet je dat, dan
-	// zegt setImageChecked() hieronder het bij het opstarten - dat is precies
-	// waarvoor die functie er is.
-	//
-	// Een plaatje op een panel zetten en meteen nagaan of het past. Te klein laat
-	// Panel::needsBackground() de achtergrondkleur er alsnog onder schilderen; te
-	// groot loopt over de buren heen. Allebei zie je op het bord alleen als "hij
-	// tekent net niet goed", en niet als fout.
 	// Een template omdat een TouchscreenButton ook een Panel is, maar er een met
 	// een ander aantal kinderen - hij houdt zijn label als kind-widget.
 	template <typename PANEL>
@@ -234,20 +213,11 @@ namespace pong_cleangui_dg_adv
 	// Deze telling moet kloppen, en dat merk je NIET vanzelf: een te krappe
 	// PageRoot laat addChildWidget() het laatste kind weigeren met een ESP_LOGI en
 	// verder gewoon doorlopen. Er crasht niets, er ontbreekt alleen stilzwijgend
-	// een widget - en omdat de pagina bij het opstarten wordt gebouwd, is die
-	// melding allang van het scherm als je het merkt. Het vignet is er precies zo
-	// een keer uitgevallen.
+	// een widget.
 	const int NofFixedGameWidgets = 9;
 
 	typedef PageRoot<NofFixedGameWidgets + MaxNofBalls + MaxNofCrates + MaxNofFireBins + NofScoreDigits> GamePageRoot;
 
-	// Wat de control-objecten van deze pagina mogen vragen, staat in het publieke
-	// blok van de klasse hieronder (het eerste na de constructor). Hier stond een
-	// IGameDisplayControl die precies datzelfde rijtje nog een keer opsomde: een
-	// interface met een implementatie, in hetzelfde bestand, dat iedereen toch al
-	// includeert voor BallStates en de spelmaten. Wat hij afschermde was alleen de
-	// publieke kant van Task; wat hij kostte was een tweede plek die bij elke
-	// wijziging moest meebewegen.
 	class GameDisplayControl : public Task
 	{
 		enum State
@@ -272,13 +242,9 @@ namespace pong_cleangui_dg_adv
 		// bekend is. Ze hier al invullen zou betekenen dat de initialisatielijst
 		// leden leest die nog niet bestaan.
 		//
-		// backgroundPanel beslaat het HELE scherm, niet alleen het speelveld. Twee
-		// redenen: de peddelknoppen zitten in de onderste kwart en horen bij deze
-		// pagina, en moveTo() laat de vrijgekomen strook door de boom opnieuw
-		// tekenen - zonder iets dat daar wel wat tekent blijft de oude bal staan.
-		// Dat laatste geldt ook onder de doellijn, waar de bal aan het eind van
-		// een spel verdwijnt.
+		// backgroundPanel beslaat het HELE scherm, niet alleen het speelveld.
 		Panel<0> backgroundPanel;
+
 		// Een panel per balslot, op dezelfde index als in het Depot. Dat de index
 		// beide aanwijst is het hele idee: de bal hoeft zijn panel niet te kennen
 		// en het panel de bal niet.
@@ -428,6 +394,8 @@ namespace pong_cleangui_dg_adv
 	// BallSizePix staan, dan knipt het vuur weg terwijl het nog zichtbaar was.
 	int getBallOffScreenY()
 	{
+		// deze drie variabelen: geen aanpassing na initialisatie/constructie 
+		// -> geen taaksynchronisatie nodig.
 		return (height - 1) - screenHeight - ballPanelSizePix().y/2;
 	}
 
@@ -720,19 +688,9 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// De hele pagina in beeld. Tekenbaar maken en tekenen mag hier op de
-		// PageRoot zelf - en moet zelfs: redrawRegion() breekt af op een
-		// niet-tekenbare widget, en moveTo() laat de bal juist via de root
-		// opnieuw tekenen. Dat de root meteen de hele boom meeneemt is precies de
-		// bedoeling, want deze root draagt maar een pagina. (In een opzet met drie
-		// pagina's onder een gedeelde root zou dat ze alle drie over elkaar heen
-		// tekenen.)
+		// PageRoot zelf.
 		void showPage(GamePageRoot& page)
 		{
-			// Eerst de vlag terug die hidePage() over de hele boom uitzette, en PAS
-			// DAARNA de standen toepassen: applyBallStates() en de twee andere zetten
-			// juist de slots uit die niet in het spel zijn. In de omgekeerde volgorde
-			// gaan alle vijftig balpanels op het veldmidden en alle crates in de hoek
-			// weer aan, en dan worden ze ook getekend.
 			page.makeDrawable(true);
 			initBallAndPaddlePosition();
 
@@ -746,42 +704,184 @@ namespace pong_cleangui_dg_adv
 
 			page.enable(true);
 
-			// Na page.enable(true), niet ervoor: die zet de hele boom aan. Het
-			// vignet mag tijdens het spel geen tik aannemen - hij ligt er
+			// Na page.enable(true), die zet immers de touchbuttons van de hele boom aan. 
+			// Het vignet mag tijdens het spel geen touch detecteren - hij ligt er
 			// onzichtbaar overheen.
 			buttonGameOverLabel.disable(true);
 		}
 
-		// Uit beeld, en met opzet ZONDER iets te tekenen. Daarom makeNonDrawable()
-		// en nadrukkelijk NIET hide(): die laat de boom vanaf de wortel over het
-		// vrijgekomen vlak gaan, en dat is hier precies wat niet mag.
-		//
-		// Dat is wat deze opzet met meerdere tekentaken werkbaar houdt. Zou het
-		// verbergen wel tekenen, dan zet deze taak een vlak in de commandobuffer
-		// terwijl de taak van de volgende pagina daar al zijn tekenwerk in schuift
-		// - en welke van de twee er als laatste uitkomt ligt niet vast. Dan wist
-		// het ene beeld het andere.
-		//
-		// Het mag omdat elke pagina begint met een schermvullend backgroundPanel:
-		// de volgende pagina wist wat hier blijft staan. Blijft die eis overeind,
-		// dan is de wissel bovendien mooier - geen zwarte flits tussen twee
-		// pagina's in.
-		//
-		// De disable() hieronder is de enige uitschakeling van deze pagina: sinds
-		// tekenbaarheid en aanraakbaarheid losse assen zijn, disabelt verbergen
-		// niet meer mee. Wie hem opruimt laat de peddelknoppen en het vignet
-		// doorwerken terwijl de volgende pagina in beeld staat.
 		void hidePage(GamePageRoot& page)
 		{
 			page.makeNonDrawable(true);
 			page.disable(true);
 
-			// Een peddelwens van het vorige spel mag niet blijven staan:
-			// PaddleControl zet flagHidePaddle op het moment dat het spel eindigt,
-			// en die zou anders in het volgende spel de peddel meteen weer laten
-			// verdwijnen.
 			flagShowPaddle.clear();
 			flagHidePaddle.clear();
+		}
+
+		// De enable() zijn ook nodig, want alleen tonen zet de
+		// touchscreenbuttons niet aan. De twee knoppen worden verder alleen nog
+		// door page.enable(true) in showPage() aangezet.
+		void showPaddleAndButtons()
+		{
+			paddlePanel.show(true);
+			buttonLeft.show(true);
+			buttonLeft.enable(true);
+			buttonRight.show(true);
+			buttonRight.enable(true);
+		}
+
+		void hidePaddleAndButtons()
+		{
+			if (bDisplayIsBuffered)
+			{
+				// makeNonDrawable() en niet hide(): wissen hoeft er
+				// niet bij - wat niet meer wordt getekend, staat er in
+				// het volgende beeld ook niet meer. hide() zou er nog
+				// een herstel van het vrijgekomen vlak overheen doen,
+				// en dat beeld gaat toch al in zijn geheel opnieuw.
+				paddlePanel.makeNonDrawable(true);
+				buttonLeft.makeNonDrawable(true);
+				buttonRight.makeNonDrawable(true);
+			}
+			else
+			{
+				// Hier moet er wel gewist worden, want er komt geen
+				// volledige hertekening meer overheen. hide() laat de
+				// boom vanaf de wortel over het vrijgekomen vlak gaan,
+				// dus daar komt de achtergrond terug in plaats van een
+				// vulling met de eigen colBg.
+				paddlePanel.hide(true);
+				buttonLeft.hide(true);
+				buttonRight.hide(true);
+			}
+
+			// Buiten de if/else, en dat moet ook: geen van beide takken
+			// schakelt iets uit. De gebufferde tak zet alleen vlaggen,
+			// en verbergen disabelt sinds de splitsing van de assen
+			// niet meer mee.
+			buttonLeft.disable(true);
+			buttonRight.disable(true);
+		}
+
+		// Er komen geen balbeelden meer, dus deze pagina wordt nergens anders
+		// meer hertekend. Zelf doen dus - maar met redraw en niet met show: de
+		// peddel en de peddelknoppen zijn hier net verborgen, en show zou ze
+		// samen met alle ongebruikte slots weer aanzetten.
+		void doShowGameOverLabel(GamePageRoot& page)
+		{
+			buttonGameOverLabel.makeDrawable(true);
+			buttonGameOverLabel.enable(true);
+			page.redraw(true);
+		}
+
+		// Geen hide(): hierna volgt meteen hideGamePage(), en die mag met opzet
+		// niets tekenen zolang de volgende pagina in dezelfde commandobuffer
+		// bezig is - zie hidePage().
+		void doHideGameOverLabel()
+		{
+			buttonGameOverLabel.makeNonDrawable(true);
+			buttonGameOverLabel.disable(true);
+		}
+
+		// Het peddelpaneel op de plek zetten die PaddleControl zojuist in de
+		// pool heeft gelegd.
+		void syncPaddlePanelPos()
+		{
+			int paddlePosition;
+			poolPaddlePosition.read(paddlePosition);
+			Vec2 paddleTopLeftPix = centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix());
+
+			if (bDisplayIsBuffered)
+			{
+				// Alleen verzetten, niet tekenen. Het beeld dat de bal
+				// zometeen laat maken neemt de peddel mee; er nu al
+				// een eigen beeld aan wijden zou het scherm twee keer
+				// uitsturen voor een beeld, en dat halveert de
+				// beeldsnelheid.
+				paddlePanel.setLocPos(paddleTopLeftPix, CoordType::Pixels, Alignment::MidMid);
+			}
+			else
+			{
+				// moveTo() en niet setLocPos(): die laatste verzet alleen de
+				// coordinaten en tekent niets, zodat de peddel op het scherm
+				// blijft staan waar hij stond. moveTo() herstelt bovendien
+				// alleen de strook die vrijkomt - dat is wat dit betaalbaar
+				// maakt bij 25 beelden per seconde.
+				paddlePanel.moveTo(paddleTopLeftPix, CoordType::Pixels);
+			}
+		}
+
+		// De stand van het spel uit de pools op alle panels zetten: bal, crate,
+		// vuurkorf en score. Nog niet tekenen. ballStates komt mee naar buiten
+		// omdat de ongebufferde tak hem nodig heeft voor moveTo().
+		void applyGameState(BallStates& ballStates)
+		{
+			poolBallStates.read(ballStates);
+
+			CrateStates crateStates;
+			poolCrateStates.read(crateStates);
+
+			FireBinStates fireBinStates;
+			poolFireBinStates.read(fireBinStates);
+
+			// Alle panels op hun nieuwe stand, inclusief de cel van
+			// de brandcyclus, de cel van de crate-teller, en het
+			// uitzetten van slots die niet meer in het spel zijn.
+			// Nog niet tekenen.
+			int32_t score;
+			poolScore.read(score);
+
+			applyBallStates(ballStates);
+			applyCrateStates(crateStates);
+			applyFireBinStates(fireBinStates);
+			applyScore(score);
+
+#ifdef PONG_MEASURE
+			// Is er een beeld overgeslagen? Zie nofSkippedSteps.
+			if (indexLastDrawnStep >= 0)
+			{
+				nofSkippedSteps += (ballStates.indexFrame - indexLastDrawnStep - 1);
+			}
+			indexLastDrawnStep = ballStates.indexFrame;
+#endif
+		}
+
+		// Het hele beeld in een keer, voor een display met backbuffer.
+		void redrawWholePage(GamePageRoot& page)
+		{
+			// De peddel er meteen bij. De twee vlaggen worden in
+			// deze if/else-keten om beurten afgehandeld, dus zonder
+			// dit zou de peddel steeds een beeld achterlopen op wat
+			// PaddleControl al doorgaf.
+			syncPaddlePanelPos();
+
+			// Dit is het beeld. AsyncDisplay stuurt de buffer uit
+			// zodra zijn commandoketen leeg is, dus een present()
+			// hoeft hier niet - zie de auto-present onderaan
+			// AsyncDisplay::main().
+			//
+			// redraw en niet show: deze boom zit vol widgets die
+			// met opzet uit staan (de ongebruikte bal-, crate- en
+			// vuurkorfslots, en na hidePaddle ook de peddel). show
+			// zou die vijfentwintig keer per seconde weer aanzetten
+			// en het veld in een beeld laten vollopen.
+			page.redraw(true);
+		}
+
+		void moveActiveBalls(const BallStates& ballStates)
+		{
+			// Zonder backbuffer verzet elke bal zich apart, zodat
+			// alleen de strook die vrijkomt wordt hersteld.
+			for (int i = 0; i < MaxNofBalls; i++)
+			{
+				if (ballStates.arBall[i].bActive)
+				{
+					arBallPanels[i].moveTo(
+						centreToTopLeftPix(ballStates.arBall[i].posX, ballStates.arBall[i].posY, ballPanelSizePix()),
+						CoordType::Pixels);
+				}
+			}
 		}
 
 		// De maat van een cel uit de spritesheet, dus inclusief de ruimte voor de
@@ -793,11 +893,6 @@ namespace pong_cleangui_dg_adv
 		}
 
 		// Welke cel een brandende bal toont, gegeven hoe lang hij al brandt.
-		//
-		// Het stadium volgt uit de verstreken tijd en blijft op het laatste staan
-		// als de bal langer brandt dan verwacht - dat kan niet gebeuren zolang
-		// BallBurnUpMs en NofBurnStages bij elkaar passen, maar een index buiten
-		// de sheet is een fout die je pas op het scherm ziet.
 		static int burningFrameIndex(int32_t indexBurnAnimationStep)
 		{
 			int32_t stage = indexBurnAnimationStep / NofStepsPerBurnStage;
@@ -830,9 +925,7 @@ namespace pong_cleangui_dg_adv
 		static Vec2 crateSizePix()   { return Vec2(CrateSizePix, CrateSizePix); }
 		static Vec2 fireBinSizePix() { return Vec2(FireBinSizePix, FireBinSizePix); }
 
-		// Alle vuurkorfpanels op de zojuist ontvangen standen. Zelfde opzet als bij
-		// de ballen en de crates; alleen is de cel hier een animatiefase en geen
-		// teller, dus hij loopt cyclisch rond.
+		// Toepassen van de FireBinStates op de bijbehorende panels.
 		void applyFireBinStates(const FireBinStates& fireBinStates)
 		{
 			for (int i = 0; i < MaxNofFireBins; i++)
@@ -853,9 +946,7 @@ namespace pong_cleangui_dg_adv
 			}
 		}
 
-		// Alle cratepanels op de zojuist ontvangen standen zetten. Zelfde opzet
-		// als applyBallStates(): een slot dat niet in het spel is wordt
-		// niet-tekenbaar, en zo verdwijnt een geopende crate vanzelf.
+		// Toepassen van de CrateStates op de bijbehorende panels.
 		void applyCrateStates(const CrateStates& crateStates)
 		{
 			for (int i = 0; i < MaxNofCrates; i++)
@@ -873,8 +964,7 @@ namespace pong_cleangui_dg_adv
 				panel.setLocPos(centreToTopLeftPix(crateState.posX, crateState.posY, crateSizePix()),
 								CoordType::Pixels, Alignment::MidMid);
 
-				// Cel 0 is gaaf en toont NofCrateHits; elke treffer schuift een cel
-				// op. Het aftellen zit dus in het plaatje en niet in losse tekst.
+				//Het aftellen zit in het plaatje en niet in losse tekst.
 				int indexFrame = NofCrateHits - crateState.nofHitsLeft;
 				if (indexFrame < 0) { indexFrame = 0; }
 				if (indexFrame >= imageCrate.nofCols) { indexFrame = (int)imageCrate.nofCols - 1; }
@@ -882,12 +972,8 @@ namespace pong_cleangui_dg_adv
 			}
 		}
 
-		// Alle balpanels op de zojuist ontvangen standen zetten. Een slot dat niet
-		// in het spel is, wordt niet-tekenbaar - dat is hoe een bal die zichzelf
-		// aan het depot teruggaf van het scherm verdwijnt, zonder dat hij daar een
-		// apart bericht voor hoeft te sturen.
-		//
-		// Alleen de coordinaten; het tekenen gebeurt daarna in een keer.
+		// Alle balpanels op de zojuist ontvangen standen zetten. 
+		// Alleen de coordinaten. Het tekenen gebeurt daarna in een keer.
 		void applyBallStates(const BallStates& ballStates)
 		{
 			for (int i = 0; i < MaxNofBalls; i++)
@@ -915,6 +1001,48 @@ namespace pong_cleangui_dg_adv
 		}
 		static Vec2 paddleSizePix() { return Vec2(PaddleWidthPix, PaddleHeightPix); }
 
+		void defineDisplayHierarchy(IWidget& pageRoot)
+		{
+			pageRoot.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
+			pageRoot.addChildWidget(bottomLinePanel);
+			pageRoot.addChildWidget(leftBorderPanel);
+			pageRoot.addChildWidget(rightBorderPanel);
+			pageRoot.addChildWidget(topBorderPanel);
+			pageRoot.addChildWidget(paddlePanel);
+			pageRoot.addChildWidget(buttonLeft);
+			pageRoot.addChildWidget(buttonRight);
+
+			// De crates vóór de ballen, zodat een bal er overheen gaat en niet
+			// erachter verdwijnt op het moment dat hij hem raakt.
+			for (int i = 0; i < MaxNofCrates; i++)
+			{
+				pageRoot.addChildWidget(arCratePanels[i]);
+			}
+
+			for (int i = 0; i < MaxNofFireBins; i++)
+			{
+				pageRoot.addChildWidget(arFireBinPanels[i]);
+			}
+
+			for (int i = 0; i < NofScoreDigits; i++)
+			{
+				pageRoot.addChildWidget(arScoreDigitPanels[i]);
+			}
+
+			// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een
+			// kaatsing tegen de peddel: een brandende bal valt onder de doellijn
+			// door en komt daarbij over de peddelknoppen heen. Stonden ze eerder in
+			// de rij, dan verdween hij vlak na de doellijn achter een knop in
+			// plaats van door te vliegen tot buiten het scherm.
+			for (int i = 0; i < MaxNofBalls; i++)
+			{
+				pageRoot.addChildWidget(arBallPanels[i]);
+			}
+
+			// En het GAME OVER-vignet daar nog overheen.
+			pageRoot.addChildWidget(buttonGameOverLabel);
+		}
+
 		/*override keyword not supported*/
 		void main()
 		{
@@ -926,9 +1054,6 @@ namespace pong_cleangui_dg_adv
 #endif
 			initPanels();
 
-			// Eenmalig vragen wat voor display dit is; het antwoord bepaalt hoe
-			// hieronder een beeld tot stand komt.
-			//
 			// Rechtstreeks op het paneel is elke pixel bustijd, dus verzet je
 			// alleen wat er beweegt: moveTo() tekent de bal op zijn nieuwe plek en
 			// herstelt de strook die vrijkomt.
@@ -947,44 +1072,7 @@ namespace pong_cleangui_dg_adv
 				                   : "bal en peddel bewegen met moveTo");
 
 			GamePageRoot pageGame("rootGameDisplay",display);
-			pageGame.addChildWidget(backgroundPanel);	// eerst, want alles hierna tekent erop.
-			pageGame.addChildWidget(bottomLinePanel);
-			pageGame.addChildWidget(leftBorderPanel);
-			pageGame.addChildWidget(rightBorderPanel);
-			pageGame.addChildWidget(topBorderPanel);
-			pageGame.addChildWidget(paddlePanel);
-			pageGame.addChildWidget(buttonLeft);
-			pageGame.addChildWidget(buttonRight);
-
-			// De crates vóór de ballen, zodat een bal er overheen gaat en niet
-			// erachter verdwijnt op het moment dat hij hem raakt.
-			for (int i = 0; i < MaxNofCrates; i++)
-			{
-				pageGame.addChildWidget(arCratePanels[i]);
-			}
-
-			for (int i = 0; i < MaxNofFireBins; i++)
-			{
-				pageGame.addChildWidget(arFireBinPanels[i]);
-			}
-
-			for (int i = 0; i < NofScoreDigits; i++)
-			{
-				pageGame.addChildWidget(arScoreDigitPanels[i]);
-			}
-
-			// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een
-			// kaatsing tegen de peddel: een brandende bal valt onder de doellijn
-			// door en komt daarbij over de peddelknoppen heen. Stonden ze eerder in
-			// de rij, dan verdween hij vlak na de doellijn achter een knop in
-			// plaats van door te vliegen tot buiten het scherm.
-			for (int i = 0; i < MaxNofBalls; i++)
-			{
-				pageGame.addChildWidget(arBallPanels[i]);
-			}
-
-			// En het GAME OVER-vignet daar nog overheen.
-			pageGame.addChildWidget(buttonGameOverLabel);
+			defineDisplayHierarchy(pageGame);
 
 			hidePage(pageGame);		// het spel begint op de startpagina.
 
@@ -1021,165 +1109,36 @@ namespace pong_cleangui_dg_adv
 						}
 						else if(hasFired(flagShowPaddle))
 						{
-							// De enable() achter elke show() is dragend en geen
-							// dubbeling: tonen maakt niet aanraakbaar. De twee knoppen
-							// worden verder alleen nog door page.enable(true) in
-							// showPage() aangezet. Beide plekken lopen door
-							// TouchscreenButton::enable(), die bij een echte overgang
-							// van uit naar aan een druk weggooit die is blijven hangen
-							// doordat de knop tijdens het loslaten uit stond.
-							paddlePanel.show(true);
-							paddlePanel.enable(true);
-							buttonLeft.show(true);
-							buttonLeft.enable(true);
-							buttonRight.show(true);
-							buttonRight.enable(true);
+							showPaddleAndButtons();
 						}
 						else if(hasFired(flagHidePaddle))
 						{
-							if (bDisplayIsBuffered)
-							{
-								// makeNonDrawable() en niet hide(): wissen hoeft er
-								// niet bij - wat niet meer wordt getekend, staat er in
-								// het volgende beeld ook niet meer. hide() zou er nog
-								// een herstel van het vrijgekomen vlak overheen doen,
-								// en dat beeld gaat toch al in zijn geheel opnieuw.
-								paddlePanel.makeNonDrawable(true);
-								buttonLeft.makeNonDrawable(true);
-								buttonRight.makeNonDrawable(true);
-							}
-							else
-							{
-								// Hier moet er wel gewist worden, want er komt geen
-								// volledige hertekening meer overheen. hide() laat de
-								// boom vanaf de wortel over het vrijgekomen vlak gaan,
-								// dus daar komt de achtergrond terug in plaats van een
-								// vulling met de eigen colBg.
-								paddlePanel.hide(true);
-								buttonLeft.hide(true);
-								buttonRight.hide(true);
-							}
-
-							// Buiten de if/else, en dat moet ook: geen van beide takken
-							// schakelt iets uit. De gebufferde tak zet alleen vlaggen,
-							// en verbergen disabelt sinds de splitsing van de assen
-							// niet meer mee.
-							paddlePanel.disable(true);
-							buttonLeft.disable(true);
-							buttonRight.disable(true);
+							hidePaddleAndButtons();
 						}
 						else if(hasFired(flagShowGameOverLabel))
 						{
-							// Er komen geen balbeelden meer, dus deze pagina wordt
-							// nergens anders meer hertekend. Zelf doen dus - maar met
-							// redraw en niet met show: de peddel en de peddelknoppen
-							// zijn hier net verborgen, en show zou ze samen met alle
-							// ongebruikte slots weer aanzetten.
-							buttonGameOverLabel.makeDrawable(true);
-							buttonGameOverLabel.enable(true);
-							pageGame.redraw(true);
+							doShowGameOverLabel(pageGame);
 						}
 						else if(hasFired(flagHideGameOverLabel))
 						{
-							// Geen hide(): hierna volgt meteen hideGamePage(), en die
-							// mag met opzet niets tekenen zolang de volgende pagina in
-							// dezelfde commandobuffer bezig is - zie hidePage().
-							buttonGameOverLabel.makeNonDrawable(true);
-							buttonGameOverLabel.disable(true);
+							doHideGameOverLabel();
 						}
 						else if(hasFired(flagPaddlePositionUpdated))
 						{
-							int paddlePosition;
-							poolPaddlePosition.read(paddlePosition);
-							Vec2 paddleTopLeftPix = centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix());
-
-							if (bDisplayIsBuffered)
-							{
-								// Alleen verzetten, niet tekenen. Het beeld dat de bal
-								// zo meteen laat maken neemt de peddel mee; er nu al
-								// een eigen beeld aan wijden zou het scherm twee keer
-								// uitsturen voor een beeld, en dat halveert de
-								// beeldsnelheid.
-								paddlePanel.setLocPos(paddleTopLeftPix, CoordType::Pixels, Alignment::MidMid);
-							}
-							else
-							{
-								// moveTo() en niet setLocPos(): die laatste verzet alleen de
-								// coordinaten en tekent niets, zodat de peddel op het scherm
-								// blijft staan waar hij stond. moveTo() herstelt bovendien
-								// alleen de strook die vrijkomt - dat is wat dit betaalbaar
-								// maakt bij 25 beelden per seconde.
-								paddlePanel.moveTo(paddleTopLeftPix, CoordType::Pixels);
-							}
+							syncPaddlePanelPos();
 						}
 						else if(hasFired(flagBallPositionUpdated))
 						{
 							BallStates ballStates;
-							poolBallStates.read(ballStates);
-
-							CrateStates crateStates;
-							poolCrateStates.read(crateStates);
-
-							FireBinStates fireBinStates;
-							poolFireBinStates.read(fireBinStates);
-
-							// Alle panels op hun nieuwe stand, inclusief de cel van
-							// de brandcyclus, de cel van de crate-teller, en het
-							// uitzetten van slots die niet meer in het spel zijn.
-							// Nog niet tekenen.
-							int32_t score;
-							poolScore.read(score);
-
-							applyBallStates(ballStates);
-							applyCrateStates(crateStates);
-							applyFireBinStates(fireBinStates);
-							applyScore(score);
-
-#ifdef PONG_MEASURE
-							// Is er een beeld overgeslagen? Zie nofSkippedSteps.
-							if (indexLastDrawnStep >= 0)
-							{
-								nofSkippedSteps += (ballStates.indexFrame - indexLastDrawnStep - 1);
-							}
-							indexLastDrawnStep = ballStates.indexFrame;
-#endif
+							applyGameState(ballStates);
 
 							if (bDisplayIsBuffered)
 							{
-								// De peddel er meteen bij. De twee vlaggen worden in
-								// deze if/else-keten om beurten afgehandeld, dus zonder
-								// dit zou de peddel steeds een beeld achterlopen op wat
-								// PaddleControl al doorgaf.
-								int paddlePosition;
-								poolPaddlePosition.read(paddlePosition);
-								paddlePanel.setLocPos(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()),
-													  CoordType::Pixels, Alignment::MidMid);
-
-								// Dit is het beeld. AsyncDisplay stuurt de buffer uit
-								// zodra zijn commandoketen leeg is, dus een present()
-								// hoeft hier niet - zie de auto-present onderaan
-								// AsyncDisplay::main().
-								//
-								// redraw en niet show: deze boom zit vol widgets die
-								// met opzet uit staan (de ongebruikte bal-, crate- en
-								// vuurkorfslots, en na hidePaddle ook de peddel). show
-								// zou die vijfentwintig keer per seconde weer aanzetten
-								// en het veld in een beeld laten vollopen.
-								pageGame.redraw(true);
+								redrawWholePage(pageGame);
 							}
 							else
 							{
-								// Zonder backbuffer verzet elke bal zich apart, zodat
-								// alleen de strook die vrijkomt wordt hersteld.
-								for (int i = 0; i < MaxNofBalls; i++)
-								{
-									if (ballStates.arBall[i].bActive)
-									{
-										arBallPanels[i].moveTo(
-											centreToTopLeftPix(ballStates.arBall[i].posX, ballStates.arBall[i].posY, ballPanelSizePix()),
-											CoordType::Pixels);
-									}
-								}
+								moveActiveBalls(ballStates);
 							}
 
 							nofFrames++;

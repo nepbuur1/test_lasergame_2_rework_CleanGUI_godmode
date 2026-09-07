@@ -20,22 +20,6 @@
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	// Geen eigen extern-declaratie van logger: die zou pong_cleangui_dg_adv::logger
-	// aankondigen, en dat object bestaat niet. De enige logger is crt::logger uit
-	// main.cpp, en die is hier al bereikbaar via het using namespace crt hierboven.
-
-	// Een bal is GEEN taak.
-	//
-	// Er kunnen er tot MaxNofBalls tegelijk in de lucht zijn (UC07 spawnt er tien
-	// ineens), en vijftig taken van 5000 bytes stack is 250 KB - meer DRAM dan dit
-	// bord heeft, zeker met een backbuffer van 76.800 bytes erbij. Daarom ligt hij
-	// in een Depot (zie pdga_Depot.h) en doet hij per beeld een stap in update(),
-	// aangedreven door de beeldklok van GameControl (timerFrame), via
-	// GameControl::updateSpawnables().
-	//
-	// Dat past ook gewoon in deze codebase: GameControl, GameOverControl en
-	// StartPageControl zijn al kale control-objecten die in de taak van een ander
-	// meeliften.
 	class BallControl : public IDepotItem
 	{
         enum State
@@ -45,21 +29,11 @@ namespace pong_cleangui_dg_adv
 
             // Onder de doellijn door en dus verloren: hij staat in brand en valt
             // kaal door tot het scherm uit. Zie UC05_BallHandling stap 1b.
-            //
-            // Kaal is hier het punt: geen moveStep(), dus geen botsingen. Zou hij die
-            // wel doen, dan sloeg de peddel hem terug het veld in - de peddeltoets
-            // in moveStep() is (vY < 0 && posY - ballRadius <= PaddleHeightPix), en
-            // onder de doellijn is dat allebei altijd waar.
             STATE_FALLING_OUT,
 
             // Vlam gevat aan een vuurkorf (UC05 stap 1d), maar nog volop in het
             // spel: hij kaatst gewoon tegen wanden, peddel en crates, en brandt
             // ondertussen in BallBurnUpMs op.
-            //
-            // Allebei branden ze - getBallState() meldt voor allebei bBurning - en
-            // toch zijn het twee toestanden, want ze verschillen op twee assen:
-            // botsingen aan of uit, en aflopen door de klok of door het scherm te
-            // verlaten. Zie de switch in update().
             STATE_BURNING_UP
         };
 
@@ -67,15 +41,12 @@ namespace pong_cleangui_dg_adv
         GameDisplayControl* pGameDisplayControl;
 
         // Waar de bal vraagt of hij ergens tegenaan zit, en waar de peddel staat.
-        // Hij kent de crates, vuurkorven en de peddel zelf niet - zie IBallCollisionCheck.
         IBallCollisionCheck* pBallCollisionCheck;
 
-        // Wie er iets doet met wat de bal meldt: het spel, want de score is daarvan.
-        // Rechtstreeks en niet via pBallCollisionCheck, want het veld heeft er niets mee te
-        // maken - zie pdga_IBallListener.h.
+        // Voor het melden van een score update.
         IBallListener* pBallListener;
 
-        // Het depot waar deze bal in ligt, en waar hij in ligt. Hij geeft zichzelf
+        // Het depot waar deze bal in ligt. Hij geeft zichzelf
         // vrij zodra hij het scherm uit is. Via IDepot en niet via Depot<...>:
         // anders zou een bal het depot moeten kennen dat hemzelf bevat.
         IDepot* pDepot;
@@ -90,35 +61,14 @@ namespace pong_cleangui_dg_adv
         State state;
 
         // Twee tellers voor hetzelfde branden, want ze hebben verschillende
-        // eigenaren: de klok is een spelregel, de animatiestap is beeld. Alleen in
-        // STATE_BURNING_UP lopen ze samen - daar geldt
-        // nofBurnUpClockStepsLeft + indexBurnAnimationStep == NofBallBurnUpSteps.
-        // In STATE_FALLING_OUT lopen ze uiteen, en dan is er geen een uit de ander
-        // af te leiden.
-
-        // De klok: wat er van BallBurnUpMs over is, in beeldstappen. Op nul is deze
-        // bal op. Alleen van belang in STATE_BURNING_UP - in STATE_FALLING_OUT is
-        // hij weggegooid (na een korf) of nooit gezet (recht onder de doellijn
-        // door); zo'n bal eindigt door het scherm te verlaten, niet door de klok.
+        // eigenaren: de klok houdt de levensduur bij, de animatiestap wordt gebruikt
+        // voor het animeren van het sprite-frame.
         int32_t nofBurnUpClockStepsLeft;
-
-        // De animatiestap: hoeveel stappen deze bal al brandt. De display maakt daar
-        // een cel van de spritesheet van; hoeveel cellen die heeft is kennis van de
-        // display en niet van de bal. Telt door in STATE_FALLING_OUT, ook als de
-        // klok hierboven niet meer meedoet - anders zou de vlam bij het duiken onder
-        // de doellijn terugspringen. Per bal, want met vijftig ballen kan elk zijn
-        // eigen brandfase hebben.
         int32_t indexBurnAnimationStep;
 
-        // De twee inkomende berichten, en wat er bij het tweede hoort. Een bal
-        // spawnt niet in de taak van wie het vraagt: spawnAt() en spawnInTheMiddle()
-        // zetten alleen deze vlag, en STATE_IDLE in update() voert hem uit. Zo staat
-        // het veranderen van de toestand op een plek - in de machine - in plaats van
-        // in een functie die van buiten wordt aangeroepen.
-        //
         // Gewone booleans en geen crt::Flag: een Flag kost een event-bit en een
         // taak om op te wachten, en beide kanten zitten hier in dezelfde taak. Het
-        // gaat hier om de scheiding tussen melden en uitvoeren, niet om synchronisatie.
+        // gaat hier om de scheiding tussen melden en uitvoeren, niet om taaksynchronisatie.
         bool bFlagSpawnInTheMiddle;
         bool bFlagSpawnAt;
         int spawnAtPosX;
@@ -131,7 +81,7 @@ namespace pong_cleangui_dg_adv
         int32_t nofBurningSteps;
 #endif
 
-        // posX/posY zijn het MIDDEN van de bal, in speelveldpixels met de
+        // posX,posY staan voor het MIDDEN van de bal, in speelveldpixels met de
         // oorsprong linksonder. Alles hieronder rekent met de straal erbij, want
         // een bal van 12 pixels kaatst met zijn rand tegen de wand, niet met zijn
         // middelpunt.
@@ -189,16 +139,8 @@ namespace pong_cleangui_dg_adv
             this->pBallListener = pBallListener;
         }
 
-        // De twee manieren om in het spel te komen. Allebei aan te roepen nadat het
-        // depot deze bal heeft uitgegeven - het begint hem daarna vanzelf te updaten.
-        //
-        // Ze doen hier bewust niets meer dan het bericht aannemen; het spawnen zelf
-        // gebeurt in de eerstvolgende update(), in STATE_IDLE. Zie de vlaggen bij de
-        // leden voor waarom.
-
         // Op een opgegeven plek, met een willekeurige richting. Zo komen de
-        // ballen uit een geopende present crate (UC07 stap 3) daar vandaan in
-        // plaats van uit het midden.
+        // ballen uit een geopende present crate (UC07 stap 3) vandaan.
         void spawnAt(int posX, int posY)
         {
             spawnAtPosX = posX;
@@ -212,15 +154,7 @@ namespace pong_cleangui_dg_adv
         }
 
         // Wat de display van deze bal moet weten. De bal schrijft nergens naartoe;
-        // hij wordt uitgelezen. Dat scheelt vijftig Pool-schrijfacties per beeld -
-        // Pool::write() neemt zijn argument op waarde aan.
-        //
-        // STATE_IDLE levert een lege stand op, en dat is sinds het spawnen is
-        // uitgesteld geen franje meer. Een bal die uit een geopende crate komt, is
-        // vanaf zijn obtain() in gebruik, maar staat pas een update() later op zijn
-        // plek. Valt zijn slot lager uit dan dat van de bal die de crate opende, dan
-        // is hij in dit beeld al voorbijgelopen en zou hij hier de positie van een
-        // vorig leven melden - een bal die een beeld lang op een oude plek flitst.
+        // hij wordt uitgelezen. 
         BallState getBallState() const
         {
             if (state == STATE_IDLE)
@@ -233,22 +167,15 @@ namespace pong_cleangui_dg_adv
                              indexBurnAnimationStep);
         }
 
-        // Een stap. Aangeroepen door het depot, dat alleen uitgegeven exemplaren
-        // afloopt - vandaar dat er geen "sta ik wel aan"-toets in staat.
-        //
-        // Deze functie moet meteen terugkeren: hij draait in de wachtlus van
-        // GameControl::doGame(), samen met de negenenveertig andere ballen en al het
-        // andere dat daar per beeld aan hangt. Vandaar geen enkele wacht- of
-        // slaapoproep, waar de oude taakversie een xTaskDelayUntil had.
+        // Een update stap. Aangeroepen door het depot, dat alleen uitgegeven exemplaren
+        // afloopt.
+        // Deze functie mag niet ergens op wachten. Hij moet meteen terugkeren: hij draait 
+        // in de wachtlus van GameControl::doGame(), samen met de negenenveertig andere ballen.
         /*override*/ void update()
         {
             switch (state)
             {
             case STATE_IDLE:
-                // De twee spawn-berichten worden hier uitgevoerd, en nergens anders
-                // gaat deze bal van STATE_IDLE af. Het depot loopt alleen uitgegeven
-                // exemplaren af, dus we komen hier precies in het venster tussen
-                // obtain() en de eerste echte stap.
                 if (bFlagSpawnInTheMiddle)
                 {
                     bFlagSpawnInTheMiddle = false;
@@ -265,14 +192,6 @@ namespace pong_cleangui_dg_adv
                 if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
                 {
                     // Nog niet afgelopen: hij vat vlam en valt door.
-                    //
-                    // Hier bewust geen stap en geen melding: het eerstvolgende
-                    // beeld toont hem brandend op zijn huidige plek. Toen hier nog
-                    // een positie werd doorgestuurd, kwam die op hetzelfde moment
-                    // aan als de gestapte van de volgende ronde, en versprong de
-                    // bal zijn hele stap in een oogwenk - een schok die er precies
-                    // bij het ontbranden uitzag als een versnelling.
-                    //
 #ifdef PONG_MEASURE
                     nofBurningSteps = 0;
 #endif
@@ -323,11 +242,7 @@ namespace pong_cleangui_dg_adv
                         (int)(BallSpeedPixPerFrame*1000/FrameIntervalMs));
 #endif
 
-                    // Zichzelf teruggeven. Dit mag vanuit de eigen update():
-                    // een Depot perst zijn administratie niet samen, dus de lus
-                    // die ons aanroept raakt hier niet van in de war. Het panel
-                    // volgt vanzelf - de display tekent per beeld alleen de slots
-                    // die in gebruik zijn.
+                    // Zichzelf weer vrijgeven bij zijn Depot.
                     assert(pDepot != nullptr);
                     pDepot->release(indexSlot);
                 }
@@ -366,9 +281,7 @@ namespace pong_cleangui_dg_adv
             }
         }
 
-        // Door Depot aangeroepen bij release() en releaseAll(). De vaste
-        // bedrading uit init() en setBallListener() blijft behouden; alleen alles
-        // wat bij één leven van deze bal hoort wordt teruggezet.
+        // Door Depot aangeroepen bij release() en releaseAll().
         /*override*/ void reset()
         {
             posX = fieldWidth/2;
@@ -390,9 +303,7 @@ namespace pong_cleangui_dg_adv
         }
 
 	private:
-        // Het werk achter de twee spawn-berichten. Alleen aangeroepen vanuit
-        // STATE_IDLE in update(), dus in de taak van de beeldklok en niet in die van
-        // wie het vroeg.
+        // Het werk achter de twee spawn-berichten.
         void startAt(int posX, int posY)
         {
             this->posX = posX;
@@ -400,7 +311,8 @@ namespace pong_cleangui_dg_adv
 
             // Een spreiding in de horizontale snelheid, zodat tien ballen uit
             // dezelfde crate niet als een blok bewegen. De verticale houdt zijn
-            // vaste grootte - daar hangt de valsnelheid aan.
+            // vaste grootte - daar hangt de valsnelheid aan (en dus de moeilijkheids-
+            // graad om op de bal te reageren met de paddle)
             vX = (int)(rand() % (4*BallSpeedPixPerFrame + 1)) - 2*BallSpeedPixPerFrame;
             vY = ((rand()%2) == 0) ? BallSpeedPixPerFrame : -BallSpeedPixPerFrame;
 
@@ -459,9 +371,6 @@ namespace pong_cleangui_dg_adv
             }
         }
 
-        // De peddelpositie komt van buiten binnen als parameter, zodat hier alleen
-        // rekenwerk staat. Zie moveStep(): daar zitten alle externe aanroepen bij
-        // elkaar.
         bool bouncePaddleIfHit(int paddlePosition)
         {
             bool bBouncedPaddle = false;
@@ -498,17 +407,11 @@ namespace pong_cleangui_dg_adv
             bounceOffWallsIfHit();
 
             int paddlePosition = (pBallCollisionCheck != nullptr) ? pBallCollisionCheck->getPaddlePosition() : 0;
-
-            // Eerst kaatsen, dan pas toetsen. bouncePaddleIfHit() is geen vraag maar
-            // een handeling - hij verzet posY en herberekent vX en vY - en die hoort
-            // niet in een conditie te staan waar de volgorde van de operanden bepaalt
-            // of hij wel draait.
             bool bBouncedPaddle = bouncePaddleIfHit(paddlePosition);
             if (bBouncedPaddle && (pBallListener != nullptr))
             {
-                // UC05 stap 1a: de score gaat omhoog bij een kaatsing op de
-                // peddel. Hier en niet bij de wanden - alleen de peddel is een
-                // verdienste van de speler.
+                // De score gaat omhoog bij een kaatsing op de
+                // peddel. Daarto de bounce doorgeven.
                 pBallListener->ballBouncedOnPaddle();
             }
 
@@ -516,16 +419,12 @@ namespace pong_cleangui_dg_adv
             catchFireIfInFireBin();
         }
 
-        // UC05 stap 1d: een bal die een vuurkorf raakt vliegt in brand en brandt
+        // Een bal die een vuurkorf raakt vliegt in brand en brandt
         // op in BallBurnUpMs. Geen kaatsing - een korf is vuur en geen kist, dus
         // hij vliegt er doorheen.
         void catchFireIfInFireBin()
         {
-            // Alleen een bal die nog niet brandt kan vlam vatten. moveStep() wordt
-            // ook vanuit STATE_BURNING_UP aangeroepen, en een korf is breder dan een
-            // stap: zonder deze toets zet een brandende bal die er nog een paar
-            // beelden in zit elk beeld de opbrandklok en de vlamcyclus terug, en
-            // brandt hij dus nooit op.
+            // Alleen een bal die nog niet brandt kan vlam vatten. 
             if (state != STATE_RUNNING)
             {
                 return;
@@ -567,14 +466,8 @@ namespace pong_cleangui_dg_adv
             }
         }
 
-        // UC05_BallHandling stap 1c: raakt de bal een present crate, dan geeft hij
-        // dat door aan dat object. Wat er verder gebeurt - de teller omlaag, en bij
-        // nul de crate open - is de zaak van de crate, niet van de bal.
-        //
-        // De kaatsing zelf staat NIET in het ontwerp, maar zonder is de teller
-        // zinloos: een bal die er dwars doorheen vliegt, overlapt vijf beelden
-        // achter elkaar en sloopt het kistje in tweehonderd milliseconde. Kaatsen
-        // is bovendien wat je van een kistje verwacht.
+        // Raakt de bal een present crate, dan geeft hij dat door aan dat object,
+        // en kaatst hij ervan weg. 
         void bounceOffCrateIfHit()
         {
             if (pBallCollisionCheck != nullptr)
