@@ -660,23 +660,24 @@ namespace pong_cleangui_dg_adv
 			// Anders tekent redraw(true) ze nog even op de plek van het vorige spel -
 			// en voor de bal is dat onder de doellijn.
 			//
-			// setLocPos en niet moveTo: er staat op dit moment nog niets van deze
-			// pagina op het scherm, dus er valt niets te herstellen.
+			// setLocPos en niet moveTo (vandaar overal false): er staat op dit
+			// moment nog niets van deze pagina op het scherm, dus er valt niets
+			// te herstellen - ook niet zonder backbuffer.
 			BallStates ballStates;
 			poolBallStates.read(ballStates);
-			applyBallStates(ballStates);
+			applyBallStates(ballStates, /*bUseMoveTo*/false);
 
 			CrateStates crateStates;
 			poolCrateStates.read(crateStates);
-			applyCrateStates(crateStates);
+			applyCrateStates(crateStates, /*bDrawChanges*/false);
 
 			FireBinStates fireBinStates;
 			poolFireBinStates.read(fireBinStates);
-			applyFireBinStates(fireBinStates);
+			applyFireBinStates(fireBinStates, /*bDrawChanges*/false);
 
 			int32_t score;
 			poolScore.read(score);
-			applyScore(score);
+			applyScore(score, /*bDrawChanges*/false);
 
 			int paddlePosition;
 			poolPaddlePosition.read(paddlePosition);
@@ -812,11 +813,19 @@ namespace pong_cleangui_dg_adv
 			}
 		}
 
-		// De stand van het spel uit de pools op alle panels zetten: bal, crate,
-		// vuurkorf en score. Nog niet tekenen. ballStates komt mee naar buiten
-		// omdat de ongebufferde tak hem nodig heeft voor moveTo().
-		void applyGameState(BallStates& ballStates)
+		// De stand van het spel uit de pools op alle panels zetten: crates,
+		// vuurkorven, score en ballen.
+		//
+		// Met backbuffer alleen de vlaggen, plekken en cellen; redrawWholePage()
+		// tekent daarna alles in een keer. Zonder backbuffer tekent niemand
+		// anders, dus dan tekent elk paneel zelf wat er aan hem veranderde - zie
+		// applySpawnablePanel(). De volgorde is dan die van de widgetboom (zie
+		// defineDisplayHierarchy): wat bovenop ligt, tekent als laatste.
+		void applyGameState()
 		{
+			bool bDrawChanges = !bDisplayIsBuffered;
+
+			BallStates ballStates;
 			poolBallStates.read(ballStates);
 
 			CrateStates crateStates;
@@ -825,17 +834,13 @@ namespace pong_cleangui_dg_adv
 			FireBinStates fireBinStates;
 			poolFireBinStates.read(fireBinStates);
 
-			// Alle panels op hun nieuwe stand, inclusief de cel van
-			// de brandcyclus, de cel van de crate-teller, en het
-			// uitzetten van slots die niet meer in het spel zijn.
-			// Nog niet tekenen.
 			int32_t score;
 			poolScore.read(score);
 
-			applyBallStates(ballStates);
-			applyCrateStates(crateStates);
-			applyFireBinStates(fireBinStates);
-			applyScore(score);
+			applyCrateStates(crateStates, bDrawChanges);
+			applyFireBinStates(fireBinStates, bDrawChanges);
+			applyScore(score, bDrawChanges);
+			applyBallStates(ballStates, /*bUseMoveTo*/bDrawChanges);
 
 #ifdef PONG_MEASURE
 			// Is er een beeld overgeslagen? Zie nofSkippedSteps.
@@ -869,21 +874,6 @@ namespace pong_cleangui_dg_adv
 			page.redraw(true);
 		}
 
-		void moveActiveBalls(const BallStates& ballStates)
-		{
-			// Zonder backbuffer verzet elke bal zich apart, zodat
-			// alleen de strook die vrijkomt wordt hersteld.
-			for (int i = 0; i < MaxNofBalls; i++)
-			{
-				if (ballStates.arBall[i].bActive)
-				{
-					arBallPanels[i].moveTo(
-						centreToTopLeftPix(ballStates.arBall[i].posX, ballStates.arBall[i].posY, ballPanelSizePix()),
-						CoordType::Pixels);
-				}
-			}
-		}
-
 		// De maat van een cel uit de spritesheet, dus inclusief de ruimte voor de
 		// vlammen. Uit het plaatje afgeleid en niet als constante opgeschreven:
 		// dan kan het er niet naast komen te zitten.
@@ -905,9 +895,88 @@ namespace pong_cleangui_dg_adv
 			return 1 + (int)(stage * NofFramesPerBurnStage + indexInStage);
 		}
 
+		// Een paneel opnieuw tekenen op de plek waar het al staat, omdat het een
+		// andere cel van zijn spritesheet moet tonen. Alleen nodig zonder
+		// backbuffer; met buffer tekent redrawWholePage() alles per beeld.
+		//
+		// Een paneel dat zijn hele rect vult mag zichzelf tekenen. Een transparant
+		// plaatje niet: dan bleef de vorige cel door de doorzichtige pixels heen
+		// staan. Dan tekent de hele boom dat vlak opnieuw, van onder naar boven -
+		// dezelfde afweging als in Widget::moveTo().
+		void redrawInPlace(Panel<0>& panel)
+		{
+			if (panel.coversOwnRect())
+			{
+				panel.redraw(true);
+			}
+			else
+			{
+				panel.repaintRegion(panel.getGlobPosPix(), panel.getSizePix());
+			}
+		}
+
+		// Een spawnable-paneel (bal, crate, vuurkorf) op zijn nieuwe stand zetten.
+		//
+		// bDrawChanges = false: alleen de vlag, de plek en de cel; er wordt niets
+		// getekend. Dat doet page.redraw(true) daarna in een keer - met backbuffer
+		// elk beeld (redrawWholePage), en in beide modi eenmalig bij showPage().
+		//
+		// bDrawChanges = true: er komt geen hertekening van de hele pagina, dus
+		// het paneel tekent zelf wat er aan hem veranderde, en niets meer dan dat:
+		// verschijnen (show), verdwijnen (hide), verplaatsen (moveTo herstelt
+		// alleen de strook die vrijkomt) of een andere cel (redrawInPlace).
+		// Elke pixel naar het scherm is bustijd; zie de opmerking boven main().
+		void applySpawnablePanel(Panel<0>& panel, bool bActive, const Vec2& topLeftPix, int32_t frameCol, bool bDrawChanges)
+		{
+			if (!bActive)
+			{
+				if (!bDrawChanges)
+				{
+					panel.makeNonDrawable(true);
+				}
+				else if (panel.isDrawable())
+				{
+					panel.hide(true);		// wist zijn vlak; wat eronder ligt komt terug.
+				}
+				return;
+			}
+
+			if (!bDrawChanges)
+			{
+				panel.makeDrawable(true);
+				panel.setLocPos(topLeftPix, CoordType::Pixels, Alignment::MidMid);
+				panel.setImageFrame(0, frameCol);
+				return;
+			}
+
+			if (!panel.isDrawable())
+			{
+				// Verschijnt: eerst goed zetten, dan in een keer tekenen.
+				panel.setLocPos(topLeftPix, CoordType::Pixels, Alignment::MidMid);
+				panel.setImageFrame(0, frameCol);
+				panel.show(true);
+				return;
+			}
+
+			// Staat al op het scherm: alleen tekenen als er iets veranderde.
+			bool bFrameChanged = (panel.getImageFrameCol() != frameCol);
+			panel.setImageFrame(0, frameCol);		// voor het tekenen, zodat moveTo de nieuwe cel tekent.
+
+			if (panel.getLocPos() != topLeftPix)
+			{
+				panel.moveTo(topLeftPix, CoordType::Pixels);	// verzet en tekent.
+			}
+			else if (bFrameChanged)
+			{
+				redrawInPlace(panel);
+			}
+		}
+
 		// De score over de vier cijferpanels verdelen, met voorloopnullen - dan
 		// blijft hij even breed en springt hij niet heen en weer.
-		void applyScore(int32_t score)
+		// bDrawChanges: zie applySpawnablePanel(); hier tekent alleen een cijfer
+		// dat werkelijk verandert.
+		void applyScore(int32_t score, bool bDrawChanges)
 		{
 			if (score < 0) { score = 0; }
 
@@ -917,8 +986,20 @@ namespace pong_cleangui_dg_adv
 
 			for (int i = NofScoreDigits - 1; i >= 0; i--)
 			{
-				arScoreDigitPanels[i].setImageFrame(0, (int)(score % 10));
+				Panel<0>& panel = arScoreDigitPanels[i];
+				int32_t frameCol = (int32_t)(score % 10);
 				score /= 10;
+
+				if (bDrawChanges && (panel.getImageFrameCol() == frameCol))
+				{
+					continue;		// staat al zo op het scherm.
+				}
+
+				panel.setImageFrame(0, frameCol);
+				if (bDrawChanges)
+				{
+					redrawInPlace(panel);
+				}
 			}
 		}
 
@@ -926,77 +1007,59 @@ namespace pong_cleangui_dg_adv
 		static Vec2 fireBinSizePix() { return Vec2(FireBinSizePix, FireBinSizePix); }
 
 		// Toepassen van de FireBinStates op de bijbehorende panels.
-		void applyFireBinStates(const FireBinStates& fireBinStates)
+		void applyFireBinStates(const FireBinStates& fireBinStates, bool bDrawChanges)
 		{
 			for (int i = 0; i < MaxNofFireBins; i++)
 			{
 				const FireBinState& fireBinState = fireBinStates.arFireBin[i];
-				Panel<0>& panel = arFireBinPanels[i];
-
-				if (!fireBinState.bActive)
-				{
-					panel.makeNonDrawable(true);
-					continue;
-				}
-
-				panel.makeDrawable(true);
-				panel.setLocPos(centreToTopLeftPix(fireBinState.posX, fireBinState.posY, fireBinSizePix()),
-								CoordType::Pixels, Alignment::MidMid);
-				panel.setImageFrame(0, (int)(fireBinState.indexAnimationStep % imageFireBin.nofCols));
+				applySpawnablePanel(arFireBinPanels[i], fireBinState.bActive,
+					centreToTopLeftPix(fireBinState.posX, fireBinState.posY, fireBinSizePix()),
+					(int)(fireBinState.indexAnimationStep % imageFireBin.nofCols),
+					bDrawChanges);
 			}
 		}
 
 		// Toepassen van de CrateStates op de bijbehorende panels.
-		void applyCrateStates(const CrateStates& crateStates)
+		void applyCrateStates(const CrateStates& crateStates, bool bDrawChanges)
 		{
 			for (int i = 0; i < MaxNofCrates; i++)
 			{
 				const CrateState& crateState = crateStates.arCrate[i];
-				Panel<0>& panel = arCratePanels[i];
 
-				if (!crateState.bActive)
-				{
-					panel.makeNonDrawable(true);
-					continue;
-				}
-
-				panel.makeDrawable(true);
-				panel.setLocPos(centreToTopLeftPix(crateState.posX, crateState.posY, crateSizePix()),
-								CoordType::Pixels, Alignment::MidMid);
-
-				//Het aftellen zit in het plaatje en niet in losse tekst.
+				// Het aftellen zit in het plaatje en niet in losse tekst.
 				int indexFrame = NofCrateHits - crateState.nofHitsLeft;
 				if (indexFrame < 0) { indexFrame = 0; }
 				if (indexFrame >= imageCrate.nofCols) { indexFrame = (int)imageCrate.nofCols - 1; }
-				panel.setImageFrame(0, indexFrame);
+
+				applySpawnablePanel(arCratePanels[i], crateState.bActive,
+					centreToTopLeftPix(crateState.posX, crateState.posY, crateSizePix()),
+					indexFrame, bDrawChanges);
 			}
 		}
 
-		// Alle balpanels op de zojuist ontvangen standen zetten. 
-		// Alleen de coordinaten. Het tekenen gebeurt daarna in een keer.
-		void applyBallStates(const BallStates& ballStates)
+		// Alle balpanels op de zojuist ontvangen standen zetten.
+		//
+		// bUseMoveTo = false: alleen de coordinaten en de cel; het tekenen gebeurt
+		// daarna in een keer met page.redraw(true).
+		// bUseMoveTo = true (geen backbuffer): elke bal verzet zich met moveTo(),
+		// dat alleen de strook herstelt die vrijkomt, en een bal die verschijnt of
+		// verdwijnt tekent of wist zichzelf. Zie applySpawnablePanel().
+		void applyBallStates(const BallStates& ballStates, bool bUseMoveTo)
 		{
 			for (int i = 0; i < MaxNofBalls; i++)
 			{
 				const BallState& ballState = ballStates.arBall[i];
-				Panel<0>& panel = arBallPanels[i];
-
-				if (!ballState.bActive)
-				{
-					panel.makeNonDrawable(true);
-					continue;
-				}
-
-				panel.makeDrawable(true);
-				panel.setLocPos(centreToTopLeftPix(ballState.posX, ballState.posY, ballPanelSizePix()),
-								CoordType::Pixels, Alignment::MidMid);
 
 				// Cel 0 is de gewone bal, 1..N de brandcyclus. Hoeveel cellen de
 				// sheet heeft is kennis van deze klasse; de bal telt alleen hoe
 				// lang hij al brandt.
-				panel.setImageFrame(0, ballState.bBurning
+				int indexFrame = ballState.bBurning
 					? burningFrameIndex(ballState.indexBurnAnimationStep)
-					: 0);
+					: 0;
+
+				applySpawnablePanel(arBallPanels[i], ballState.bActive,
+					centreToTopLeftPix(ballState.posX, ballState.posY, ballPanelSizePix()),
+					indexFrame, bUseMoveTo);
 			}
 		}
 		static Vec2 paddleSizePix() { return Vec2(PaddleWidthPix, PaddleHeightPix); }
@@ -1069,7 +1132,7 @@ namespace pong_cleangui_dg_adv
 			ESP_LOGI(taskName, "display %s een backbuffer; %s",
 				bDisplayIsBuffered ? "heeft" : "heeft geen",
 				bDisplayIsBuffered ? "de hele pagina wordt per beeld hertekend"
-				                   : "bal en peddel bewegen met moveTo");
+				                   : "ballen en peddel bewegen met moveTo, de rest tekent alleen wat verandert");
 
 			GamePageRoot pageGame("rootGameDisplay",display);
 			defineDisplayHierarchy(pageGame);
@@ -1129,16 +1192,14 @@ namespace pong_cleangui_dg_adv
 						}
 						else if(hasFired(flagBallPositionUpdated))
 						{
-							BallStates ballStates;
-							applyGameState(ballStates);
+							applyGameState();
 
+							// Met backbuffer is dit het moment om het beeld te maken.
+							// Zonder heeft applyGameState() net zelf getekend wat er
+							// veranderde, en is er niets meer te doen.
 							if (bDisplayIsBuffered)
 							{
 								redrawWholePage(pageGame);
-							}
-							else
-							{
-								moveActiveBalls(ballStates);
 							}
 
 							nofFrames++;

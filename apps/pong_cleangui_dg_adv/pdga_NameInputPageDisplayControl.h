@@ -105,6 +105,10 @@ namespace pong_cleangui_dg_adv
 		int32_t yKeyboardUpPix;
 		bool bKeyboardIsUp;
 
+		// Eenmalig gevraagd in main(); bepaalt hoe het toetsenbord schuift en
+		// wat een toetsaanslag hertekent.
+		bool bDisplayIsBuffered;
+
 	public:
 		NameInputPageDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 							IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts) :
@@ -129,7 +133,8 @@ namespace pong_cleangui_dg_adv
 			state (STATE_HIDDEN),
 			yKeyboardDownPix(0),
 			yKeyboardUpPix(0),
-			bKeyboardIsUp(false)
+			bKeyboardIsUp(false),
+			bDisplayIsBuffered(false)
 		{
 			Vec2 screenSize = display.getScreenSize();
 			screenWidth  = screenSize.x;
@@ -258,11 +263,24 @@ namespace pong_cleangui_dg_adv
 					y = yToPix;
 				}
 
-				// Met een backbuffer verzet moveTo() alleen de coordinaten van een
-				// deel van de boom; de hele pagina moet daarna opnieuw. Zonder dat
-				// blijft het toetsenbord op zijn oude plek in de buffer staan.
-				touchscreenKeyboard.setLocPos(Vec2(0, y), CoordType::Pixels, Alignment::TopLeft);
-				page.redraw(true);
+				if (bDisplayIsBuffered)
+				{
+					// Met een backbuffer verzet moveTo() alleen de coordinaten van
+					// een deel van de boom; de hele pagina moet daarna opnieuw.
+					// Zonder dat blijft het toetsenbord op zijn oude plek in de
+					// buffer staan.
+					touchscreenKeyboard.setLocPos(Vec2(0, y), CoordType::Pixels, Alignment::TopLeft);
+					page.redraw(true);
+				}
+				else
+				{
+					// Zonder buffer is diezelfde page.redraw(true) per stap een
+					// zichtbare wis van het hele scherm. moveTo() tekent het
+					// toetsenbord op zijn nieuwe plek en laat de boom alleen de
+					// vrijgekomen strook herstellen - zoals in het
+					// Inputfield-voorbeeld.
+					touchscreenKeyboard.moveTo(Vec2(0, y), CoordType::Pixels);
+				}
 
 				indexStep++;
 				int64_t timeTargetUs = timeStartUs + (SlideDurationUs * indexStep) / nofSteps;
@@ -351,6 +369,7 @@ namespace pong_cleangui_dg_adv
 			vTaskDelay(1000); // wait for other threads to have started up as well.
 
 			initPanels();
+			bDisplayIsBuffered = display.isBuffered();
 
 			PAGE pageNameInput("rootNameInputPageDisplay",display);
 			defineDisplayHierarchy(pageNameInput);
@@ -419,7 +438,11 @@ namespace pong_cleangui_dg_adv
 							// niets te hertekenen valt. Elke andere toets verandert het
 							// veld wel, en dan moet met een backbuffer de hele pagina
 							// opnieuw.
-							if (strncmp(strKey, "ENTER", 5) != 0)
+							//
+							// Zonder backbuffer niet: Inputfield::keyPressed heeft het
+							// label dan al zelf bijgewerkt (updateButtonLabel), en een
+							// hertekening van de hele pagina is daar alleen een wis.
+							if (bDisplayIsBuffered && (strncmp(strKey, "ENTER", 5) != 0))
 							{
 								pageNameInput.redraw(true);
 							}

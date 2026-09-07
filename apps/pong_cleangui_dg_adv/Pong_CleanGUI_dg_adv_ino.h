@@ -57,10 +57,12 @@ namespace pong_cleangui_dg_adv
 	// - Afgeronde hoeken worden vierkant: een TFT_eSprite heeft er geen
 	//   primitieve voor. Alles wat rond moet zijn, is daarom een plaatje.
 	//
-	// Terug naar rechtstreeks tekenen is een kwestie van deze ene regel omzetten
-	// naar TFT_eSPI_DisplayAdapter_RGB565; de rest van de app kijkt naar
-	// isBuffered() en past zich aan.
-	typedef TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners> DisplayAdapterType;
+	// Kies hier de display-adapter, net als in het MultiPanel-voorbeeld: de ene
+	// regel uit commentaar, de andere erin. De rest van de app kijkt naar
+	// isBuffered() en past zich aan. Beide constructors hebben dezelfde
+	// parameters, dus de regel met tft_eSPI_DisplayAdapter eronder blijft gelijk.
+	typedef TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners> DisplayAdapterType;
+	//typedef TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners> DisplayAdapterType;
 	typedef AsyncDisplay<CommandBufferSize, MaxNofClientTasks> AsyncDisplayType;
 
 	DisplayAdapterType tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);

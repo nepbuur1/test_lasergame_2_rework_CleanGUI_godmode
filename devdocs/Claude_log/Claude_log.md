@@ -69,7 +69,83 @@ Twee dingen die niet puur knippen-en-plakken waren:
 De fps-rapportage erna staat nog in `main()`: die gebruikt lokalen van `main()`
 en was niet gevraagd.
 
-Gebouwd met `idf.py build`; nog niet geflasht.
+Geflasht en door de auteur op het bord goedgekeurd (gebufferd).
+
+### De ongebufferde route was kapot, en is gerepareerd
+
+Vraag van de auteur: "het lijkt erop dat de balposities alleen zonder backbuffer
+worden geupdate". Het omgekeerde bleek waar. `applyBallStates` zet in beide modi
+`setLocPos`; met buffer tekent `page.redraw(true)` daarna alles. Maar zonder
+buffer kwam `moveTo` pas *na* die `setLocPos`, en `moveTo` bepaalt zijn oude
+positie met `getGlobPosPix()` op het moment van aanroep: oud == nieuw, geen
+strook hersteld, balspoor. Bovendien tekende zonder buffer niets de crates,
+vuurkorven en scorecijfers - geen van de `apply*` tekent. Regressie uit commit
+6d9811e (2026-08-06, "50 balls"); daarvoor stond `setLocPos` alleen in de
+gebufferde tak. Niemand zag het omdat de app op de PAL8-backbuffer draait.
+
+De reparatie, op verzoek van de auteur met een expliciete parameter:
+
+- `applyBallStates(ballStates, bool bUseMoveTo)`, en `bool bDrawChanges` op
+  `applyCrateStates`, `applyFireBinStates` en `applyScore`. `false` = alleen
+  vlag, plek en cel (daarna tekent `page.redraw(true)`); `true` = zelf tekenen
+  wat er veranderde, want er komt geen hertekening van de hele pagina.
+- Bal, crate en vuurkorf hadden drie keer dezelfde lus. Die zit nu in
+  `applySpawnablePanel(panel, bActive, topLeftPix, frameCol, bDrawChanges)`:
+  verdwijnen = `hide()` (wist), verschijnen = `setLocPos` + `show()`, verplaatsen
+  = `moveTo()` (herstelt alleen de vrijgekomen strook), alleen een andere cel =
+  `redrawInPlace()`. Die laatste kiest `redraw()` als het paneel zijn rect vult
+  en anders `repaintRegion()` via de root - dezelfde afweging als in
+  `Widget::moveTo()`, want een transparant plaatje dat alleen zichzelf tekent
+  laat de vorige cel doorschemeren.
+- Alleen tekenen wat veranderde: `getImageFrameCol()` en `getLocPos()` worden
+  vergeleken met de nieuwe stand. Een stilstaande crate kost dus geen bustijd;
+  een vuurkorf wel elk beeld, want zijn vlammen animeren.
+- `applyGameState()` heeft geen out-parameter meer en `moveActiveBalls()` is
+  weg: zonder buffer doet `applyBallStates(..., true)` het verzetten zelf. De
+  volgorde is nu crates, vuurkorven, score, ballen - de z-volgorde van de boom,
+  want zonder buffer tekent wat als laatste komt bovenop.
+- `initBallAndPaddlePosition()` geeft overal `false` mee: bij `showPage()` staat
+  er nog niets op het scherm en tekent `page.redraw(true)` alles.
+- `Pong_CleanGUI_dg_adv_ino.h`: de adapterkeuze is nu een paar typedef-regels
+  waarvan er een in commentaar staat, zoals `using DISPLAYADAPTER` in het
+  MultiPanel-voorbeeld. Beide constructors hebben dezelfde parameters, dus de
+  regel eronder blijft staan. `setPalette()` is virtueel op de RGB565-adapter
+  en hoort daar ook: die pakt PAL8-plaatjes zelf uit naar RGB565.
+
+Beide varianten gebouwd. De RGB565-variant (ongebufferd) staat nu actief in de
+.ino en is geflasht, ter verificatie door de auteur. Terug naar PAL8 is de
+twee regels omwisselen.
+
+Uitslag: de gameplay is goed zonder buffer. Maar startpagina, hall of fame en
+het inschuiven van het toetsenbord flikkerden enorm.
+
+### Flikker op de andere pagina's: drie keer dezelfde `page.redraw(true)`
+
+Alle drie tekenden per stap hun hele boom - met backbuffer terecht, want het
+beeld gaat toch in zijn geheel naar het scherm. Zonder buffer is elke
+`page.redraw(true)` een schermvullend zwart achtergrondpaneel met daaroverheen
+de rest, rechtstreeks op de TFT: een zichtbare wis.
+
+- Fakkels (start, hall of fame): per tik `stepTorches()` + `page.redraw(true)`,
+  tien keer per seconde. Nu `TorchesDisplayHelpers::redrawTorches(arTorchPanels,
+  page, bDisplayIsBuffered)`: met buffer de hele pagina, zonder alleen de twee
+  fakkelvlakken via `repaintRegion()` vanaf de root. Niet `redraw()` op het
+  paneel zelf: het plaatje is transparant en de vorige vlam bleef er dan
+  doorheen staan - dezelfde afweging als in `Widget::moveTo()`.
+- Toetsenbord inschuiven (`doSlideKeyboard`): per stap `setLocPos` +
+  `page.redraw(true)`. Zonder buffer nu `touchscreenKeyboard.moveTo()`, dat het
+  toetsenbord op zijn nieuwe plek tekent en alleen de vrijgekomen strook door
+  de boom laat herstellen - zoals het Inputfield-voorbeeld al deed.
+- Typen: per toets `page.redraw(true)`. Zonder buffer overbodig, want
+  `Inputfield::keyPressed` werkt het label al zelf bij (`updateButtonLabel`);
+  nu alleen nog met buffer.
+
+De drie DisplayControls vragen daarvoor eenmalig `display.isBuffered()` in
+`main()` en bewaren dat in `bDisplayIsBuffered`, net als GameDisplayControl.
+
+Beide varianten gebouwd, RGB565 geflasht. Onderweg viel het bord van WSL af
+(`/dev/ttyUSB0` weg, in Windows nog "Shared" maar niet "Attached");
+`usbipd.exe attach --wsl --busid 1-7` bracht hem terug.
 
 ## 2026-08-16 — dood hout: een template zonder parameters, interfaces zonder tweede implementatie
 

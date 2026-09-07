@@ -72,6 +72,9 @@ namespace pong_cleangui_dg_adv
 
 		State state;
 
+		// Eenmalig gevraagd in main(); bepaalt wat een fakkelstap tekent.
+		bool bDisplayIsBuffered;
+
 	public:
 		StartPageDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 							IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts) :
@@ -84,7 +87,8 @@ namespace pong_cleangui_dg_adv
 			flagShowStartPage(this),
 			flagHideStartPage(this),
 			timerTorch(this),
-			state (STATE_HIDDEN)
+			state (STATE_HIDDEN),
+			bDisplayIsBuffered(false)
 		{
 			Vec2 screenSize = display.getScreenSize();
 			screenWidth  = screenSize.x;
@@ -222,6 +226,7 @@ namespace pong_cleangui_dg_adv
 			vTaskDelay(1000); // wait for other threads to have started up as well.
 
 			initPanels();
+			bDisplayIsBuffered = display.isBuffered();
 
 			PageRoot<20> pageStart("rootStartPageDisplay",display);
 			defineDisplayHierarchy(pageStart);
@@ -241,7 +246,8 @@ namespace pong_cleangui_dg_adv
 							showPage(pageStart);
 
 							// De fakkels flakkeren alleen zolang de pagina in beeld
-							// staat: elke tik is een volledige hertekening.
+							// staat. Wat een tik tekent hangt van het display af; zie
+							// TorchesDisplayHelpers::redrawTorches().
 							timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs());
 							state = STATE_SHOWING;
 						}
@@ -258,7 +264,7 @@ namespace pong_cleangui_dg_adv
 						else if (hasFired(timerTorch))
 						{
 							selectNextAnimationFrameOfTorches();
-							pageStart.redraw(true);
+							TorchesDisplayHelpers::redrawTorches(arTorchPanels, pageStart, bDisplayIsBuffered);
 
 							// Eenmalige timer, zodat elke wachttijd gerandomiseerd kan worden,
 							// tbv een "stochastischer vlameffect".
