@@ -1,5 +1,30 @@
 # Claude log
 
+## 2026-10-18 — StateMachineTemplatePro bouwbaar vanuit de root-main.cpp
+
+`apps/StateMachineTemplatePro` was een los IDF-project (eigen `CMakeLists.txt`,
+eigen `main/main.cpp` met `app_main`). Hij is nu ook te kiezen in `main/main.cpp`
+van de projectroot, net als de andere apps en voorbeelden:
+`#include <StateMachineTemplatePro.ino>` (staat nu actief; `ADC_buttons_E12.ino`
+is uitgecommentarieerd).
+
+- Nieuw in de app-map: `StateMachineTemplatePro.ino` en `StateMachineTemplatePro_ino.h`.
+  Die doen in `setup()` wat de eigen `main/main.cpp` in `app_main` doet. Counter,
+  MachineControl en InputSimulator zijn daar `static`, omdat `setup()` (anders dan
+  `app_main`) terugkeert. `main/`, `app/` en de host-tests zijn niet aangeraakt; de app
+  bouwt ook nog los.
+- `main/CMakeLists.txt`: `Counter.cpp`, `MachineControl.cpp` en
+  `testHelpers/InputSimulator.cpp` bij de bronnen, en `../apps/StateMachineTemplatePro`
+  bij de includepaden (de bronnen includen elkaar als `"app/....hpp"`). Ze worden
+  in elke build meegecompileerd, maar bevatten geen globale objecten. Met
+  `ADC_buttons_E12.ino` gekozen bouwt het ook groen.
+- Nagegaan: de app gebruikt alleen `pdMS_TO_TICKS`/`portTICK_PERIOD_MS`, dus het
+  verschil in `FREERTOS_HZ` (100 in de eigen sdkconfig, 1000 in de root) maakt niet
+  uit. Geen naamsbotsingen. De knoppinnen 35/22 uit de eigen main.cpp worden niet
+  gebruikt (InputSimulator simuleert de knoppen), dus geen conflict met de
+  Logger-dumpknop op pin 22.
+- Op de CYD geflasht: in 90 s twee volledige tours (score 1 en 2), zonder fouten.
+
 ## 2026-10-18 — CYD_tools_crt: ADC_buttons_E12 (zes knoppen op één ADC-pin)
 
 Nieuwe lib `libs/CYD_tools_crt` met als eerste tool `crt::ADC_buttons_E12`

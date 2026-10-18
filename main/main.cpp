@@ -72,7 +72,10 @@ namespace crt
 //#include <Pong_CleanGUI_dg_adv.ino>			// touchscreen-versie, apps/pong_cleangui_dg_adv
 
 // **** CYD_tools_crt ****
-#include <ADC_buttons_E12.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
+//#include <ADC_buttons_E12.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
+
+// **** Apps ****
+#include <StateMachineTemplatePro.ino>		// apps/StateMachineTemplatePro (FreeRTOS-variant van MachineControl, met InputSimulator)
 
 // **** Gereedschap, apps/pong_cleangui_dg_adv/tools ****
 //#include <ClearHallOfFame.ino>				// wist de top-5 in /hallOfFame

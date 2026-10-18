@@ -29,6 +29,13 @@ set(COMPONENT_SRCS
 "../libs/LITTLEFS/src/lfs.c"
 "../libs/LITTLEFS/src/LITTLEFS.cpp"
 
+# StateMachineTemplatePro (kies hem in main.cpp met StateMachineTemplatePro.ino).
+# Deze drie worden in elke build meegecompileerd, maar ze bevatten geen globale
+# objecten; zolang de .ino niet gekozen is, gooit de linker ze er weer uit.
+"../apps/StateMachineTemplatePro/app/Counter.cpp"
+"../apps/StateMachineTemplatePro/app/MachineControl.cpp"
+"../apps/StateMachineTemplatePro/app/testHelpers/InputSimulator.cpp"
+
 #"../libs/hwlib/hwlib.cpp"
 #"../libs/hwlib/peripherals/hwlib-glcd-oled.cpp"
 #"../libs/hwlib/char-io/hwlib-ostream.cpp"
@@ -148,6 +155,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
 # een includepad op zichzelf niets compileert - main.cpp kiest.
 "../apps/pong_cleangui_dg_adv/tools/ClearHallOfFame"
 "../apps/pong_cleangui_dg_adv/tools/ClearCalibrations"
+
+# StateMachineTemplatePro: de .ino staat in de map zelf, en de bronnen includen
+# elkaar als "app/....hpp", dus de map zelf is het includepad.
+"../apps/StateMachineTemplatePro"
 
 #"../apps/TestHwLibGlcOled"
 # Adafruit libs for driving SSD1306 OLED:
