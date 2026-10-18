@@ -1,0 +1,195 @@
+---
+title: "std MachineControl (FreeRTOS)"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : button1Pressed / xEventGroupSetBits(eventGroup, eventBitButton1Pressed)
+    interface : button2Pressed / xEventGroupSetBits(eventGroup, eventBitButton2Pressed)
+    interface : knobTurned(uint8_t knobValue) / xQueueOverwrite(knobValueQueue, #amp;knobValue)#59;
+    interface : xEventGroupSetBits(eventGroup, eventBitKnobTurned)
+    interface : keyTyped(character) / xQueueSend(keyTypedQueue, #amp;character, portMAX_DELAY)#59;
+    interface : xEventGroupSetBits(eventGroup, eventBitKeyTypedQueue)
+    interface : telegramCharacterReceived(character) / xQueueSend(telegramQueue, #amp;character, portMAX_DELAY)
+    interface : getScore / int score=0#59; xQueuePeek(scoreQueue, #amp;score, 0)#59; return score
+    state choice1 <<choice>>
+    state "State K" as State_K
+    state "State A" as State_A
+    State_A : entry / setLEDColor(Color#58;#58;Green)#59;
+    state choice2 <<choice>>
+    state choice3 <<choice>>
+    state choice4 <<choice>>
+    state "State B" as State_B
+    State_B : entry / setLEDColor(Color#58;#58;Blue)#59;
+    state "State E" as State_E
+    State_E : entry / setLEDColor(Color#58;#58;Magenta)
+    state "State J" as State_J
+    State_J : entry / xEventGroupClearBits(eventGroup,eventBitTimer10sec)#59;
+    State_J : xTimerStart(timer10sec, portMAX_DELAY)
+    state "State C" as State_C
+    State_C : entry / setLEDColor(Color#58;#58;Red)#59;
+    state "State D" as State_D
+    State_D : entry / setLEDColor(Color#58;#58;Cyan)
+    state choice5 <<choice>>
+    state "State F" as State_F
+    State_F : entry / setLEDColor(Color#58;#58;Yellow)#59;
+    State_F : executingCount++#59;
+    state "State I" as State_I
+    state choice6 <<choice>>
+    state choice7 <<choice>>
+    state choice8 <<choice>>
+    state "State H" as State_H
+    state "State G" as State_G
+    state choice9 <<choice>>
+
+    %% Transities
+    [*] --> State_A : / executingCount = 0#59;<br>timer10sec = xTimerCreate(#quot;Timer10sec#quot;, pdMS_TO_TICKS(ms),<br>pdFALSE, this, timer10secCallback)
+    choice1 --> State_K : [uxQueueMessagesWaiting(telegramQueue) #gt; 0]
+    choice1 --> State_A : [else]
+    State_K --> choice1 : telegramQueue<br>/ xQueueReceive(telegramQueue,<br>#amp;telegramCharacter, portMAX_DELAY)
+    State_A --> State_B : eventBitButton1Pressed,<br>eventBitButton2Pressed
+    choice2 --> State_K
+    choice3 --> choice2
+    choice4 --> choice3 : [(nameLen==MAXNAME_SIZE) || (character == '.')]
+    choice4 --> State_J : [else]
+    State_B --> State_C : eventBitButton1Pressed + eventBitButton2Pressed
+    State_E --> choice2 : after(5s)
+    State_J --> choice3 : eventBitTimer10sec
+    State_J --> choice4 : eventBitKeyTypedQueue<br>[tryReadQueue(keyTypedQueue,character,<br>eventGroup,eventBitKeyTypedQueue)]<br>/ nameBuffer[nameLen++] = character#59;<br>nameBuffer[nameLen]=0
+    State_C --> State_E : eventBitButton2Pressed
+    State_C --> State_D : eventBitButton1Pressed
+    State_D --> State_F : after(1s) / executingCount = 0
+    choice5 --> State_J : [(nameLen==MAXNAME_SIZE) || (character == '.')]<br>/ nameLen = 0#59;<br>nameBuffer[nameLen] = 0#59;<br>setLEDColor(Color#58;#58;Cyan)#59;<br>xQueueReset(keyTypedQueue)#59;<br>xEventGroupClearBits(eventGroup, eventBitKeyTypedQueue)#59;
+    choice5 --> State_I : [else]
+    State_F --> choice8 : eventBitButton1Pressed
+    State_I --> choice5 : eventBitKeyTypedQueue [tryReadQueue(keyTypedQueue, character,<br>eventGroup, eventBitKeyTypedQueue)]<br>/ nameBuffer[nameLen++] = character#59;<br>nameBuffer[nameLen]=0
+    choice6 --> choice7 : [knobValue #gt; 127]
+    choice6 --> State_H : [else]
+    choice7 --> State_I : / nameLen = 0#59;<br>nameBuffer[nameLen] = 0#59;<br>setLEDColor(Color#58;#58;Red)#59;<br>xQueueReset(keyTypedQueue)#59;<br>xEventGroupClearBits(eventGroup,<br>eventBitKeyTypedQueue)#59;
+    choice8 --> State_F : [executingCount #lt; 3]
+    choice8 --> State_G : [else]<br>/ int score#59; xQueuePeek(scoreQueue,#amp;score,0)#59;<br>score ++#59; xQueueOverwrite(scoreQueue, #amp;score)#59;<br>setLEDColor(Color#58;#58;Magenta)
+    State_H --> choice6 : eventBitKnobTurned<br>/ xQueuePeek(knobValueQueue, #amp;knobValue, 0)
+    State_H --> choice7 : after (5s)
+    State_G --> choice9 : eventBitButton1Pressed
+    choice9 --> State_H : [else]<br>/setLEDColor(Color#58;#58;Yellow)
+    choice9 --> State_G : [counter.getCounterValue()#lt;3]
+
+    %% Notes
+    note right of interface
+        Als het wachten op een zekere queue overal gebeurt zonder gelijktijdig te
+        #nbsp;#nbsp;#nbsp;#nbsp;wachten op iets anders, is er geen gekoppeld eventbit nodig, en kan het
+        #nbsp;#nbsp;#nbsp;#nbsp;eenvoudig zo#58;
+        xQueueReceive(telegramQueue, #amp;telegramCharacter, portMAX_DELAY).
+        Dat commando doet alles in een#58; wachten totdat er iets in de queue zit, en
+        #nbsp;#nbsp;#nbsp;#nbsp;vervolgens het resultaat in telegramCharacter schrijven.
+        Als er wel een gekoppeld eventbit is, wacht dan altijd zoals bij State I.
+    end note
+    note left of choice8
+        Beslis een richting aan de hand van een boolean conditie.
+    end note
+    state "Het wachten op beide events gaat zo#58;" as note2
+    note2 : do
+    note2 : #123;
+    note2 : uxBits = xEventGroupWaitBits(eventGroup,
+    note2 : eventBitKeyTyped | eventBitTimer10sec,
+    note2 : pdTRUE, pdFALSE, portMAX_DELAY)#59;
+    note2 : #125; while (((uxBits #amp; eventBitTimer10sec) == 0) #amp;#amp;
+    note2 : (uxQueueMessagesWaiting(keyTypedQueue) == 0))#59;
+    note2 : Reden#58; als tijdens de aanroep van de functie keyTyped (door de taak van
+    note2 : #nbsp;#nbsp;#nbsp;#nbsp;InputSimulator) precies voor het setten van de eventbit een task switch
+    note2 : #nbsp;#nbsp;#nbsp;#nbsp;optreedt, kan het zo zijn dat de taak van MachineControl al zit te wachten op
+    note2 : #nbsp;#nbsp;#nbsp;#nbsp;het eventbit voordat de InputControlTaak verder mag en de eventbit set, terwijl
+    note2 : #nbsp;#nbsp;#nbsp;#nbsp;de queueinhoud al is gereset.
+    state "Voor deze timer heb ik de initialisatie expliciet in de std gezet, maar je zou dat ook impliciet kunnen laten (de tijd volgt al uit" as note3
+    note3 : de naam, en dit is standaard
+    note3 : boilerplate code.
+    state "Wacht tot een van beide of beide events gevuurd hebben, en ga dan verder." as note4
+    state "Voor deze keer heb ik deze methode expliciet in de std gezet, maar je zou dat ook impliciet kunnen laten (Dit is standaard boilerplate code, die je ergens op een centrale plek kunt zetten en hergebruiken)" as note5
+    state "// Leest niet-blokkerend één bericht uit queue en trekt daarna het" as note6
+    note6 : // event-bit gelijk met de werkelijke queue-inhoud. Geeft true als er een
+    note6 : // bericht gelezen is.
+    note6 : template#lt;typename T#gt;
+    note6 : bool tryReadQueue(QueueHandle_t#amp; queue, T#amp; item,
+    note6 : EventGroupHandle_t#amp; eventGroup,
+    note6 : const EventBits_t#amp; eventBitQueue)
+    note6 : #123;
+    note6 : // Niet-blokkerend lezen (timeout 0 ticks).
+    note6 : bool bSucces = (xQueueReceive(queue, #amp;item, 0) == pdPASS)#59;
+    note6 : // Event-bit gelijktrekken met de werkelijke queue-inhoud.
+    note6 : if (uxQueueMessagesWaiting(queue) #gt; 0)
+    note6 : #123;
+    note6 : xEventGroupSetBits(eventGroup, eventBitQueue)#59; // er staat nog iets#58; bit aan
+    note6 : #125;
+    note6 : else
+    note6 : #123;
+    note6 : xEventGroupClearBits(eventGroup, eventBitQueue)#59; // leeg#58; bit uit
+    note6 : if (uxQueueMessagesWaiting(queue) #gt; 0) // schrijver tussendoor gekomen?
+    note6 : #123;
+    note6 : xEventGroupSetBits(eventGroup, eventBitQueue)#59;
+    note6 : #125;
+    note6 : #125;
+    note6 : return bSucces#59;
+    note6 : #125;
+    state "Wacht tot beide events gevuurd hebben. Ga daarna pas verder." as note7
+    state "Wacht op 2 events. Het eerste event dat optreedt, beslist welke route gekozen wordt." as note8
+    state "Deze alleenstaande after(1s) kan worden geimplementeerd met een eenvoudige vTaskDelay" as note9
+    state "Ook voor het alleen wachten op één enkele queue waar een eventbit aan gekoppeld is, moet op dat eventbit gewacht worden ipv direct op de queue, zodat er geen probleem ontstaat met het syncen van dat eventbit." as note10
+    state "Wachten op een tijd of queue en nog iets anders tegelijk, implicieert wachten op eventbits die er aan gelieerd zijn#58;" as note11
+    note11 : uxBits = xEventGroupWaitBits(eventGroup,
+    note11 : eventBitTimer5sec | eventBitKnobTurned,
+    note11 : pdTRUE, pdFALSE, portMAX_DELAY)#59;
+    state "Zo gaat informatie opvraagbaar maken door een ander object." as note13
+    note13 : (via de bijbehorende getScore functie)
+    state "Deze after(5s) impliceert#58;" as note14
+    note14 : entry / xEventGroupClearBits(eventGroup,
+    note14 : eventBitTimer5sec)#59;
+    note14 : xTimerStart(timer5sec, portMAX_DELAY)
+    note14 : en langs de uitgaande pijl het event eventBitTimer5sec
+    note14 : df#37;3CmxGraphModel#37;3E#37;3Croot#37;3E#37;3CmxCell#37;20id#37;3D#37;220#37;22#37;2F#37;3E#37;3CmxCell#37;20id#37;3D#37;22
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;1#37;22#37;20parent#37;3D#37;220#37;22#37;2F#37;3E#37;3CmxCell#37;20id#37;3D#37;222#37;22#37;20parent#37;3D#37;221#37;22#37;20style
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3D#37;22shape#37;3Dnote#37;3BwhiteSpace#37;3Dwrap#37;3Bhtml#37;3D1#37;3Bsize#37;3D14#37;3BverticalAlign#37;3D
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;top#37;3Balign#37;3Dleft#37;3BspacingLeft#37;3D6#37;3B#37;22#37;20value#37;3D#37;22#37;26lt#37;3Bp#37;20style#37;3D#37;26q
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20margin-top#37;3A#37;204px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;2
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;6quot#37;3B#37;26gt#37;3B#37;26lt#37;3Bb#37;26gt#37;3Bconstants#37;26lt#37;3B#37;2Fb#37;26gt#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26q
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3B#37;26gt#37;3BcounterPeriodMs#37;20#37;3D#37;2010000#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3Bcount
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;erValueNeeded#37;20#37;3D#37;203#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BcounterReadyMs#37;20#37;3D#37;26lt
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3Bbr#37;26gt#37;3B#37;26amp#37;3Bnbsp#37;3B#37;20#37;26amp#37;3Bnbsp#37;3BcounterPeriodMs#37;20*#37;20counterVal
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;ueNeeded#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BnameToType#37;20#37;3D#37;20#37;26quot#37;3BMarius.#37;26q
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BnameToTypeInStateJ#37;20#37;3D#37;20#37;26quot#37;3BBart#37;
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;26quot#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;22#37;20vertex#37;3D#37;221#37;22#37;3E#37;3CmxGeometry#37;20height#37;3D#37;
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;22120#37;22#37;20width#37;3D#37;22250#37;22#37;20x#37;3D#37;221010#37;22#37;20y#37;3D#37;22220#37;22#37;20as#37;3D#37;22geometry
+    note14 : #nbsp;#nbsp;#nbsp;#nbsp;#37;22#37;2F#37;3E#37;3C#37;2FmxCell#37;3E#37;3C#37;2Froot#37;3E#37;3C#37;2FmxGraphModel#37;3E
+    state "Voor deze timer heb ik de callback expliciet in de std gezet, maar je zou dat ook impliciet kunnen laten (Dit is standaard boilerplate code)" as note15
+    state "void MachineControl#58;#58;timer10secCallback(TimerHandle_t xTimer)" as note16
+    note16 : #123;
+    note16 : MachineControl *instance = static_cast#lt;MachineControl *#gt;(pvTimerGetTimerID(xTimer))#59;
+    note16 : xEventGroupSetBits(instance-#gt;eventGroup, instance-#gt;eventBitTimer10sec)#59;
+    note16 : #125;
+    state "Zo gaat informatie opvragen bij een ander object." as note17
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note2,note3,note4,note5,note6,note7,note8,note9,note10,note11,note13,note14,note15,note16,note17 noteBlock

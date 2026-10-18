@@ -1,0 +1,32 @@
+---
+title: "std Counter"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : getCounterValue / int counter#59; xQueuePeek(counterQueue, #amp;counter, 0)#59; return counter
+    state "WaitingForNextCount" as WaitingForNextCount
+
+    %% Transities
+    [*] --> WaitingForNextCount : / counter = 0
+    WaitingForNextCount --> WaitingForNextCount : after(10s)<br>/ counter++#59;<br>xQueueOverwrite(counterQueue, #amp;counter)#59;

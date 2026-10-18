@@ -1,0 +1,8 @@
+# ESP-IDF build output
+build/
+build-idf54/
+
+# draw.io backup- en tijdelijke bestanden (naast StateMachineTemplatePro.drawio)
+architecture/.$*.drawio.bkp
+architecture/.$*.drawio.dtmp
+

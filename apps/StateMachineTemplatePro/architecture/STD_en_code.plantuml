@@ -1,0 +1,38 @@
+@startuml
+state StateC
+StateC --> StateD : eventBitButton1Pressed
+StateC --> StateE : eventBitButton2Pressed
+@enduml
+
+@startuml
+state StateA
+StateA --> StateB : eventBitButton1Pressed
+StateA --> StateB : eventBitButton2Pressed
+@enduml
+
+@startuml
+state StateB
+StateB --> StateC : eventBitButton1Pressed,\neventBitButton2Pressed
+@enduml
+
+@startuml
+state StateB
+StateB --> StateC : eventBitButton1Pressed + \neventBitButton2Pressed   
+@enduml
+
+
+@startuml
+state StateF : entry / executingCounter++
+state c1 <<choice>>
+[*] --> StateF :/ executingCounter = 0
+StateF --> c1 : eventBitButton1Pressed
+c1 --> StateF : [executingCounter < 3]
+c1 --> StateG : [else]
+@enduml
+
+@startuml
+state StateG 
+StateG --> StateH : eventBitCounterSet [counter.getCounterValue > 5]
+@enduml
+
+

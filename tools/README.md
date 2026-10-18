@@ -50,10 +50,10 @@ vanuit elke map geven; de tool zoekt de `images`-wortel zelf op.
 
 Parameters komen achteraan de naam, elk beginnend met een `-`:
 
-| parameter | betekenis |
-|---|---|
-| `-trcolor_RRGGBB` | deze kleur geldt als transparant |
-| `-ssh_RxC` | het plaatje is een spritesheet van R rijen bij C kolommen |
+| parameter         | betekenis                                                 |
+| ----------------- | --------------------------------------------------------- |
+| `-trcolor_RRGGBB` | deze kleur geldt als transparant                          |
+| `-ssh_RxC`        | het plaatje is een spritesheet van R rijen bij C kolommen |
 
 `-trcolor` doet twee verschillende dingen, afhankelijk van de bron:
 
@@ -124,11 +124,103 @@ Vlaggen:
   worden ze alleen gemeld; gegenereerde bestanden die in git staan wis je niet
   zomaar achter iemands rug.
 
-## Voorbeeld
+## img2rgb565.py --pal8 — één palet voor een hele images-boom
+
+```
+python3 tools/img2rgb565.py --pal8 apps/pong_cleangui_dg_adv/images
+```
+
+Zet niet één plaatje om maar de **hele boom**, naar één byte per pixel: een
+index in een palet dat alle plaatjes van die boom delen. Je mag een map opgeven
+of een bestand eronder; in beide gevallen wordt de hele boom gedaan, want het
+palet volgt uit alle plaatjes samen, en verandert het, dan moeten ze allemaal
+opnieuw. Een boom zonder plaatjes mag ook: een voorbeeld dat alleen widgets
+tekent heeft nog steeds een palet nodig.
+
+Waarom een gedeeld palet: `TFT_eSPI_DisplayAdapter_PAL8` tekent in een
+backbuffer van indices met ditzelfde palet. Een plaatje blitten is dan geheugen
+kopiëren, zonder omzetting per pixel. En het kost de helft van de flash van
+RGB565. De RGB565-adapter kan deze plaatjes ook tonen; die pakt ze regel voor
+regel uit via het palet.
+
+De uitvoer staat in `<images>/_pal8/`, naast een eventuele `_rgb565/`:
+
+| bestand | wat |
+|---|---|
+| `_palette.h` | gegenereerd: `arPalette[256]` in RGB565 |
+| `<naam>.h` per plaatje | gegenereerd: `uint8_t`-indices, `format=PAL8` in de meta-regel |
+| `_allImages.h` | gegenereerd: een `Image` per plaatje, allemaal wijzend naar `arPalette` |
+| `_userPalette.h` | **met de hand geschreven**, optioneel; zie hieronder |
+
+Includeer `_pal8/_allImages.h` en geef het palet bij het opstarten aan de
+adapter door, vóór het eerste tekencommando:
+
+```cpp
+tft_eSPI_DisplayAdapter.setPalette(crt::arPalette);
+```
+
+Zonder die regel wordt er geen enkel PAL8-plaatje getoond en is alles wat de
+code zelf tekent magenta.
+
+### Hoe het palet wordt samengesteld
+
+| index | inhoud |
+|---|---|
+| `0 .. N-1` | letterlijk uit `_userPalette.h`, in die volgorde |
+| daarna | median-cut over alle zichtbare pixels van alle plaatjes samen |
+| wat overblijft | opvulling: een kleurenkubus, daarna een grijstrap |
+| `255` | transparant, altijd. Magenta, zodat een fout opvalt |
+
+Geen dithering: op een kleine sprite wordt dat ruis, en het breekt juist de
+vlakke kleurvlakken waar deze aanpak zijn snelheid aan ontleent. De opvulling
+is geen zwart: de adapter zoekt bij elke kleur die niet in het palet staat de
+dichtstbijzijnde over alle ingangen, en een staart vol zwart zou elke donkere
+kleur naar puur zwart trekken.
+
+### `_userPalette.h`
+
+Met de hand geschreven en optioneel: een `arUserPalette[]` van ARGB-kleuren
+(`0x00RRGGBB`, zoals overal in CleanGUI). Die komen letterlijk en in die
+volgorde vooraan in `_palette.h`, dus `arUserPalette[i]` is palet-index `i`, en
+dat blijft zo als er plaatjes bijkomen of verdwijnen. Alleen voor dit blok is
+`paletteIndex(i)` in de code dus betrouwbaar.
+
+Zet hier de kleuren in die de code zélf nog noemt: een achtergrond, een
+knopkleur, de tekst erop. Zonder dit bestand zoekt de adapter er de
+dichtstbijzijnde palet-ingang bij, en dat is wat de median-cut toevallig heeft
+opgeleverd, een rood dat net niet het rood is dat je opgaf. Wat hier staat zit
+er exact in. Uitgecommentarieerde kleuren tellen niet mee; er passen er
+hoogstens 255. Een kubus of grijstrap hoef je er niet in te zetten, dat doet
+de converter met wat overblijft.
+
+### Transparantie
+
+Dezelfde afspraak als bij RGB565: alleen een `-trcolor`-parameter in de
+bestandsnaam maakt een plaatje transparant. Met alpha-kanaal wordt elke pixel
+met alpha < 128 index 255; zonder alpha-kanaal de pixels die exact die kleur
+hebben. Een alpha-kanaal zonder `-trcolor` geeft een waarschuwing en vervalt.
+Transparante pixels tellen niet mee voor het palet.
+
+### Verschillen met de RGB565-weg
+
+- Altijd alles of niets. Er is geen incrementele variant zoals
+  `allImg2rgb565.py`, want het palet hangt van alle plaatjes af.
+- Weesheaders van plaatjes die niet meer bestaan worden meteen verwijderd; het
+  palet is toch net opnieuw bepaald.
+- De `Image`-namen zijn gelijk (`imageSpeler`), alleen de array heet
+  `arSpelerIndices` in plaats van `arSpelerPixels`. Een app die alleen de
+  `Image`-objecten gebruikt wisselt dus van formaat door één include om te
+  zetten.
+
+## Voorbeelden
 
 `libs/CleanGUI_for_TFT_eSPI/examples/ImageViewer` gebruikt dit alles: bronnen in
-`images/`, gegenereerde headers in `images/_rgb565/`, en een viewer die
-`arAllImages[]` afloopt met twee touchknoppen.
+`images/`, gegenereerde headers in `images/_rgb565/` én `images/_pal8/`, en een
+viewer die `arAllImages[]` afloopt met twee touchknoppen.
+
+`apps/pong_cleangui_dg_adv` is het PAL8-geval van begin tot eind: de bronnen
+worden getekend door `images/make_pong_images.py`, alles staat in `_pal8/`, en
+`_userPalette.h` legt de kleuren vast die de code zelf nog noemt.
 
 ## drawio-export.sh — een modelpagina bekijken
 

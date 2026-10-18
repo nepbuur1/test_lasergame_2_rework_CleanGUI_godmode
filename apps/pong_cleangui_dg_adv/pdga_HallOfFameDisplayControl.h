@@ -120,9 +120,6 @@ namespace pong_cleangui_dg_adv
 
 		State state;
 
-		// Eenmalig gevraagd in main(); bepaalt wat een fakkelstap tekent.
-		bool bDisplayIsBuffered;
-
 	public:
 		HallOfFameDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 							IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts) :
@@ -135,8 +132,7 @@ namespace pong_cleangui_dg_adv
 			flagShowHallOfFamePage(this),
 			flagHideHallOfFamePage(this),
 			timerTorch(this),
-			state (STATE_HIDDEN),
-			bDisplayIsBuffered(false)
+			state (STATE_HIDDEN)
 		{
 			Vec2 screenSize = display.getScreenSize();
 			screenWidth  = screenSize.x;
@@ -343,13 +339,17 @@ namespace pong_cleangui_dg_adv
 			pageRoot.addChildWidget(arTorchPanels[1]);
 		}
 
+		void selectNextAnimationFrameOfTorches()
+		{
+			TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
+		}
+
 		/*override keyword not supported*/
 		void main()
 		{
 			vTaskDelay(1000); // wait for other threads to have started up as well.
 
 			initPanels();
-			bDisplayIsBuffered = display.isBuffered();
 
 			PAGE pageHallOfFame("rootHallOfFameDisplay",display);
 			defineDisplayHierarchy(pageHallOfFame);
@@ -409,8 +409,8 @@ namespace pong_cleangui_dg_adv
 						}
 						else if(hasFired(timerTorch))
 						{
-							TorchesDisplayHelpers::stepTorches(arTorchPanels, arIndexTorchFrame);
-							TorchesDisplayHelpers::redrawTorches(arTorchPanels, pageHallOfFame, bDisplayIsBuffered);
+							selectNextAnimationFrameOfTorches();
+							pageHallOfFame.redraw(true);
 
 							// Eenmalige timer, zodat elke wachttijd gerandomiseerd kan
 							// worden.

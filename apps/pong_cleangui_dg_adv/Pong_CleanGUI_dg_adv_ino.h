@@ -5,7 +5,6 @@
 
 #include <crt_CleanGUI.h>
 #include <crt_AsyncDisplay.h>
-#include <crt_TFT_eSPI_DisplayAdapter.h>
 #include <crt_TFT_eSPI_DisplayAdapter_PAL8.h>
 
 // Het gedeelde palet van alle plaatjes van deze app. Zie images/_pal8/.
@@ -51,18 +50,18 @@ namespace pong_cleangui_dg_adv
 	// - present() stuurt altijd het hele scherm: ~31 ms, dus ~30 beelden per
 	//   seconde is het plafond, ongeacht hoe weinig er verandert.
 	// - Gedeeltelijk hertekenen (moveTo) is er daardoor niet meer bij; de
-	//   DisplayControls tekenen hun hele boom per beeld. Zie
-	//   IDisplay::isBuffered() en waar dat in pdga_GameDisplayControl.h op
-	//   uitkomt.
+	//   DisplayControls tekenen hun hele boom per beeld.
 	// - Afgeronde hoeken worden vierkant: een TFT_eSprite heeft er geen
 	//   primitieve voor. Alles wat rond moet zijn, is daarom een plaatje.
 	//
-	// Kies hier de display-adapter, net als in het MultiPanel-voorbeeld: de ene
-	// regel uit commentaar, de andere erin. De rest van de app kijkt naar
-	// isBuffered() en past zich aan. Beide constructors hebben dezelfde
-	// parameters, dus de regel met tft_eSPI_DisplayAdapter eronder blijft gelijk.
-	typedef TFT_eSPI_DisplayAdapter_RGB565<MaxNofTouchListeners> DisplayAdapterType;
-	//typedef TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners> DisplayAdapterType;
+	// Deze app rekent op die backbuffer: elke pagina tekent per beeld haar hele
+	// boom, en niets tekent gedeeltelijk. Rechtstreeks tekenen
+	// (TFT_eSPI_DisplayAdapter_RGB565) zou daardoor per beeld een zichtbare wis
+	// van het hele scherm zijn. Die route heeft er wel in gezeten en werkte; hij
+	// is op 2026-09-07 bewust weggehaald om de code eenvoudig te houden (zie
+	// het logboek; commit 5963268 is de laatste versie die hem nog had).
+	// GameDisplayControl controleert de aanname bij het opstarten.
+	typedef TFT_eSPI_DisplayAdapter_PAL8<MaxNofTouchListeners> DisplayAdapterType;
 	typedef AsyncDisplay<CommandBufferSize, MaxNofClientTasks> AsyncDisplayType;
 
 	DisplayAdapterType tft_eSPI_DisplayAdapter(freeFonts, "/TouchCalData1"/*filenameCalibration*/, false/*bRepeatCalibration*/);

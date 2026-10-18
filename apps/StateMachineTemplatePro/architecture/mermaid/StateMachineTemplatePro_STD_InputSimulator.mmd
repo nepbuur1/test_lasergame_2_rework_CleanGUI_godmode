@@ -1,0 +1,105 @@
+---
+title: "std InputSimulator"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "WaitingForStateA" as WaitingForStateA
+    state "WaitingForNextTour" as WaitingForNextTour
+    WaitingForNextTour : entry / ESP_LOGI(TAG, #quot;Score is #37;d, machineControl.getScore())
+    state "SimulatingStateA" as SimulatingStateA
+    SimulatingStateA : entry / machineControl.button1Pressed()
+    state "SimulatingStateCtoE" as SimulatingStateCtoE
+    SimulatingStateCtoE : entry / machineControl.button2Pressed()#59;
+    SimulatingStateCtoE : round = 2
+    state "WaitingForStateJTimeout" as WaitingForStateJTimeout
+    state "SimulatingStateB" as SimulatingStateB
+    SimulatingStateB : entry / machineControl.button1Pressed()#59;
+    SimulatingStateB : machineControl.button2Pressed()
+    state "SimulatingTelegramInStateE" as SimulatingTelegramInStateE
+    SimulatingTelegramInStateE : entry / for (pCharacter = telegramInState#59; *pCharacter != 0#59; pCharacter++)
+    SimulatingTelegramInStateE : machineControl.telegramCharacterReceived(*pCharacter)
+    state choice1 <<choice>>
+    state "SimulatingStateA_again" as SimulatingStateA_again
+    SimulatingStateA_again : entry / machineControl.button1Pressed()
+    state "SimulatingStateJ" as SimulatingStateJ
+    SimulatingStateJ : entry / machineControl.keyTyped(*pCharacter)#59;
+    SimulatingStateJ : pCharacter++
+    state "SimulatingStateB_again" as SimulatingStateB_again
+    SimulatingStateB_again : entry / machineControl.button1Pressed()#59;
+    SimulatingStateB_again : machineControl.button2Pressed()
+    state choice2 <<choice>>
+    state "SimulatingStateF" as SimulatingStateF
+    SimulatingStateF : entry / machineControl.button1Pressed()#59;
+    SimulatingStateF : pressCount++
+    state "SimulatingStateCtoD" as SimulatingStateCtoD
+    SimulatingStateCtoD : entry / machineControl.button1Pressed()
+    state "SimulatingStateI" as SimulatingStateI
+    SimulatingStateI : entry / machineControl.keyTyped(*pCharacter)#59;
+    SimulatingStateI : pCharacter++
+    state choice3 <<choice>>
+    state "SimulatingStateH" as SimulatingStateH
+    SimulatingStateH : entry / machineControl.knobTurned(200)
+    state "SimulatingStateGTooEarly" as SimulatingStateGTooEarly
+    SimulatingStateGTooEarly : entry / machineControl.button1Pressed()
+    state "SimulatingStateHTooLow" as SimulatingStateHTooLow
+    SimulatingStateHTooLow : entry / machineControl.knobTurned(100)
+    state choice4 <<choice>>
+
+    %% Transities
+    [*] --> WaitingForStateA
+    WaitingForStateA --> SimulatingStateA : after(2s)
+    WaitingForNextTour --> SimulatingStateA : after(3s)
+    SimulatingStateA --> SimulatingStateB : after(1s)
+    SimulatingStateCtoE --> SimulatingTelegramInStateE : after(5s)
+    WaitingForStateJTimeout --> WaitingForNextTour : after(11s)
+    SimulatingStateB --> SimulatingStateCtoE : after(1s)
+    SimulatingTelegramInStateE --> SimulatingStateA_again : after(1s)
+    choice1 --> WaitingForStateJTimeout : [else]
+    choice1 --> SimulatingStateJ : [*pCharacter != 0]
+    SimulatingStateA_again --> SimulatingStateB_again : after(1s)
+    SimulatingStateJ --> choice1 : after(0.3s)
+    SimulatingStateB_again --> SimulatingStateCtoD : after(1s)
+    choice2 --> SimulatingStateJ : [else] / pCharacter = nameToTypeInStateJ
+    choice2 --> SimulatingStateI : [*pCharacter != 0]
+    SimulatingStateF --> choice3 : after(1s)
+    SimulatingStateCtoD --> SimulatingStateF : after(2s)<br>/ pressCount = 0
+    SimulatingStateI --> choice2 : after(0.3s)
+    choice3 --> SimulatingStateF : [pressCount #lt; 3]
+    choice3 --> SimulatingStateGTooEarly : [else]
+    SimulatingStateH --> SimulatingStateI : after(0.5s) / pCharacter = nameToType
+    SimulatingStateGTooEarly --> choice4 : after(2s)
+    SimulatingStateHTooLow --> SimulatingStateH : after(1s)
+    choice4 --> SimulatingStateGTooEarly : [msSinceBoot() #lt; counterReadyMs]
+    choice4 --> SimulatingStateHTooLow : [else] / machineControl.button1Pressed()
+
+    %% Notes
+    state "constants" as note1
+    note1 : counterPeriodMs = 10000
+    note1 : counterValueNeeded = 3
+    note1 : counterReadyMs =
+    note1 : counterPeriodMs * counterValueNeeded
+    note1 : nameToType = #quot;Marius.#quot;
+    note1 : nameToTypeInStateJ = #quot;Bart#quot;
+    state "Ter #quot;lering ende vermaeck#quot; nog deze ver-gezochte InputSimulator STD, welke MachineControl via het geven van de juiste inputs door al haar toestanden loodst." as note2
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note1,note2 noteBlock

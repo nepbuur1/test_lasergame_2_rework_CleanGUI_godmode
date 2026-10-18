@@ -1,0 +1,168 @@
+---
+title: "std MachineControl (CleanRTOS)"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : button1Pressed / flagButton1Pressed.set()
+    interface : button2Pressed / flagButton2Pressed.set()
+    interface : knobTurned(uint8_t knobValue) / poolKnobValue.write(knobValue)#59;
+    interface : flagKnobTurned.set()
+    interface : keyTyped(character) / keyTypedQueue.write(character)
+    interface : telegramCharacterReceived(character) / telegramQueue.write(character)
+    interface : getScore / int score#59; scorePool.read(score)#59; return score#59;
+    state choice1 <<choice>>
+    state "State K" as State_K
+    state "State A" as State_A
+    State_A : entry / setLEDColor(Color#58;#58;Green)#59;
+    state choice2 <<choice>>
+    state choice3 <<choice>>
+    state choice4 <<choice>>
+    state "State B" as State_B
+    State_B : entry / setLEDColor(Color#58;#58;Blue)#59;
+    state "State E" as State_E
+    State_E : entry / setLEDColor(Color#58;#58;Magenta)
+    state "State J" as State_J
+    State_J : entry / timer10sec.start(ms * 1000)
+    state "State C" as State_C
+    State_C : entry / setLEDColor(Color#58;#58;Red)#59;
+    state "State D" as State_D
+    State_D : entry / setLEDColor(Color#58;#58;Cyan)
+    state choice5 <<choice>>
+    state "State F" as State_F
+    State_F : entry / setLEDColor(Color#58;#58;Yellow)#59;
+    State_F : executingCount++#59;
+    state "State I" as State_I
+    state choice6 <<choice>>
+    state choice7 <<choice>>
+    state choice8 <<choice>>
+    state "State H" as State_H
+    state "State G" as State_G
+    state choice9 <<choice>>
+
+    %% Transities
+    [*] --> State_A : / executingCount = 0
+    choice1 --> State_K : [telegramQueue.getNofMessagesWaiting()#gt;0]
+    choice1 --> State_A : [else]
+    State_K --> choice1 : telegramQueue<br>[telegramQueue.tryRead(telegramCharacter)]
+    State_A --> State_B : flagButton1Pressed,<br>flagButton2Pressed
+    choice2 --> State_K
+    choice3 --> choice2
+    choice4 --> choice3 : [(nameLen==MAXNAME_SIZE) || (character == '.')]
+    choice4 --> State_J : [else]
+    State_B --> State_C : flagButton1Pressed + flagButton2Pressed
+    State_E --> choice2 : after(5s)
+    State_J --> choice3 : timer10sec
+    State_J --> choice4 : keyTypedQueue<br>[keyTypedQueue.tryRead(character)]<br>/ nameBuffer[nameLen++] = character#59;<br>nameBuffer[nameLen]=0
+    State_C --> State_E : flagButton2Pressed
+    State_C --> State_D : flagButton1Pressed
+    State_D --> State_F : after(1s) / executingCount=0
+    State_D --> State_F : after(1s) / executingCount=0
+    choice5 --> State_J : [(nameLen==MAXNAME_SIZE) || (character == '.')]<br>/ nameLen = 0#59;<br>nameBuffer[nameLen] = 0#59;<br>setLEDColor(Color#58;#58;Cyan)#59;<br>keyTypedQueue.clear()#59;
+    choice5 --> State_I : [else]
+    State_F --> choice8 : flagButton1Pressed
+    State_I --> choice5 : keyTypedQueue [keyTypedQueue.tryRead(character)]<br>/ nameBuffer[nameLen++] = character#59;<br>nameBuffer[nameLen]=0
+    choice6 --> choice7 : [knobValue #gt; 127]
+    choice6 --> State_H : [else]
+    choice7 --> State_I : / nameLen = 0#59;<br>nameBuffer[nameLen] = 0#59;<br>setLEDColor(Color#58;#58;Red)#59;<br>keyTypedQueue.clear()#59;
+    choice8 --> State_F : [executingCount #lt; 3]
+    choice8 --> State_G : [else]<br>/ int score#59; scorePool.read(score)#59;<br>score++#59; scorePool.write(score)#59;<br>setLEDColor(Color#58;#58;Magenta)
+    State_H --> choice6 : flagKnobTurned<br>/ poolKnobValue.read(knobValue)
+    State_H --> choice7 : after (5s)
+    State_G --> choice9 : flagButton1Pressed
+    choice9 --> State_H : [else]<br>/setLEDColor(Color#58;#58;Yellow)
+    choice9 --> State_G : [counter.getCounterValue()#lt;3]
+
+    %% Notes
+    note left of choice8
+        Beslis een richting aan de hand van een boolean conditie.
+    end note
+    state "Dit is de CleanRTOS variant van STD MachineControl" as note1
+    note1 : (toegevoegd voor geinteresseerden)
+    state "Het wachten op alleen een enkele Queue kan zo#58;" as note2
+    note2 : do
+    note2 : #123; wait(telegramQueue)#59; #125;
+    note2 : while (! telegramQueue.tryRead(telegramCharacter))#59;
+    state "Het wachten op beide events gaat zo#58;" as note3
+    note3 : waitAny (timer10sec+keyTypedQueue)#59;
+    note3 : // vervolgens kijken welk van de twee gevuurd heeft
+    note3 : // en daarop acteren#58;
+    note3 : if (hasFired(timer10sec))
+    note3 : #123;
+    note3 : ... etc ..
+    note3 : #125;
+    note3 : else if hasFired(keyTypedQueue)
+    note3 : #123;
+    note3 : if (keyTypedQueue.tryRead(character))
+    note3 : #123;
+    note3 : ... etc
+    note3 : #125;
+    note3 : #125;
+    note3 : // NB#58; altijd tryRead gebruiken. Een gevuurde
+    note3 : // queue (-eventbit) heeft immers een (heel) kleine kans om (door een vervelend
+    note3 : #nbsp;#nbsp;#nbsp;#nbsp;getimede task switch weer geleegd te worden voordat hij daadwerkelijk uitgelezen
+    note3 : #nbsp;#nbsp;#nbsp;#nbsp;kan worden.
+    state "Wacht tot een van beide of beide events gevuurd hebben, en ga dan verder." as note4
+    state "Wacht tot beide events gevuurd hebben. Ga daarna pas verder." as note5
+    state "Wacht op 2 events. Het eerste event dat optreedt, beslist welke route gekozen wordt." as note6
+    state "Deze alleenstaande after(1s) kan worden geimplementeerd met een eenvoudige vTaskDelay" as note7
+    state "Wachten op meerdere dingen tegelijk, betekent#58;" as note8
+    note8 : waitAny (flagKnobTurned+timer5sec)
+    note8 : // vervolgens kijken welk van de twee gevuurd heeft
+    note8 : // en daarop acteren#58;
+    note8 : if (hasFired(flagKnobTurned))
+    note8 : #123;
+    note8 : if(knobValue #gt; 127)
+    note8 : #123; ... etc
+    note8 : #125;
+    note8 : else if hasFired(timer5sec)
+    note8 : #123;
+    note8 : ... etc
+    state "Zo gaat informatie opvraagbaar maken door een ander object." as note10
+    note10 : (via de bijbehorende getScore functie)
+    state "Er wordt nu op twee dingen tegelijk gewacht#58; flagKnopTurned en het verstrijken van 5 seconden. Vandaar dat after(5s) in dit geval niet met een eenvoudige vTaskDelay afgehandeld kan worden." as note11
+    note11 : Daarom is deze after(5s) voor een alternatieve, verkorte notatie voor#58;
+    note11 : entry / timer5sec.start(5000000)
+    note11 : en langs de uitgaande pijl het event timer5sec
+    note11 : df#37;3CmxGraphModel#37;3E#37;3Croot#37;3E#37;3CmxCell#37;20id#37;3D#37;220#37;22#37;2F#37;3E#37;3CmxCell#37;20id#37;3D#37;22
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;1#37;22#37;20parent#37;3D#37;220#37;22#37;2F#37;3E#37;3CmxCell#37;20id#37;3D#37;222#37;22#37;20parent#37;3D#37;221#37;22#37;20style
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3D#37;22shape#37;3Dnote#37;3BwhiteSpace#37;3Dwrap#37;3Bhtml#37;3D1#37;3Bsize#37;3D14#37;3BverticalAlign#37;3D
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;top#37;3Balign#37;3Dleft#37;3BspacingLeft#37;3D6#37;3B#37;22#37;20value#37;3D#37;22#37;26lt#37;3Bp#37;20style#37;3D#37;26q
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20margin-top#37;3A#37;204px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;2
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;6quot#37;3B#37;26gt#37;3B#37;26lt#37;3Bb#37;26gt#37;3Bconstants#37;26lt#37;3B#37;2Fb#37;26gt#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26q
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3B#37;26gt#37;3BcounterPeriodMs#37;20#37;3D#37;2010000#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3Bcount
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;erValueNeeded#37;20#37;3D#37;203#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;3A#37;200px#37;20#37;3B#37;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BcounterReadyMs#37;20#37;3D#37;26lt
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;#37;3Bbr#37;26gt#37;3B#37;26amp#37;3Bnbsp#37;3B#37;20#37;26amp#37;3Bnbsp#37;3BcounterPeriodMs#37;20*#37;20counterVal
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;ueNeeded#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;20text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BnameToType#37;20#37;3D#37;20#37;26quot#37;3BMarius.#37;26q
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;uot#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;26lt#37;3Bp#37;20style#37;3D#37;26quot#37;3Bmargin#37;3A#37;200px#37;20#37;3B#37;20
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;text-align#37;3A#37;20left#37;26quot#37;3B#37;26gt#37;3BnameToTypeInStateJ#37;20#37;3D#37;20#37;26quot#37;3BBart#37;
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;26quot#37;3B#37;26lt#37;3B#37;2Fp#37;26gt#37;3B#37;22#37;20vertex#37;3D#37;221#37;22#37;3E#37;3CmxGeometry#37;20height#37;3D#37;
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;22120#37;22#37;20width#37;3D#37;22250#37;22#37;20x#37;3D#37;221010#37;22#37;20y#37;3D#37;22220#37;22#37;20as#37;3D#37;22geometry
+    note11 : #nbsp;#nbsp;#nbsp;#nbsp;#37;22#37;2F#37;3E#37;3C#37;2FmxCell#37;3E#37;3C#37;2Froot#37;3E#37;3C#37;2FmxGraphModel#37;3E
+    state "Zo gaat informatie opvragen bij een ander object." as note12
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note1,note2,note3,note4,note5,note6,note7,note8,note10,note11,note12 noteBlock

@@ -1,5 +1,89 @@
 # Claude log
 
+## 2026-10-18 — CYD_tools_crt: ADC_buttons_E12 (zes knoppen op één ADC-pin)
+
+Nieuwe lib `libs/CYD_tools_crt` met als eerste tool `crt::ADC_buttons_E12`
+(header-only, `src/ADC_buttons_E12/`). Hij leest zes knoppen via de
+E12-weerstandsladder uit `Handleidingen/.../Weerstandsladder_voor_knoppen` op GPIO35
+(connector P3). Een eigen `crt::Task` meet elke 10 ms (32 samples, eFuse-kalibratie),
+decodeert de code 0..63 en debouncet over 3 metingen. Daarna gaan
+`buttonPressed(int)`/`buttonReleased(int)` naar listeners
+(`IADC_buttons_E12Listener`). `isButtonPressed(i)` is thread-safe via een `Pool`.
+Manual: `libs/CYD_tools_crt/docs/ADC_buttons_E12/ADC_buttons_E12.md`. Example:
+`libs/CYD_tools_crt/examples/ADC_buttons_E12` (`AdcButtonListener` logt elk event).
+Staat nu als actieve `#include` in `main/main.cpp` (in plaats van
+`Pong_CleanGUI_dg_adv.ino`); de twee includepaden zijn toegevoegd aan
+`main/CMakeLists.txt`.
+
+- **Verzadiging.** Zonder extra weerstand staat "geen knop" op 3,3 V. Gemeten op
+  GPIO35: 3134 mV, de bovengrens van de ESP32-ADC. S5+S6 leken daardoor
+  ingedrukt, en de codes 0..3 waren niet uit elkaar te houden. Oplossing (met
+  Marius afgesproken): **RL = 100k van Uuit naar GND**. "Geen knop" komt dan op
+  ±2,63 V; de volgorde van de niveaus blijft gelijk (nagerekend met 1%-hoeken),
+  de kleinste stap wordt ±25 mV. De vaste drempeltabel uit
+  `knoppen_e12_drempels.h` geldt alleen zonder RL. `crt_ADC_buttons_E12_ladder.h`
+  rekent de niveaus daarom zelf uit B, P en RL en legt de drempels in het midden.
+- **Zelfkalibratie.** 3,3 V-regelaar en ADC-versterking wijken samen ±1–2% af,
+  meer dan een halve stap. Bij het opstarten wordt "geen knop" gemeten en daaruit
+  Vref afgeleid (gemeten: 3339–3354 mV). Daarna volgt hij langzaam zolang er
+  niets is ingedrukt.
+- **Getest op de CYD**: S1..S6 los, S2+S5, S5+S6 en S1+S6 geven de juiste
+  pressed/released. De niveaus kloppen tot op ±15 mV met de berekening. S6 deed
+  eerst elektrisch niets; dat was een hardwarefout, door Marius hersteld. Sindsdien
+  leest alles met S1 erin ±20 mV te hoog (S1 1122 in plaats van 1098 mV), wat past
+  bij ±250 Ω extra in het pad van S1 naar GND. S1+S6 ligt daardoor precies op een
+  drempel: S6 flikkerde één keer los/vast. Hysterese bewust níét toegevoegd
+  (keuze van Marius); de oorzaak zit in de hardware.
+- Beperking: onder ±100–150 mV leest de ESP32-ADC nul, dus combinaties van vier of
+  meer knoppen (S1..S4 plus S5/S6, codes 60..63) zijn niet te onderscheiden.
+- **RL daarna naar 68k** (Marius). Met 100k lag "geen knop" op 2630 mV, boven het
+  nauwkeurige bereik van de ADC bij 12 dB (tot ±2450 mV). Met 68k komt het op
+  2400 mV (2439 mV bij de gemeten Vref van 3354 mV). Kleinste stap 23,3 mV (was
+  25,2); in de slechtste 1%-hoek blijft er 5,4 mV tussen buren (was 8,6). Default
+  van `loadOhm`, het example, de manual en de tabel met verwachte spanningen zijn
+  aangepast. Geflasht en getest met 68k: alle events kloppen (S1..S6 los, S5+S6,
+  S1 vast + S6, S2+S5), zonder geflikker. Na de zelfkalibratie (Vref 3387 mV)
+  wijkt elk niveau hooguit 13 mV af van de berekening. De krapste plekken zijn S6
+  (10 mV boven zijn drempel) en S1+S6 (8 mV eronder, door de S1-afwijking).
+- **S1+S2 werd soms `[1-3456]`** (melding van Marius). S1+S2 (110000) ligt met
+  68k op 474 mV. De buurcode erboven is 101111 (S1+S3..S6, 501 mV), met de drempel
+  op 488 mV. Contactweerstand (±100–130 Ω per knop, al zichtbaar als +13 mV bij S1)
+  tilt het niveau altijd op; gemeten 484–492 mV. Fix: nieuwe parameter
+  `maxSimultaneousButtons` (default 2). Er wordt alleen gedecodeerd naar codes met
+  hooguit zoveel knoppen, met de drempels midden tussen die niveaus. Marge boven
+  S1+S2 nu 135 mV. Over alle combinaties gerekend verdraagt de zwakste (S1+S6)
+  ±180 Ω contactweerstand, tegen ±110 Ω eerst. Getest: S1+S2 ±20 keer (kort, lang,
+  zacht) en 13 paren, alle ±150 events goed.
+
+## 2026-10-18 — StateMachineTemplatePro: getScore() en State K (wachten op alleen een queue)
+
+In `apps/StateMachineTemplatePro` ontbraken twee interacties in de demo van
+`MachineControl`. Beide zitten er nu in, in de code (FreeRTOS-variant; van de
+CleanRTOS-variant bestaat alleen het model) en in de Mermaid-modellen in
+`architecture/mermaid/` (afgeleid van de drawio-tabs, met de hand terug te zetten
+in de `.drawio`).
+
+- **Een interne waarde naar buiten tonen.** `getScore()` leest de score uit
+  `scoreQueue`, een queue van lengte 1 (de FreeRTOS-vorm van de CleanRTOS-`Pool`
+  `scorePool`). De score gaat omhoog op de transitie choice7 → State G.
+  `InputSimulator` print hem aan het eind van elke tour.
+- **Wachten op alleen een queue.** State K zit op de transitie choice1 → State A
+  (dus na State E en na State J). K blokkeert direct op `telegramQueue`
+  (`xQueueReceive(..., portMAX_DELAY)`), zonder eventbit; daarom zet
+  `telegramCharacterReceived()` ook geen eventbit. Na elk gelezen teken: staat er
+  nog iets in de queue, dan terug naar K, anders door naar A.
+- `InputSimulator` stuurt `"HELLO"` tijdens State E (K vindt het in de queue en
+  loopt vijf keer door K) en `'!'` na de timeout van State J (K wacht dan echt).
+  Let op: tekens die binnendruppelen terwijl K wacht, laten K al na het eerste
+  teken naar A gaan, omdat de queue dan even leeg is (MachineControl heeft een
+  hogere prioriteit dan de schrijver).
+- Host-tests: `FakeRtos` kan nu een blokkerende `xQueueReceive` afhandelen (hook
+  `onBlockingReceive`); de tests zoeken de queues op index in plaats van met
+  `queues.back()`. Drie tests erbij, 17/17 groen (onder Linux-g++ met
+  `-include cstddef`, omdat de stubs `NULL` niet zelf meebrengen).
+- Op de CYD gebouwd (IDF 5.4) en geflasht; twee volledige tours in de seriële
+  log gecontroleerd.
+
 ## 2026-09-07 — pdga: defineDisplayHierarchy ook in GameDisplayControl
 
 In `apps/pong_cleangui_dg_adv` hadden `StartPageDisplayControl`,
@@ -146,6 +230,68 @@ De drie DisplayControls vragen daarvoor eenmalig `display.isBuffered()` in
 Beide varianten gebouwd, RGB565 geflasht. Onderweg viel het bord van WSL af
 (`/dev/ttyUSB0` weg, in Windows nog "Shared" maar niet "Attached");
 `usbipd.exe attach --wsl --busid 1-7` bracht hem terug.
+
+Door de auteur bevestigd: alles werkt, in beide modi. Vastgelegd in commit
+5963268 ("werkend zowel met unbuffered als buffered").
+
+### En toen bewust weer weggehaald
+
+Besluit van de auteur: de ongebufferde route gaat uit deze app, om de code zo
+overzichtelijk mogelijk te houden. Eén tekenstrategie, geen `if
+(bDisplayIsBuffered)` meer op zeven plekken. Commit 5963268 is de laatste
+versie die hem nog had; wie hem terug wil, haalt hem daar.
+
+Wat er weg is:
+
+- `GameDisplayControl`: het member `bDisplayIsBuffered`, de `bDrawChanges`- en
+  `bUseMoveTo`-parameters op de vier `apply*`, `redrawInPlace()`, de
+  `moveTo`-takken in `syncPaddlePanelPos()` en `hidePaddleAndButtons()`, en de
+  `if` rond `redrawWholePage()`. `applySpawnablePanel()` blijft, nu alleen nog
+  vlag, plek en cel: dat is de ontdubbeling van de drie lussen, los van de
+  buffervraag.
+- `TorchesDisplayHelpers::redrawTorches()`; de pagina's doen weer
+  `page.redraw(true)` per fakkelstap.
+- `NameInputPageDisplayControl`: de `moveTo`-tak van de schuifbeweging en de
+  buffervoorwaarde bij het typen.
+- De .ino heeft weer een enkele typedef (PAL8); de RGB565-include is weg.
+
+Wat ervoor in de plaats kwam: een `assert(display.isBuffered())` in
+`GameDisplayControl::main()`, met commentaar dat uitlegt waarom de app op de
+backbuffer rekent en waar de andere route te vinden is. Liever meteen stoppen
+dan een flikkerend spel als iemand ooit de typedef omzet.
+
+Gebouwd en geflasht (PAL8). Het bord viel opnieuw van WSL af; weer met usbipd
+gekoppeld. Als dat vaker gebeurt: een Windows-programma dat COM6 opent
+(seriële monitor) trekt hem bij WSL weg.
+
+### Model bijgewerkt: STD-GameDisplayControl
+
+De tab in `models/pong_dg_adv.drawio` liep achter op de opschoning. Nagelopen
+met `tools/drawio-export.sh` (renderen) en een Python-script op de platte XML
+(gericht `value`-attributen vervangen, geen herserialisatie). Aangepast:
+
+- begintransitie: `assert(display.isBuffered())` i.p.v. de toewijzing aan
+  `bDisplayIsBuffered`;
+- Shown: de `[bDisplayIsBuffered]`/`[else]`-paren zijn weg, en elke overgang
+  noemt nu de private functie (`showPaddleAndButtons`, `hidePaddleAndButtons`,
+  `doShowGameOverLabel`, `doHideGameOverLabel`, `syncPaddlePanelPos`,
+  `applyGameState` + `redrawWholePage`) met de acties eronder; `paddlePanel`
+  wordt niet meer ge-enabled/disabled;
+- Hidden heeft nu dezelfde toestandsvorm als Shown, met zijn ene interne
+  overgang `flagDeshowGamePage / .` die de code al had;
+- notitie (A) heet `applyGameState()` en heeft de nieuwe volgorde;
+- de notitie over `bDisplayIsBuffered` is herschreven tot "Waarom per beeld
+  de hele boom", met een verwijzing naar het verwijderen van de moveTo-route.
+
+Het `PONG_MEASURE`-pad staat bewust niet in het model.
+
+### tools/README.md: `--pal8` stond er niet in
+
+De converter had de PAL8-modus sinds 2026-07-27, maar de README beschreef alleen
+de RGB565-weg. Er staat nu een sectie bij: wat `--pal8` doet (hele boom, gedeeld
+palet, uitvoer in `_pal8/`), hoe het palet is opgebouwd, waar `_userPalette.h`
+voor dient, de transparantie-afspraak, en de verschillen met de RGB565-weg. De
+voorbeeldsectie noemt nu ook `pong_cleangui_dg_adv` als PAL8-geval.
 
 ## 2026-08-16 — dood hout: een template zonder parameters, interfaces zonder tweede implementatie
 

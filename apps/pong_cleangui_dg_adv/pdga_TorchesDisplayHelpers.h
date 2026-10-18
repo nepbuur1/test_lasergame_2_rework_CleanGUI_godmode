@@ -41,10 +41,9 @@ namespace pong_cleangui_dg_adv
 		// blijft de gemiddelde snelheid gelijk, maar hoort er geen ritme meer in.
 		// Vandaar een eenmalige timer die na elke tik opnieuw wordt gezet.
 		//
-		// De ondergrens is er omdat elke stap met een backbuffer een volledige
-		// hertekening is: die kost ~31 ms, en sneller aftikken dan dat levert
-		// alleen maar werk op dat het scherm niet bijhoudt. Zonder buffer tekent
-		// een stap alleen de twee fakkelvlakken; zie redrawTorches().
+		// De ondergrens is er omdat elke stap een volledige hertekening is: die
+		// kost met de backbuffer ~31 ms, en sneller aftikken dan dat levert
+		// alleen maar werk op dat het scherm niet bijhoudt.
 		static constexpr int TorchFrameIntervalMinMs = 45;
 		static constexpr int TorchFrameIntervalMaxMs = 130;
 
@@ -109,32 +108,6 @@ namespace pong_cleangui_dg_adv
 
 				arIndexTorchFrame[i] = indexNext;
 				arTorchPanels[i].setImageFrame(0, (int)indexNext);
-			}
-		}
-
-		// De nieuwe cellen op het scherm zetten.
-		//
-		// Met backbuffer is de hele pagina opnieuw tekenen de goedkoopste weg: het
-		// beeld gaat toch in zijn geheel naar het scherm, hoe weinig er ook
-		// veranderde. Zonder buffer is diezelfde page.redraw(true) een zichtbare
-		// wis van het hele scherm, tien keer per seconde - dan alleen de twee
-		// fakkelvlakken.
-		//
-		// En dan niet het paneel zelf laten tekenen: het plaatje is transparant,
-		// dus de vorige vlam bleef door de doorzichtige pixels heen staan. De hele
-		// boom tekent daarom dat vlak opnieuw, van onder naar boven - dezelfde
-		// afweging als in Widget::moveTo().
-		static void redrawTorches(Panel<0>* arTorchPanels, IWidget& page, bool bDisplayIsBuffered)
-		{
-			if (bDisplayIsBuffered)
-			{
-				page.redraw(true);
-				return;
-			}
-
-			for (int i = 0; i < 2; i++)
-			{
-				arTorchPanels[i].repaintRegion(arTorchPanels[i].getGlobPosPix(), arTorchPanels[i].getSizePix());
 			}
 		}
 
