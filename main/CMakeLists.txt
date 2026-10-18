@@ -70,6 +70,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../libs/CleanCore/examples/Button"
 "../libs/CYD_tools_crt/src/ADC_buttons_E12"
 "../libs/CYD_tools_crt/examples/ADC_buttons_E12"
+"../libs/CYD_tools_frt/src/ADC_buttons_E12"
+"../libs/CYD_tools_frt/examples/ADC_buttons_E12"
 "../libs/LaserGameUtils/src"
 "../libs/LaserGameUtils/examples/ClockPin"
 "../libs/hx711/src"

@@ -1,5 +1,34 @@
 # Claude log
 
+## 2026-10-18 — CYD_tools_frt: ADC_buttons_E12 op vanilla FreeRTOS
+
+Nieuwe lib `libs/CYD_tools_frt`, naast `CYD_tools_crt`, maar zonder CleanRTOS
+(namespace `frt`, bestanden `frt_...`). Rechttoe-rechtaan vertaald volgens de regels
+in `ModelAnalysis/FastModelFeedback/Config/StdCleanRtosNaarStdFreeRtos`:
+
+- `crt::Task` wordt een eigen FreeRTOS-taak: `xTaskCreatePinnedToCore` in de
+  constructor, met een statische `taskWrapper` die `runTask()` aanroept (zoals
+  MachineControl in StateMachineTemplatePro).
+- `Pool<State>` wordt `stateQueue`, een queue met één plek: `xQueueOverwrite`
+  en `xQueuePeek(..., 0)`. Hij krijgt een beginwaarde in de constructor, omdat de
+  getters al vóór de eerste meting aangeroepen kunnen worden.
+- Example `AdcButtonTester`: `Queue<ButtonEvent, 10>` wordt `xQueueCreate`. Hij
+  schrijft met `xQueueSend(..., 0)`. Dat wijkt af van de `portMAX_DELAY` in de
+  regels, maar komt overeen met de CleanRTOS-Queue zonder `bWriteWaitIfQueueFull`: de
+  ADC-taak mag niet blijven hangen. De taak wacht alleen op die queue, dus volgens de
+  regel zonder eventGroup/eventbit: `xQueueReceive(..., portMAX_DELAY)` wacht en
+  leest in één.
+- `dumpStackHighWaterMarkIfIncreased()` en `MainInits` vervallen. Ladder, interface en
+  listener-interface zijn gelijk, op de namespace na.
+- Example heet `ADC_buttons_E12_frt.ino` (beide examples staan in de includepaden).
+  In `main/main.cpp` nu actief; `StateMachineTemplatePro.ino` is daarvoor
+  uitgecommentarieerd. De includepaden staan in `main/CMakeLists.txt`.
+- Manual: `libs/CYD_tools_frt/docs/ADC_buttons_E12/ADC_buttons_E12.md`, afgeleid van
+  de crt-manual, met een vertaaltabel crt → frt. Voor de metingen en de margeanalyse
+  verwijst hij naar de crt-manual.
+- Op de CYD getest: kalibratie Vref 3386 mV (crt: 3386–3387). S1..S6, S1+S2 en vier
+  paren, plus snel herhaald S2: alle events goed, met dezelfde spanningen als de crt-variant.
+
 ## 2026-10-18 — StateMachineTemplatePro bouwbaar vanuit de root-main.cpp
 
 `apps/StateMachineTemplatePro` was een los IDF-project (eigen `CMakeLists.txt`,

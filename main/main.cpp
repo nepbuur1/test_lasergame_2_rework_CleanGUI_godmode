@@ -74,8 +74,11 @@ namespace crt
 // **** CYD_tools_crt ****
 //#include <ADC_buttons_E12.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
 
+// **** CYD_tools_frt ****
+#include <ADC_buttons_E12_frt.ino>			// idem, FreeRTOS-variant (zonder CleanRTOS)
+
 // **** Apps ****
-#include <StateMachineTemplatePro.ino>		// apps/StateMachineTemplatePro (FreeRTOS-variant van MachineControl, met InputSimulator)
+//#include <StateMachineTemplatePro.ino>		// apps/StateMachineTemplatePro (FreeRTOS-variant van MachineControl, met InputSimulator)
 
 // **** Gereedschap, apps/pong_cleangui_dg_adv/tools ****
 //#include <ClearHallOfFame.ino>				// wist de top-5 in /hallOfFame
