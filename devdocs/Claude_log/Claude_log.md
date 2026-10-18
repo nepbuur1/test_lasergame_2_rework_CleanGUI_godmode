@@ -54,6 +54,17 @@ Staat nu als actieve `#include` in `main/main.cpp` (in plaats van
   S1+S2 nu 135 mV. Over alle combinaties gerekend verdraagt de zwakste (S1+S6)
   ±180 Ω contactweerstand, tegen ±110 Ω eerst. Getest: S1+S2 ±20 keer (kort, lang,
   zacht) en 13 paren, alle ±150 events goed.
+- RL is geen constructorparameter meer (`loadOhm` weg): hij hoort bij de ladder
+  en staat als `RL_ohm = 68000` naast B en P in `crt_ADC_buttons_E12_ladder.h`.
+- Default `maxSimultaneousButtons` naar 3 (Marius). Kanttekening in de manual:
+  drietallen met S1 én S2 erin (zwakst S1+S2+S6, marge 16 mV) zijn op het testbord
+  krap, omdat S1+S2 al 10–18 mV te hoog leest. Met 3 nog niet op de hardware getest.
+- Example-klasse `AdcButtonListener` hernoemd naar `AdcButtonTester` (bestand
+  `crt_AdcButtonTester.h`, instantie `adcButtonTester`, logtag `AdcButtonTester`).
+- `AdcButtonTester` heeft nu een eigen taak. `buttonPressed`/`buttonReleased` zetten
+  alleen een `ButtonEvent` (`eButtonPressed`/`eButtonReleased`, buttonIndex) in een
+  `Queue<ButtonEvent, 10>`; `main()` wacht met `wait` + `tryRead` en roept
+  `logEvent` aan. Niet `read()`, want die is blokkerend en gaat waarschijnlijk deprecated.
 
 ## 2026-10-18 — StateMachineTemplatePro: getScore() en State K (wachten op alleen een queue)
 

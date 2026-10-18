@@ -5,8 +5,10 @@
 // Handleidingen/Hardware Development/Analoge Electronica/Weerstandsladder_voor_knoppen.
 //
 // Tak i (S1..S6): Uuit --B[i]-- knooppunt --P[i]-- Vref. Een ingedrukte Si trekt het
-// knooppunt naar massa. Optioneel zit er een belastingsweerstand RL van Uuit naar massa;
-// die is op de ESP32 nodig om onder de bovengrens van de ADC (~3,1 V) te blijven.
+// knooppunt naar massa. Daarnaast zit er een belastingsweerstand RL van Uuit naar massa.
+// Die hoort bij de ladder: zonder RL komt "geen knop" op Vref = 3,3 V, boven de bovengrens
+// van de ESP32-ADC (~3,1 V). Met 68k ligt het hoogste niveau op ~2,40 V, binnen het
+// nauwkeurige bereik van de ADC bij 12 dB demping (tot ~2450 mV).
 //
 // De code (0..63) heeft bit 5 = S1 ... bit 0 = S6, 1 = ingedrukt. Hoe hoger de code,
 // hoe lager Uuit: code 0 (geen knop) is het hoogste niveau, code 63 (alle knoppen) is 0 V.
@@ -33,6 +35,7 @@ namespace crt
 		// Weerstandswaarden van het ontwerp (ohm).
 		static constexpr float B_ohm[NOF_BUTTONS] = {  33000.0f,  68000.0f, 150000.0f, 330000.0f, 680000.0f, 1200000.0f };
 		static constexpr float P_ohm[NOF_BUTTONS] = {  18000.0f,  33000.0f,  47000.0f,  47000.0f,  56000.0f,  390000.0f };
+		static constexpr float RL_ohm = 68000.0f;   // Van Uuit naar massa.
 
 	private:
 		float   levels[NOF_CODES];             // Uuit/Vref per code, nominaal.
@@ -41,13 +44,12 @@ namespace crt
 		float   thresholds[NOF_CODES - 1];     // thresholds[k] ligt midden tussen de niveaus van allowedCodes[k] en [k+1].
 
 	public:
-		// loadOhm:                weerstand van Uuit naar massa; 0 = geen.
 		// maxSimultaneousButtons: hoeveel knoppen er hooguit tegelijk ingedrukt worden (1..6).
-		ADC_buttons_E12_ladder(float loadOhm, int maxSimultaneousButtons)
+		ADC_buttons_E12_ladder(int maxSimultaneousButtons)
 		{
 			for (int code = 0; code < NOF_CODES; code++)
 			{
-				levels[code] = computeLevel(code, loadOhm);
+				levels[code] = computeLevel(code);
 			}
 			nofAllowedCodes = 0;
 			for (int code = 0; code < NOF_CODES; code++)
@@ -64,7 +66,7 @@ namespace crt
 		}
 
 		// Uuit/Vref bij een gegeven code. Knooppuntsvergelijking op Uuit.
-		static float computeLevel(int code, float loadOhm)
+		static float computeLevel(int code)
 		{
 			float gToVref = 0.0f;   // Geleiding van Uuit naar Vref.
 			float gTotal  = 0.0f;   // Totale geleiding vanuit Uuit.
@@ -82,7 +84,7 @@ namespace crt
 					gTotal  += g;
 				}
 			}
-			if (loadOhm > 0.0f) gTotal += 1.0f / loadOhm;
+			gTotal += 1.0f / RL_ohm;                           // Via RL naar massa.
 			return gToVref / gTotal;
 		}
 

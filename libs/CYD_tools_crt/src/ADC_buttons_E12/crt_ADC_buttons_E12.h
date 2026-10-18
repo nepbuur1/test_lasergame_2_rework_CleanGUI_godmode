@@ -71,10 +71,6 @@ namespace crt
 
 	public:
 		// pinAdc:         de ADC-pin waar Uuit van de ladder op zit. Op de CYD is dat GPIO35 (connector P3).
-		// loadOhm:        de weerstand van Uuit naar massa (0 = geen). Op de ESP32 nodig: zonder RL
-		//                 komt "geen knop" op Vref = 3,3 V, boven de bovengrens van de ADC.
-		//                 Met 68k ligt het hoogste niveau op ~2,40 V, binnen het nauwkeurige
-		//                 bereik van de ADC bij 12 dB (tot ~2450 mV).
 		// vrefMillivolts: de spanning waarop de ladder (Vref in het schema) is aangesloten.
 		//                 Alleen een startwaarde: de taak kalibreert hem bij het opstarten.
 		// pollPeriodMs:   hoe vaak de ADC wordt uitgelezen.
@@ -85,11 +81,11 @@ namespace crt
 		//                 Worden er toch meer ingedrukt, dan meldt de klasse de dichtstbijzijnde
 		//                 combinatie die wel mag - en dat is dan een verkeerde.
 		ADC_buttons_E12(const char* taskName, unsigned int taskPriority, unsigned int taskStackSizeBytes, unsigned int taskCoreNumber,
-		                uint8_t pinAdc = 35, uint32_t loadOhm = 68000, uint32_t vrefMillivolts = 3300,
-		                uint32_t pollPeriodMs = 10, uint32_t nofStablePolls = 3, int maxSimultaneousButtons = 2) :
+		                uint8_t pinAdc = 35, uint32_t vrefMillivolts = 3300,
+		                uint32_t pollPeriodMs = 10, uint32_t nofStablePolls = 3, int maxSimultaneousButtons = 3) :
 			Task(taskName, taskPriority, taskStackSizeBytes, taskCoreNumber),
 			pinAdc(pinAdc), vrefMillivolts(vrefMillivolts), pollPeriodMs(pollPeriodMs), nofStablePolls(nofStablePolls),
-			vrefEstimateMv((float)vrefMillivolts), ladder((float)loadOhm, maxSimultaneousButtons),
+			vrefEstimateMv((float)vrefMillivolts), ladder(maxSimultaneousButtons),
 			nofListeners(0), hAdcUnit(nullptr), adcChannel(ADC_CHANNEL_0), hAdcCali(nullptr), bCalibrated(false)
 		{
 			start();
@@ -229,7 +225,7 @@ namespace crt
 			}
 			else
 			{
-				ESP_LOGW(taskName, "Kalibratie overgeslagen: geen knop = %d mV, verwacht rond %d mV. Klopt loadOhm, en is er bij het opstarten niets ingedrukt?",
+				ESP_LOGW(taskName, "Kalibratie overgeslagen: geen knop = %d mV, verwacht rond %d mV. Zit RL (zie crt_ADC_buttons_E12_ladder.h) erin, en is er bij het opstarten niets ingedrukt?",
 				         (int)idleMv, (int)(ladder.getLevel(0) * vrefMillivolts));
 			}
 		}

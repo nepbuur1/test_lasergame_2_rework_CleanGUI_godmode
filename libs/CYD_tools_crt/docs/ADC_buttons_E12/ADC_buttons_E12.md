@@ -17,7 +17,7 @@ Bestanden, in `libs/CYD_tools_crt/src/ADC_buttons_E12/`:
 
 ## Schema
 
-![Weerstandsladder, zes knoppen, E12](img/e12_ladder.svg)
+![Weerstandsladder, zes knoppen, E12](img/e12_rl68k_schema.svg)
 
 Zes gelijke takken, allemaal parallel aan Uuit (H1..H5 uit het oorspronkelijke
 ontwerp zijn draadverbindingen):
@@ -50,8 +50,8 @@ De volgorde van de niveaus blijft hetzelfde. De stappen worden kleiner: minimaal
 De ruis na middeling is ±5 mV, en de zelfkalibratie haalt de afwijking van de
 versterking eruit. Een eerdere versie gebruikte 100k (hoogste niveau 2630 mV,
 kleinste stap 25,2 mV), maar dan zitten de bovenste niveaus in het afbuigende
-stuk van de ADC. De klasse rekent de niveaus uit met de waarde van RL die je
-meegeeft.
+stuk van de ADC. RL hoort bij de ladder: de waarde staat naast die van B en P in
+`crt_ADC_buttons_E12_ladder.h` (`RL_ohm`). Kies je een andere RL, pas hem dan daar aan.
 
 Ontwerp en berekening: `Handleidingen/Hardware Development/Analoge Electronica/Weerstandsladder_voor_knoppen`
 (`e12_definitief.json`, `knoppen_e12_drempels.h`). De vaste drempeltabel uit die
@@ -95,19 +95,18 @@ namespace crt
     MainInits mainInits;
 
     ADC_buttons_E12<2 /*MAXLISTENERCOUNT*/> adcButtons("ADC_buttons_E12", 3 /*priority*/, 4096 /*stackBytes*/, ARDUINO_RUNNING_CORE,
-                                                       35 /*pinAdc*/, 68000 /*loadOhm*/, 3300 /*vrefMillivolts*/,
-                                                       10 /*pollPeriodMs*/, 3 /*nofStablePolls*/, 2 /*maxSimultaneousButtons*/);
+                                                       35 /*pinAdc*/, 3300 /*vrefMillivolts*/,
+                                                       10 /*pollPeriodMs*/, 3 /*nofStablePolls*/, 3 /*maxSimultaneousButtons*/);
 }
 ```
 
 Alle parameters na `taskCoreNumber` hebben deze waarden als default.
 
 - `pinAdc`: de pin van Uuit.
-- `loadOhm`: RL; 0 betekent geen RL.
 - `vrefMillivolts`: alleen een startwaarde, zie *Zelfkalibratie*.
 - `pollPeriodMs` en `nofStablePolls`: een nieuwe combinatie geldt pas als hij
   `nofStablePolls` metingen achter elkaar hetzelfde is (debounce, standaard 30 ms).
-- `maxSimultaneousButtons` (1..6, standaard 2): hoeveel knoppen er hooguit
+- `maxSimultaneousButtons` (1..6, standaard 3): hoeveel knoppen er hooguit
   tegelijk ingedrukt worden. Er wordt alleen gedecodeerd naar combinaties met
   zoveel knoppen of minder, en dat maakt de marges veel groter (zie *Contactweerstand*
   hieronder). Druk je er toch meer in, dan meldt de klasse de dichtstbijzijnde
@@ -192,6 +191,15 @@ allebei maar op een procent of twee vast. Dat is meer dan een halve stap. Daarom
   Getest op 2026-10-18: S1+S2 een keer of twintig (kort, lang, zacht) en
   13 verschillende paren, alle ±150 events goed. De krapste plek blijft S1+S6:
   1000–1002 mV gemeten, met de drempel naar S1 alleen op 1010 mV.
+
+  De default is 3. Dan is de buurcode boven S1+S2 S1+S3+S4 (101100, 605 mV) en is
+  de marge 65 mV. Over alle combinaties gerekend verdraagt de zwakste combinatie
+  ±150 Ω contactweerstand per knop. Die zwakste is S1+S2+S6 (110001, 442 mV, marge
+  16 mV); S1+S2+S5 (110010, 407 mV) heeft 17,5 mV. Op het testbord leest S1+S2 al
+  10–18 mV te hoog, dus drietallen met zowel S1 als S2 erin zijn daar krap: S1+S2+S6
+  kan soms als S1+S2 gelezen worden. Drietallen zonder S1 én S2 samen hebben die
+  last niet. Heb je geen drietallen nodig, dan geeft `maxSimultaneousButtons = 2`
+  de ruimste marges (zwakste combinatie ±180 Ω).
 - De klasse houdt geen rekening met de tolerantie van RL zelf; neem 1%.
 
 ## Het example
@@ -199,10 +207,15 @@ allebei maar op een procent of twee vast. Dat is meer dan een halve stap. Daarom
 `libs/CYD_tools_crt/examples/ADC_buttons_E12/`:
 
 - `ADC_buttons_E12.ino` / `ADC_buttons_E12_ino.h`: maakt een `ADC_buttons_E12<1>`
-  op GPIO35 met RL = 68k en een `AdcButtonListener`.
-- `crt_AdcButtonListener.h`: luistert naar de knoppen. Bij elk event logt hij welke
-  knop, welke knoppen er nu ingedrukt zijn (via `isButtonPressed`) en de gemeten
-  spanning.
+  op GPIO35 met RL = 68k en een `AdcButtonTester`.
+- `crt_AdcButtonTester.h`: een `crt::Task` die naar de knoppen luistert. Zo hoort
+  een listener eruit te zien: `buttonPressed` en `buttonReleased` (die uit de taak
+  van ADC_buttons_E12 komen) doen niets anders dan een `ButtonEvent`
+  (`eButtonPressed`/`eButtonReleased` plus de buttonIndex) in een
+  `Queue<ButtonEvent, 10>` zetten. De eigen taak wacht op die queue (`wait` +
+  `tryRead`, één event per ronde) en logt elk event: welke knop, welke knoppen er
+  nu ingedrukt zijn (via `isButtonPressed`) en de gemeten spanning. Die laatste twee
+  zijn de toestand op het moment van loggen, niet per se die van het event.
 
 Bouwen: zet in `main/main.cpp` als enige `#include` actief:
 
@@ -230,7 +243,8 @@ klopt elk niveau tot op ±13 mV met de berekening:
 | S1+S6 | 992 mV | 1002 mV | +10 |
 | S2+S5 | 1610 mV | 1611 mV | +1 |
 
-Seriële uitvoer daarvan (S1..S6 los, S5+S6, S1 vast met S6 erbij, S2+S5):
+Seriële uitvoer daarvan (S1..S6 los, S5+S6, S1 vast met S6 erbij, S2+S5). De
+listener heette toen nog `AdcButtonListener`; nu staat er `AdcButtonTester`:
 
 ```
 I (350) ADC_buttons_E12: Kalibratie: geen knop = 2463 mV, Vref = 3387 mV (verwacht 3300 mV, niveau 'geen knop' 2400 mV)
