@@ -23,6 +23,7 @@
 
 #pragma once
 #include <stdint.h>
+#include <math.h>
 
 namespace crt
 {
@@ -90,6 +91,28 @@ namespace crt
 
 		float getLevel(int code) const { return levels[code]; }
 
+		// Of er naar deze code gedecodeerd kan worden (hooguit maxSimultaneousButtons knoppen).
+		bool isAllowed(uint8_t code) const { return indexOfAllowed(code) >= 0; }
+
+		// Het aantal codes waarnaar gedecodeerd kan worden, "geen knop" meegeteld.
+		int getNofAllowedCodes() const { return nofAllowedCodes; }
+
+		// De beslisgrens (Uuit/Vref) tussen code en de toegestane code met het eerstvolgende
+		// hogere niveau. NAN als die er niet is (code 0) of als code zelf niet toegestaan is.
+		float getUpperBorder(uint8_t code) const
+		{
+			int k = indexOfAllowed(code);
+			return (k > 0) ? thresholds[k - 1] : NAN;
+		}
+
+		// Idem, naar de toegestane code met het eerstvolgende lagere niveau.
+		// NAN als die er niet is (de laagste toegestane code).
+		float getLowerBorder(uint8_t code) const
+		{
+			int k = indexOfAllowed(code);
+			return (k >= 0 && k < nofAllowedCodes - 1) ? thresholds[k] : NAN;
+		}
+
 		// Geeft de toegestane code met het dichtstbijzijnde niveau bij een gemeten Uuit/Vref.
 		// Binair zoeken in de dalende drempeltabel.
 		uint8_t decode(float uuitOverVref) const
@@ -114,6 +137,22 @@ namespace crt
 				if (code & (1 << (NOF_BUTTONS - 1 - i))) mask |= (1 << i);
 			}
 			return mask;
+		}
+
+		// Bitmasker -> code. Bits omdraaien is zijn eigen inverse.
+		static uint8_t buttonMaskToCode(uint8_t mask)
+		{
+			return codeToButtonMask(mask);
+		}
+
+	private:
+		int indexOfAllowed(uint8_t code) const
+		{
+			for (int k = 0; k < nofAllowedCodes; k++)
+			{
+				if (allowedCodes[k] == code) return k;
+			}
+			return -1;
 		}
 	};
 };

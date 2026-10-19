@@ -1,9 +1,9 @@
 // by Marius Versteegen, 2026
 
-// crt::ADC_buttons_E12
+// crt::ADC_buttons
 //
 // Leest zes knoppen uit via één ADC-pin, met de weerstandsladder van twaalf
-// E12-weerstanden (zie docs/ADC_buttons_E12/ADC_buttons_E12.md).
+// E12-weerstanden (zie docs/ADC_buttons/ADC_buttons.md).
 //
 // Het object heeft een eigen taak. Die leest periodiek de ADC uit (gemiddeld over
 // een aantal samples), zet de spanning om in een knoppencombinatie, en stuurt
@@ -25,13 +25,13 @@
 #include <esp_adc/adc_oneshot.h>
 #include <esp_adc/adc_cali.h>
 #include <esp_adc/adc_cali_scheme.h>
-#include "crt_IADC_buttons_E12.h"
+#include "crt_IADC_buttons.h"
 #include "crt_ADC_buttons_E12_ladder.h"
 
 namespace crt
 {
 	// Don't select the MAXLISTENERCOUNT too high, or you may suffer from stack overflow troubles.
-	template<unsigned int MAXLISTENERCOUNT> class ADC_buttons_E12 : public Task, public IADC_buttons_E12
+	template<unsigned int MAXLISTENERCOUNT> class ADC_buttons : public Task, public IADC_buttons
 	{
 	public:
 		static const int NOF_BUTTONS = ADC_buttons_E12_ladder::NOF_BUTTONS;
@@ -43,7 +43,9 @@ namespace crt
 			uint8_t  pressedMask;   // Gedebounced. Bit i = knop i ingedrukt.
 			uint8_t  code;          // Gedebounced. Ladder-code 0..63 (bit 5 = S1).
 			uint16_t millivolts;    // Laatste meting (gemiddeld), na ADC-kalibratie.
-			State() : pressedMask(0), code(0), millivolts(0) {}
+			float    vrefMillivolts;// Gekalibreerde Vref zoals de ADC hem ziet (zie zelfkalibratie).
+			bool     bConnected;    // Uitkomst van de controle bij het opstarten (zie isConnected).
+			State() : pressedMask(0), code(0), millivolts(0), vrefMillivolts(0.0f), bConnected(false) {}
 		};
 
 		static const int   NOF_SAMPLES_PER_POLL = 32;
@@ -59,7 +61,7 @@ namespace crt
 
 		ADC_buttons_E12_ladder ladder;
 
-		IADC_buttons_E12Listener* arListeners[MAXLISTENERCOUNT] = {};
+		IADC_buttonsListener* arListeners[MAXLISTENERCOUNT] = {};
 		uint16_t nofListeners;
 
 		Pool<State> poolState;
@@ -80,7 +82,7 @@ namespace crt
 		//                 Hoe kleiner, hoe groter de marges (zie crt_ADC_buttons_E12_ladder.h).
 		//                 Worden er toch meer ingedrukt, dan meldt de klasse de dichtstbijzijnde
 		//                 combinatie die wel mag - en dat is dan een verkeerde.
-		ADC_buttons_E12(const char* taskName, unsigned int taskPriority, unsigned int taskStackSizeBytes, unsigned int taskCoreNumber,
+		ADC_buttons(const char* taskName, unsigned int taskPriority, unsigned int taskStackSizeBytes, unsigned int taskCoreNumber,
 		                uint8_t pinAdc = 35, uint32_t vrefMillivolts = 3300,
 		                uint32_t pollPeriodMs = 10, uint32_t nofStablePolls = 3, int maxSimultaneousButtons = 3) :
 			Task(taskName, taskPriority, taskStackSizeBytes, taskCoreNumber),
@@ -92,7 +94,7 @@ namespace crt
 		}
 
 		// Voeg listeners toe vóórdat de taak loopt, dus vanuit een constructor of setup().
-		void addButtonListener(IADC_buttons_E12Listener* pListener) /*override*/
+		void addButtonListener(IADC_buttonsListener* pListener) /*override*/
 		{
 			if (!isAlreadyPresent(pListener))
 			{
@@ -126,8 +128,39 @@ namespace crt
 			return state.millivolts;
 		}
 
+		// Thread-safe. Of de weerstandsladder bij het opstarten aangesloten was.
+		// Bij het opstarten mag er niets ingedrukt zijn; dan hoort de gemeten spanning rond het
+		// niveau "geen knop" te liggen (binnen VREF_BOOT_WINDOW van wat er bij de opgegeven Vref
+		// hoort). Zo niet, dan is de ladder niet (goed) aangesloten, ontbreekt RL, of werd er bij
+		// het opstarten een knop vastgehouden.
+		// De controle is klaar zodra de taak gekalibreerd heeft, ±100 ms na de start; daarvoor
+		// geeft deze functie false.
+		bool isConnected() /*override*/
+		{
+			State state;
+			poolState.read(state);
+			return state.bConnected;
+		}
+
+		// Thread-safe. Voor tests en diagnose: de gedebouncede code, de laatste meting en de
+		// gekalibreerde Vref, alle drie uit dezelfde toestand.
+		void readSnapshot(uint8_t& code, uint16_t& millivolts, float& vrefMillivolts)
+		{
+			State state;
+			poolState.read(state);
+			code           = state.code;
+			millivolts     = state.millivolts;
+			vrefMillivolts = state.vrefMillivolts;
+		}
+
+		// De ladder verandert na de constructor niet meer, dus mag vanuit elke taak gelezen worden.
+		const ADC_buttons_E12_ladder& getLadder() const
+		{
+			return ladder;
+		}
+
 	private:
-		bool isAlreadyPresent(IADC_buttons_E12Listener* pListener)
+		bool isAlreadyPresent(IADC_buttonsListener* pListener)
 		{
 			for (int i = 0; i < nofListeners; i++)
 			{
@@ -198,7 +231,8 @@ namespace crt
 		// Ga ervan uit dat er bij het opstarten niets is ingedrukt, en leid Vref af uit
 		// het niveau "geen knop". Ligt de meting te ver van wat er bij de opgegeven Vref
 		// hoort, dan klopt die aanname (of de bedrading) niet, en blijft de opgegeven Vref staan.
-		void calibrateAtBoot()
+		// Geeft terug of de ladder aangesloten lijkt (zie isConnected).
+		bool calibrateAtBoot()
 		{
 			int32_t sum = 0;
 			int n = 0;
@@ -212,7 +246,11 @@ namespace crt
 				}
 				vTaskDelay(pdMS_TO_TICKS(pollPeriodMs));
 			}
-			if (n == 0) return;
+			if (n == 0)
+			{
+				ESP_LOGW(taskName, "Kalibratie mislukt: de ADC kon niet gelezen worden.");
+				return false;
+			}
 
 			float idleMv        = (float)sum / (float)n;
 			float vrefFromIdle  = idleMv / ladder.getLevel(0);
@@ -222,11 +260,13 @@ namespace crt
 				vrefEstimateMv = vrefFromIdle;
 				ESP_LOGI(taskName, "Kalibratie: geen knop = %d mV, Vref = %d mV (verwacht %d mV, niveau 'geen knop' %d mV)",
 				         (int)idleMv, (int)vrefEstimateMv, (int)vrefMillivolts, (int)(ladder.getLevel(0) * vrefMillivolts));
+				return true;
 			}
 			else
 			{
-				ESP_LOGW(taskName, "Kalibratie overgeslagen: geen knop = %d mV, verwacht rond %d mV. Zit RL (zie crt_ADC_buttons_E12_ladder.h) erin, en is er bij het opstarten niets ingedrukt?",
+				ESP_LOGW(taskName, "Ladder niet aangesloten? Kalibratie overgeslagen: geen knop = %d mV, verwacht rond %d mV. Zit de ladder (en RL, zie crt_ADC_buttons_E12_ladder.h) erop, en is er bij het opstarten niets ingedrukt?",
 				         (int)idleMv, (int)(ladder.getLevel(0) * vrefMillivolts));
+				return false;
 			}
 		}
 
@@ -254,9 +294,10 @@ namespace crt
 		void main()
 		{
 			initAdc();
-			calibrateAtBoot();   // Duurt NOF_BOOT_POLLS * pollPeriodMs; geeft de listeners ook de tijd zich aan te melden.
-
 			State state;
+			state.bConnected = calibrateAtBoot();   // Duurt NOF_BOOT_POLLS * pollPeriodMs; geeft de listeners ook de tijd zich aan te melden.
+			state.vrefMillivolts = vrefEstimateMv;
+			poolState.write(state);                  // Meteen, zodat isConnected() geldig is.
 			uint8_t  candidateCode  = 0;   // Laatst gemeten code.
 			uint32_t candidateCount = 0;   // Zoveel metingen achter elkaar is hij al gelijk.
 
@@ -287,7 +328,8 @@ namespace crt
 						vrefEstimateMv += VREF_TRACKING * (vrefFromIdle - vrefEstimateMv);
 					}
 
-					state.millivolts = (uint16_t)millivolts;
+					state.millivolts     = (uint16_t)millivolts;
+					state.vrefMillivolts = vrefEstimateMv;
 
 					uint8_t prevMask = state.pressedMask;
 					bool bNewStableCode = bStable && (candidateCode != state.code);
@@ -309,5 +351,5 @@ namespace crt
 				vTaskDelay(pdMS_TO_TICKS(pollPeriodMs));
 			}
 		}
-	}; // end class ADC_buttons_E12
+	}; // end class ADC_buttons
 }; // end namespace crt

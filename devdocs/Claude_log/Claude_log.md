@@ -1,5 +1,130 @@
 # Claude log
 
+## 2026-10-19 — ADC_buttons: `isConnected()`
+
+`ADC_buttons` (crt en frt) en de interface `IADC_buttons` hebben een publieke functie
+`isConnected()`. Die vertelt of de weerstandsladder bij het opstarten aangesloten was.
+
+- **Hoe:** het is de uitkomst van de bestaande kalibratie bij het opstarten. Bij het
+  opstarten hoort er niets ingedrukt te zijn, dus moet de gemeten spanning binnen ±8%
+  (`VREF_BOOT_WINDOW`) liggen van het niveau "geen knop" bij de opgegeven Vref.
+  `calibrateAtBoot()` geeft nu een bool terug. Die gaat als `bConnected` in de State
+  (Pool / `stateQueue`), en die wordt meteen na de kalibratie weggeschreven.
+- **Geldigheid:** vóór die controle (±100 ms) geeft `isConnected()` false. Het is een
+  eenmalige uitkomst: sluit je de ladder later aan, dan blijft hij false.
+- **Waarschuwing:** de waarschuwing bij een mislukte kalibratie begint nu met "Ladder niet
+  aangesloten?". Een ADC die niet te lezen is, telt ook als niet aangesloten.
+- **Examples:** `AdcButtonTester` (crt en frt) logt na 300 ms of de ladder aangesloten is.
+- **Manuals:** beide hebben een alinea "Aangesloten?".
+- **Getest op de CYD:**
+  - crt- en frt-example: "Weerstandsladder aangesloten." ("geen knop" 2462 mV).
+  - Met S1 ingedrukt tijdens het opstarten (frt): 1041 mV, verwacht ±2400 mV. Dan volgt de
+    waarschuwing en "Weerstandsladder NIET aangesloten".
+- **Builds:** de test, het crt-example en het frt-example bouwen groen. Op het bord staat
+  nu het frt-example; in `main.cpp` is de test weer actief.
+
+## 2026-10-19 — CYD_tools_crt/frt: `ADC_buttons_E12` heet nu `ADC_buttons`
+
+Op verzoek van Marius is `_E12` uit de namen gehaald, behalve bij de ladder.
+
+- **Mappen:** `src/`, `examples/` en `docs/ADC_buttons_E12` heten nu `.../ADC_buttons`,
+  in zowel CYD_tools_crt als CYD_tools_frt.
+- **Klassen:** `ADC_buttons_E12` → `ADC_buttons`, `IADC_buttons_E12` → `IADC_buttons`,
+  `IADC_buttons_E12Listener` → `IADC_buttonsListener`. De bestanden heten mee
+  (`crt_ADC_buttons.h`, `crt_IADC_buttons.h`, `crt_IADC_buttonsListener.h`, idem `frt_`).
+- **Examples:** `ADC_buttons.ino` / `ADC_buttons_ino.h` en `ADC_buttons_frt.ino` /
+  `ADC_buttons_frt_ino.h`. De taaknaam (logtag) is nu `ADC_buttons`.
+- **Manuals:** `docs/ADC_buttons/ADC_buttons.md`.
+- **Ongewijzigd:**
+  - `crt_ADC_buttons_E12_ladder.h` / `frt_ADC_buttons_E12_ladder.h` en de klasse
+    `ADC_buttons_E12_ladder`;
+  - de resultaatbestanden `*_E12_RL68k*.md` en `e12_rl68k_schema.svg`, omdat die de
+    ladder zelf beschrijven;
+  - de oudere logentries.
+- `main/main.cpp` en `main/CMakeLists.txt` zijn mee aangepast. De hernoemingen gingen met
+  `git mv` en staan dus al in de index; er is niets gecommit.
+- De test, het crt-example en het frt-example bouwen alle drie groen. De test staat weer
+  actief in `main.cpp`.
+
+## 2026-10-19 — CYD_tools_crt: test TestWorstCaseVoltageToBorderDistance + referentiemeting
+
+Nieuwe test in `libs/CYD_tools_crt/tests/TestWorstCaseVoltageToBorderDistance` (README
+erbij). Hij meet per ingedrukte knoppencombinatie de worst case afstand (mV) van de
+gemeten spanning tot de dichtstbijzijnde beslisgrens. `ADC_buttons_E12` draait in de test
+met `maxSimultaneousButtons` = 6, zodat de ladder zelf gemeten wordt.
+
+- **Hoe hij meet.**
+  - Per druk (een periode met dezelfde gedebouncede code) gaan alle metingen in een
+    buffer. De eerste 50 ms en de laatste 80 ms vallen eraf.
+  - De **mediaan** bepaalt welke combinatie het was. Metingen die meer dan 10 mV van de
+    mediaan liggen, tellen als uitschieter (dender, overgang).
+  - De eerste versie gebruikte de gedebouncede code direct. Bij een combinatie die op
+    een grens ligt (S1+S2) springt de debounce soms niet mee, en dan kwam de spanning
+    van S1+S2 bij "S1" terecht (−521 mV). Daarom de mediaan.
+- **Lib uitgebreid.**
+  - `ADC_buttons_E12::readSnapshot(code, mV, vref)`: één consistente toestand.
+  - `ADC_buttons_E12::getLadder()`.
+  - `ADC_buttons_E12_ladder::getUpperBorder/getLowerBorder(code)`.
+  - `buttonMaskToCode()`.
+  - De State in de Pool draagt nu ook de gekalibreerde Vref.
+  - CYD_tools_frt is hier nog niet in meegenomen.
+- **Referentiemeting** op de huidige ladder (E12 + RL 68k), 53/63 combinaties:
+  `tests/.../results/2026-10-19_E12_RL68k.md`.
+  - Worst case −6,3 mV (S1+S3).
+  - 15 combinaties op of over een grens, allemaal S1 plus een andere knop: ze lezen
+    10–17 mV te hoog door de contactweerstand van S1.
+  - Zonder S1 is de worst case 4,8 mV (S4+S6), meestal 8–18 mV; nominaal ±20 mV.
+- Daarna volgt de ombouw naar de E12-ladder die voor ≤2450 mV is geoptimaliseerd:
+  - B 4k7/10k/18k/39k/82k/180k
+  - P 4k7/8k2/22k/39k/68k/100k
+  - RL 12k
+
+  Worst case berekend 0,00227·Vref tegen 0,00165·Vref nu (+37%); met E24 zou het
+  0,00268·Vref zijn (+18% op E12).
+- `main/main.cpp` heeft nu `TestWorstCaseVoltageToBorderDistance.ino` actief.
+- **Daarna aangepast:**
+  - De test staat nu op `maxSimultaneousButtons` = 3: 41 combinaties, met de grenzen
+    zoals een applicatie ze krijgt. De ladder kreeg `isAllowed(code)` en
+    `getNofAllowedCodes()`.
+  - Elke 5 s (op tijd, niet op aantal polls) toont de test 5 combinaties die nog niet
+    gedrukt zijn. Kijk mee met `idf.py monitor` in een terminaltab.
+- **Referentie met max 3** (`results/2026-10-19_E12_RL68k_max3.md`, 41/41):
+  - Worst case −4,0 mV (S1+S2+S5).
+  - 4 combinaties ≤ 0 mV, alle S1 met S4/S5. Hun buur erboven is zelf ook een drietal of
+    minder, dus het beperken helpt daar niet.
+  - S1+S2 gaat wel van −5,0 naar +22,5 mV, en S1+S3 van −6,3 naar +13,9 mV.
+  - Zonder S1 is de worst case 3,2 mV (S3+S4+S5).
+- **Nieuwe ladder** (`ladder.h`: B 4k7/10k/18k/39k/82k/180k, P 4k7/8k2/22k/39k/68k/100k,
+  RL 12k). "Geen knop" meet 2422 mV, berekend 2421 mV. Maar in de test werd S2 als S2+S5
+  gezien, S3 als S4+S5+S6 en S6 als S5.
+  - Een controle met S1..S6 elk los liet zien: **in de takken S2, S3, S5 en S6 zitten B en
+    P verwisseld** (Uuit–P–knooppunt–B–Vref). Gemeten 1451/1993/2279/2328 mV, berekend met
+    B↔P 1453/1993/2282/2329 mV. "Geen knop" verandert daar niet door, omdat B+P gelijk
+    blijft. Bij S1 en S4 maakt het niet uit (B = P).
+  - Zo gebouwd overlappen de tolerantiebanden, ook bij max 3 knoppen (−16 mV tussen
+    S3+S5+S6 en S3+S4). Een softwareaanpassing helpt dus niet: de hardware moet worden
+    rechtgezet.
+- **Na het rechtzetten van de bedrading** klopten S1..S6 tot op 5 mV met de berekening,
+  en "geen knop" was 2421 mV (berekend 2421). Maar S1 las 18–22 mV te hoog, wat bij deze
+  ladder neerkomt op ±40–45 Ω in het pad van S1. Daardoor kwamen alle combinaties S1+S5
+  (+S2/S3/S4) aan de kant van de S6-variant terecht (stap ±31 mV, grens op ±16 mV).
+  - De conclusie van Marius: de geoptimaliseerde ladder gebruikt kleinere weerstanden
+    (P1 4k7 tegen 18k), waardoor dezelfde contactweerstand relatief zwaarder weegt. De
+    optimalisatie ging uit van ideale schakelaars.
+  - **Teruggedraaid**: `ladder.h` heeft weer de E12-ladder met RL 68k (B 33k..1M2,
+    P 18k..390k). De getters voor de test blijven. Gebouwd en geflasht; Marius zet de
+    hardware terug.
+  - Kanttekening voor een volgende keer: de worst case marge van zo'n ladder hangt alleen
+    af van de verhoudingen. Alle waarden ×10 (B1 47k, P1 47k, RL 120k) geeft dezelfde
+    marges en is ±2,5× minder gevoelig voor contactweerstand dan de 68k-ladder (P1 47k
+    tegen 18k). De uitgangsimpedantie wordt dan wel hoger: 20–34k, tegen 14–19k bij de
+    68k-ladder.
+- **Tweede meting op de teruggezette 68k-ladder** (max 3, 41/41):
+  `results/2026-10-19_E12_RL68k_max3_run2.md`. Het beeld is hetzelfde als bij de eerste
+  meting: worst case −6,2 mV (S1+S2+S6, waarschijnlijk één overgangsdruk) en −3,9 mV
+  (S1+S2+S5); 5 combinaties ≤ 0 mV, alle S1 met S4/S5/S6. Zonder S1 is de worst case
+  6,6 mV. "Geen knop" 2463 mV, net als vóór de ombouw.
+
 ## 2026-10-18 — CYD_tools_frt: ADC_buttons_E12 op vanilla FreeRTOS
 
 Nieuwe lib `libs/CYD_tools_frt`, naast `CYD_tools_crt`, maar zonder CleanRTOS

@@ -5,21 +5,21 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
-#include <frt_IADC_buttons_E12.h>
+#include <frt_IADC_buttons.h>
 
 namespace frt
 {
-	// Luistert naar een ADC_buttons_E12 en logt elke buttonPressed en buttonReleased.
+	// Luistert naar een ADC_buttons en logt elke buttonPressed en buttonReleased.
 	// FreeRTOS-variant van crt::AdcButtonTester (libs/CYD_tools_crt).
 	//
 	// buttonPressed() en buttonReleased() worden aangeroepen vanuit de taak van
-	// ADC_buttons_E12. Ze doen daarom zo min mogelijk: ze zetten alleen een ButtonEvent
+	// ADC_buttons. Ze doen daarom zo min mogelijk: ze zetten alleen een ButtonEvent
 	// in queueButtonEvents. De eigen taak van AdcButtonTester wacht op die queue en logt.
 	//
 	// De taak wacht alleen op queueButtonEvents en op niets anders. Daarom is er geen
 	// eventGroup en geen eventbit nodig: hij wacht en leest in één keer met een
 	// blokkerende xQueueReceive.
-	class AdcButtonTester : public IADC_buttons_E12Listener
+	class AdcButtonTester : public IADC_buttonsListener
 	{
 	private:
 		static const int NOF_BUTTONS = 6;
@@ -36,12 +36,12 @@ namespace frt
 		const char*  taskName;
 		TaskHandle_t taskHandle;
 
-		IADC_buttons_E12& adcButtons;
+		IADC_buttons& adcButtons;
 		QueueHandle_t queueButtonEvents;
 
 	public:
 		AdcButtonTester(const char* taskName, UBaseType_t taskPriority, uint32_t taskStackSizeBytes, BaseType_t taskCoreNumber,
-		                IADC_buttons_E12& adcButtons) :
+		                IADC_buttons& adcButtons) :
 			taskName(taskName), taskHandle(nullptr), adcButtons(adcButtons)
 		{
 			queueButtonEvents = xQueueCreate(BUTTON_EVENT_QUEUE_SIZE, sizeof(ButtonEvent));
@@ -51,13 +51,13 @@ namespace frt
 			xTaskCreatePinnedToCore(taskWrapper, taskName, taskStackSizeBytes, this, taskPriority, &taskHandle, taskCoreNumber);
 		}
 
-		// Aangeroepen vanuit de taak van ADC_buttons_E12.
+		// Aangeroepen vanuit de taak van ADC_buttons.
 		void buttonPressed(int buttonIndex) /*override*/
 		{
 			writeEvent(eButtonPressed, buttonIndex);
 		}
 
-		// Aangeroepen vanuit de taak van ADC_buttons_E12.
+		// Aangeroepen vanuit de taak van ADC_buttons.
 		void buttonReleased(int buttonIndex) /*override*/
 		{
 			writeEvent(eButtonReleased, buttonIndex);
@@ -75,7 +75,7 @@ namespace frt
 			buttonEvent.buttonTransition = buttonTransition;
 			buttonEvent.buttonIndex      = buttonIndex;
 			// Wachttijd 0, net als de CleanRTOS-Queue zonder bWriteWaitIfQueueFull: de taak van
-			// ADC_buttons_E12 mag hier niet blijven hangen als deze queue vol is.
+			// ADC_buttons mag hier niet blijven hangen als deze queue vol is.
 			if (xQueueSend(queueButtonEvents, &buttonEvent, 0) != pdPASS)
 			{
 				ESP_LOGW(taskName, "queueButtonEvents was vol; event van S%d gaat verloren.", buttonIndex + 1);
@@ -102,6 +102,17 @@ namespace frt
 
 		void main()
 		{
+			// Wacht tot ADC_buttons de controle bij het opstarten gedaan heeft (±100 ms).
+			vTaskDelay(pdMS_TO_TICKS(300));
+			if (adcButtons.isConnected())
+			{
+				ESP_LOGI(taskName, "Weerstandsladder aangesloten.");
+			}
+			else
+			{
+				ESP_LOGW(taskName, "Weerstandsladder NIET aangesloten (of er werd bij het opstarten een knop vastgehouden).");
+			}
+
 			ButtonEvent buttonEvent;
 			while (true)
 			{

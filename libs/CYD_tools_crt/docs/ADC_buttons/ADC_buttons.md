@@ -1,36 +1,19 @@
-# ADC_buttons_E12 (FreeRTOS)
+# ADC_buttons
 
 Zes drukknoppen uitlezen via één ADC-pin van de CYD (ESP32-2432S028R), met een
 weerstandsladder van twaalf E12-weerstanden (±1%). Elke combinatie van ingedrukte
-knoppen (64 in totaal) geeft een eigen spanning. `frt::ADC_buttons_E12` meet die
-spanning in een eigen FreeRTOS-taak en meldt `buttonPressed` / `buttonReleased`
+knoppen (64 in totaal) geeft een eigen spanning. `crt::ADC_buttons` meet die
+spanning in een eigen CleanRTOS-taak en meldt `buttonPressed` / `buttonReleased`
 aan zijn listeners.
 
-Dit is de FreeRTOS-variant van `crt::ADC_buttons_E12` uit `libs/CYD_tools_crt`,
-zonder CleanRTOS. Meten, decoderen, debounce en zelfkalibratie zijn identiek; alleen
-de RTOS-laag verschilt. Vertaald volgens de conversieregels CleanRTOS → FreeRTOS
-(`ModelAnalysis/FastModelFeedback/Config/StdCleanRtosNaarStdFreeRtos`):
-
-| CleanRTOS (`crt`) | FreeRTOS (`frt`) |
-|---|---|
-| erft van `crt::Task`, `start()` in de constructor | eigen taak: `xTaskCreatePinnedToCore` met een statische `taskWrapper` die `runTask()` aanroept |
-| `Pool<State> poolState`, `write` / `read` | `QueueHandle_t stateQueue` met één plek: `xQueueOverwrite` / `xQueuePeek(..., 0)`, met een beginwaarde in de constructor |
-| `Queue<ButtonEvent, 10>` (example), `write` | `xQueueCreate(10, ...)`, `xQueueSend(..., 0)` |
-| `wait(queue)` + `tryRead` (example; de taak wacht alleen op die queue) | `xQueueReceive(queue, &item, portMAX_DELAY)`: wachten en lezen in één, zonder eventGroup of eventbit |
-| `dumpStackHighWaterMarkIfIncreased()` | vervalt (CleanRTOS-debughulp) |
-| `MainInits` | vervalt |
-
-Bestanden, in `libs/CYD_tools_frt/src/ADC_buttons_E12/`:
+Bestanden, in `libs/CYD_tools_crt/src/ADC_buttons/`:
 
 | Bestand | Inhoud |
 |---|---|
-| `frt_ADC_buttons_E12.h` | De klasse (header-only, template op het maximale aantal listeners). |
-| `frt_IADC_buttons_E12.h` | Interface: `addButtonListener`, `isButtonPressed`, `getPressedMask`, `getMillivolts`. |
-| `frt_IADC_buttons_E12Listener.h` | Listener-interface: `buttonPressed(int)`, `buttonReleased(int)`. |
-| `frt_ADC_buttons_E12_ladder.h` | De weerstandswaarden; rekent de niveaus en drempels uit. |
-
-De laatste drie zijn gelijk aan hun `crt_`-tegenhangers, op de namespace na: ze
-gebruiken geen RTOS.
+| `crt_ADC_buttons.h` | De klasse (header-only, template op het maximale aantal listeners). |
+| `crt_IADC_buttons.h` | Interface: `addButtonListener`, `isButtonPressed`, `getPressedMask`, `getMillivolts`, `isConnected`. |
+| `crt_IADC_buttonsListener.h` | Listener-interface: `buttonPressed(int)`, `buttonReleased(int)`. |
+| `crt_ADC_buttons_E12_ladder.h` | De weerstandswaarden; rekent de niveaus en drempels uit. |
 
 ## Schema
 
@@ -68,11 +51,11 @@ De ruis na middeling is ±5 mV, en de zelfkalibratie haalt de afwijking van de
 versterking eruit. Een eerdere versie gebruikte 100k (hoogste niveau 2630 mV,
 kleinste stap 25,2 mV), maar dan zitten de bovenste niveaus in het afbuigende
 stuk van de ADC. RL hoort bij de ladder: de waarde staat naast die van B en P in
-`frt_ADC_buttons_E12_ladder.h` (`RL_ohm`). Kies je een andere RL, pas hem dan daar aan.
+`crt_ADC_buttons_E12_ladder.h` (`RL_ohm`). Kies je een andere RL, pas hem dan daar aan.
 
 Ontwerp en berekening: `Handleidingen/Hardware Development/Analoge Electronica/Weerstandsladder_voor_knoppen`
 (`e12_definitief.json`, `knoppen_e12_drempels.h`). De vaste drempeltabel uit die
-header geldt alleen zonder RL. Daarom berekent `frt_ADC_buttons_E12_ladder.h`
+header geldt alleen zonder RL. Daarom berekent `crt_ADC_buttons_E12_ladder.h`
 de niveaus zelf (knooppuntsvergelijking) en legt de drempels midden tussen twee
 opeenvolgende niveaus.
 
@@ -105,11 +88,13 @@ op een andere ADC1-pin, krijgt de unit dan niet meer.
 ## Gebruik
 
 ```cpp
-#include <frt_ADC_buttons_E12.h>
+#include <crt_ADC_buttons.h>
 
-namespace frt
+namespace crt
 {
-    ADC_buttons_E12<2 /*MAXLISTENERCOUNT*/> adcButtons("ADC_buttons_E12", 3 /*priority*/, 4096 /*stackBytes*/, ARDUINO_RUNNING_CORE,
+    MainInits mainInits;
+
+    ADC_buttons<2 /*MAXLISTENERCOUNT*/> adcButtons("ADC_buttons", 3 /*priority*/, 4096 /*stackBytes*/, ARDUINO_RUNNING_CORE,
                                                        35 /*pinAdc*/, 3300 /*vrefMillivolts*/,
                                                        10 /*pollPeriodMs*/, 3 /*nofStablePolls*/, 3 /*maxSimultaneousButtons*/);
 }
@@ -127,13 +112,13 @@ Alle parameters na `taskCoreNumber` hebben deze waarden als default.
   hieronder). Druk je er toch meer in, dan meldt de klasse de dichtstbijzijnde
   toegestane combinatie, en die klopt dan niet.
 
-**Listener.** Implementeer `IADC_buttons_E12Listener` en meld je aan:
+**Listener.** Implementeer `IADC_buttonsListener` en meld je aan:
 
 ```cpp
-class MyListener : public IADC_buttons_E12Listener
+class MyListener : public IADC_buttonsListener
 {
 public:
-    MyListener(IADC_buttons_E12& adcButtons) { adcButtons.addButtonListener(this); }
+    MyListener(IADC_buttons& adcButtons) { adcButtons.addButtonListener(this); }
     void buttonPressed(int buttonIndex)  { /* knop buttonIndex is ingedrukt */ }
     void buttonReleased(int buttonIndex) { /* knop buttonIndex is losgelaten */ }
 };
@@ -142,18 +127,23 @@ public:
 - `buttonIndex` loopt van 0 tot en met 5: knop 0 = S1, ..., knop 5 = S6.
 - Meld listeners aan vóórdat de taak meet, dus in een constructor of in `setup()`.
   De taak begint pas na ±80 ms met meten.
-- De aanroepen komen **uit de taak van ADC_buttons_E12**. Houd ze kort en blokkeer
-  er niet in: zet bijvoorbeeld een eventbit in de eventGroup van je eigen taak of
-  schrijf met `xQueueSend(..., 0)` in een queue ervan (zie het example).
+- De aanroepen komen **uit de taak van ADC_buttons**. Houd ze kort en blokkeer
+  er niet in: zet bijvoorbeeld een `Flag` of schrijf in een `Queue` van je eigen taak.
 - Gaan er in één meting meerdere knoppen om, dan komen eerst alle `buttonReleased`
   en dan alle `buttonPressed`.
 
+**Aangesloten?** `isConnected()` vertelt of de weerstandsladder bij het opstarten
+aangesloten was. Bij het opstarten mag er niets ingedrukt zijn, dus hoort de gemeten
+spanning dan rond het niveau "geen knop" te liggen: binnen 8% van wat er bij de
+opgegeven Vref hoort. Anders is de ladder niet (goed) aangesloten, ontbreekt RL, of
+werd er bij het opstarten een knop vastgehouden. De controle is ±100 ms na de start
+klaar; daarvoor geeft `isConnected()` false. Het is de uitkomst van die ene controle:
+sluit je de ladder later aan, dan blijft hij false. Het example logt hem na 300 ms.
+
 **Opvragen.** `isButtonPressed(buttonIndex)`, `getPressedMask()` (bit i = knop i)
-en `getMillivolts()` (laatste meting) zijn thread-safe: de toestand staat in
-`stateQueue`, een queue met één plek die de taak overschrijft (`xQueueOverwrite`) en
-de getters peeken (`xQueuePeek`). Hij wordt bijgewerkt voordat de listeners worden
-aangeroepen. Wie in `buttonPressed` `isButtonPressed()` vraagt, ziet de nieuwe
-toestand dus al.
+en `getMillivolts()` (laatste meting) zijn thread-safe: de toestand staat in een
+`crt::Pool`. De Pool wordt bijgewerkt voordat de listeners worden aangeroepen. Wie in
+`buttonPressed` `isButtonPressed()` vraagt, ziet de nieuwe toestand dus al.
 
 ## Hoe het werkt
 
@@ -173,8 +163,8 @@ allebei maar op een procent of twee vast. Dat is meer dan een halve stap. Daarom
   ingedrukt. Uit dat niveau volgt de effectieve Vref, zoals de ADC hem ziet. Hij
   logt dat, bijvoorbeeld:
   `Kalibratie: geen knop = 2673 mV, Vref = 3354 mV`. Ligt de meting meer dan 8%
-  van de verwachting af, dan blijft de opgegeven Vref staan en volgt er een
-  waarschuwing.
+  van de verwachting af, dan blijft de opgegeven Vref staan, volgt er een
+  waarschuwing en geeft `isConnected()` false.
 - Daarna volgt hij Vref langzaam (IIR, ±1 s) zolang er stabiel niets is ingedrukt.
   Dat vangt temperatuurdrift op.
 - Houd je bij het opstarten een knop vast, dan zie je die knop pas na het loslaten.
@@ -220,34 +210,86 @@ allebei maar op een procent of twee vast. Dat is meer dan een halve stap. Daarom
   de ruimste marges (zwakste combinatie ±180 Ω).
 - De klasse houdt geen rekening met de tolerantie van RL zelf; neem 1%.
 
+## Test: worst case afstand tot een beslisgrens
+
+`libs/CYD_tools_crt/tests/TestWorstCaseVoltageToBorderDistance` meet op de hardware,
+per ingedrukte combinatie, hoe ver de spanning in het slechtste geval van de
+dichtstbijzijnde beslisgrens af ligt (in mV). Uitleg staat in de README daar; de
+uitkomsten per ladder staan in `results/`. Referentie voor de huidige ladder
+(E12 + RL 68k, alle 64 combinaties toegestaan): `results/2026-10-19_E12_RL68k.md`.
+Daarin is de worst case −6,3 mV, en alle combinaties van S1 met een andere knop komen
+op of over een grens (contactweerstand van S1).
+
+Voor de test heeft de klasse er drie functies bij:
+
+- `readSnapshot(code, millivolts, vrefMillivolts)` geeft de gedebouncede code, de
+  laatste meting en de gekalibreerde Vref, alle drie uit dezelfde toestand.
+- `getLadder()` geeft de ladder.
+- In de ladder: `getUpperBorder(code)` en `getLowerBorder(code)`, de beslisgrenzen
+  rond een code (Uuit/Vref).
+
 ## Het example
 
-`libs/CYD_tools_frt/examples/ADC_buttons_E12/`:
+`libs/CYD_tools_crt/examples/ADC_buttons/`:
 
-- `ADC_buttons_E12_frt.ino` / `ADC_buttons_E12_frt_ino.h`: maakt een
-  `ADC_buttons_E12<1>` op GPIO35 met RL = 68k en een `AdcButtonTester`. De namen
-  hebben `_frt` erachter, omdat `ADC_buttons_E12.ino` van CYD_tools_crt ook in de
-  includepaden staat.
-- `frt_AdcButtonTester.h`: een listener met een eigen FreeRTOS-taak. `buttonPressed`
-  en `buttonReleased` (die uit de taak van ADC_buttons_E12 komen) doen niets anders
-  dan een `ButtonEvent` (`eButtonPressed`/`eButtonReleased` plus de buttonIndex) met
-  `xQueueSend(queueButtonEvents, &buttonEvent, 0)` in de queue zetten. Wachttijd 0,
-  net als bij de CleanRTOS-Queue: de taak van ADC_buttons_E12 mag niet blijven
-  hangen als de queue vol is; dan volgt een waarschuwing. De eigen taak wacht alleen op
-  die queue, dus zonder eventGroup: `xQueueReceive(queueButtonEvents, &buttonEvent,
-  portMAX_DELAY)` wacht en leest in één. Daarna logt hij het event: welke knop,
-  welke knoppen er nu ingedrukt zijn (via `isButtonPressed`) en de gemeten spanning.
-  Die laatste twee zijn de toestand op het moment van loggen, niet per se die van het event.
+- `ADC_buttons.ino` / `ADC_buttons_ino.h`: maakt een `ADC_buttons<1>`
+  op GPIO35 met RL = 68k en een `AdcButtonTester`.
+- `crt_AdcButtonTester.h`: een `crt::Task` die naar de knoppen luistert. Zo hoort
+  een listener eruit te zien: `buttonPressed` en `buttonReleased` (die uit de taak
+  van ADC_buttons komen) doen niets anders dan een `ButtonEvent`
+  (`eButtonPressed`/`eButtonReleased` plus de buttonIndex) in een
+  `Queue<ButtonEvent, 10>` zetten. De eigen taak wacht op die queue (`wait` +
+  `tryRead`, één event per ronde) en logt elk event: welke knop, welke knoppen er
+  nu ingedrukt zijn (via `isButtonPressed`) en de gemeten spanning. Die laatste twee
+  zijn de toestand op het moment van loggen, niet per se die van het event.
 
 Bouwen: zet in `main/main.cpp` als enige `#include` actief:
 
 ```cpp
-#include <ADC_buttons_E12_frt.ino>
+#include <ADC_buttons.ino>
 ```
 
-`main/CMakeLists.txt` heeft `libs/CYD_tools_frt/src/ADC_buttons_E12` en
-`libs/CYD_tools_frt/examples/ADC_buttons_E12` in de includepaden. Dan
+`main/CMakeLists.txt` heeft `libs/CYD_tools_crt/src/ADC_buttons` en
+`libs/CYD_tools_crt/examples/ADC_buttons` in de includepaden. Dan
 `idf.py build` en `idf.py -p /dev/ttyUSB0 flash monitor`.
 
-Metingen en de analyse van de marges: zie de manual van CYD_tools_crt. Meten en
-decoderen zijn in beide varianten dezelfde code.
+Test op de CYD met RL = 68k (2026-10-18). Na de zelfkalibratie (Vref 3387 mV)
+klopt elk niveau tot op ±13 mV met de berekening:
+
+| Ingedrukt | berekend | gemeten | verschil |
+|---|---|---|---|
+| niets | 2463 mV | 2462 mV | −1 |
+| S1 | 1028 mV | 1041 mV | +13 |
+| S2 | 1691 mV | 1689 mV | −2 |
+| S3 | 2083 mV | 2084 mV | +1 |
+| S4 | 2281 mV | 2280 mV | −1 |
+| S5 | 2373 mV | 2371 mV | −2 |
+| S6 | 2415 mV | 2404 mV | −11 |
+| S5+S6 | 2325 mV | 2317 mV | −8 |
+| S1+S6 | 992 mV | 1002 mV | +10 |
+| S2+S5 | 1610 mV | 1611 mV | +1 |
+
+Seriële uitvoer daarvan (S1..S6 los, S5+S6, S1 vast met S6 erbij, S2+S5). De
+listener heette toen nog `AdcButtonListener`; nu staat er `AdcButtonTester`:
+
+```
+I (350) ADC_buttons: Kalibratie: geen knop = 2463 mV, Vref = 3387 mV (verwacht 3300 mV, niveau 'geen knop' 2400 mV)
+I (24208) AdcButtonListener: S1 pressed    ingedrukt: [1-----]   1041 mV
+I (25312) AdcButtonListener: S1 released   ingedrukt: [------]   2460 mV
+I (26236) AdcButtonListener: S2 pressed    ingedrukt: [-2----]   1689 mV
+...
+I (34516) AdcButtonListener: S6 pressed    ingedrukt: [-----6]   2404 mV
+I (35548) AdcButtonListener: S6 released   ingedrukt: [------]   2463 mV
+I (36724) AdcButtonListener: S6 pressed    ingedrukt: [-----6]   2407 mV
+I (36760) AdcButtonListener: S5 pressed    ingedrukt: [----56]   2317 mV
+I (38248) AdcButtonListener: S5 released   ingedrukt: [------]   2462 mV
+I (38248) AdcButtonListener: S6 released   ingedrukt: [------]   2462 mV
+I (39977) AdcButtonListener: S1 pressed    ingedrukt: [1-----]   1044 mV
+I (41345) AdcButtonListener: S6 pressed    ingedrukt: [1----6]   1002 mV
+I (42617) AdcButtonListener: S1 released   ingedrukt: [------]   2460 mV
+I (42617) AdcButtonListener: S6 released   ingedrukt: [------]   2460 mV
+I (44154) AdcButtonListener: S2 pressed    ingedrukt: [-2--5-]   1611 mV
+I (44154) AdcButtonListener: S5 pressed    ingedrukt: [-2--5-]   1611 mV
+I (45907) AdcButtonListener: S2 released   ingedrukt: [------]   2465 mV
+I (45907) AdcButtonListener: S5 released   ingedrukt: [------]   2465 mV
+```

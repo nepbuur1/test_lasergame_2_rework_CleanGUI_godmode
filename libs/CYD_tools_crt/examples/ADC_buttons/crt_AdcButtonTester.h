@@ -2,16 +2,16 @@
 
 #pragma once
 #include <crt_CleanRTOS.h>
-#include <crt_IADC_buttons_E12.h>
+#include <crt_IADC_buttons.h>
 
 namespace crt
 {
-	// Luistert naar een ADC_buttons_E12 en logt elke buttonPressed en buttonReleased.
+	// Luistert naar een ADC_buttons en logt elke buttonPressed en buttonReleased.
 	//
 	// buttonPressed() en buttonReleased() worden aangeroepen vanuit de taak van
-	// ADC_buttons_E12. Ze doen daarom zo min mogelijk: ze zetten alleen een ButtonEvent
+	// ADC_buttons. Ze doen daarom zo min mogelijk: ze zetten alleen een ButtonEvent
 	// in een Queue. De eigen taak van AdcButtonTester wacht op die Queue en logt.
-	class AdcButtonTester : public Task, public IADC_buttons_E12Listener
+	class AdcButtonTester : public Task, public IADC_buttonsListener
 	{
 	private:
 		static const int NOF_BUTTONS = 6;
@@ -24,12 +24,12 @@ namespace crt
 			int              buttonIndex;
 		};
 
-		IADC_buttons_E12& adcButtons;
+		IADC_buttons& adcButtons;
 		Queue<ButtonEvent, 10> queueButtonEvents;
 
 	public:
 		AdcButtonTester(const char* taskName, unsigned int taskPriority, unsigned int taskStackSizeBytes, unsigned int taskCoreNumber,
-		                IADC_buttons_E12& adcButtons) :
+		                IADC_buttons& adcButtons) :
 			Task(taskName, taskPriority, taskStackSizeBytes, taskCoreNumber),
 			adcButtons(adcButtons), queueButtonEvents(this)
 		{
@@ -37,13 +37,13 @@ namespace crt
 			start();
 		}
 
-		// Aangeroepen vanuit de taak van ADC_buttons_E12.
+		// Aangeroepen vanuit de taak van ADC_buttons.
 		void buttonPressed(int buttonIndex) /*override*/
 		{
 			writeEvent(eButtonPressed, buttonIndex);
 		}
 
-		// Aangeroepen vanuit de taak van ADC_buttons_E12.
+		// Aangeroepen vanuit de taak van ADC_buttons.
 		void buttonReleased(int buttonIndex) /*override*/
 		{
 			writeEvent(eButtonReleased, buttonIndex);
@@ -82,6 +82,17 @@ namespace crt
 		/*override keyword not supported*/
 		void main()
 		{
+			// Wacht tot ADC_buttons de controle bij het opstarten gedaan heeft (±100 ms).
+			vTaskDelay(pdMS_TO_TICKS(300));
+			if (adcButtons.isConnected())
+			{
+				ESP_LOGI(taskName, "Weerstandsladder aangesloten.");
+			}
+			else
+			{
+				ESP_LOGW(taskName, "Weerstandsladder NIET aangesloten (of er werd bij het opstarten een knop vastgehouden).");
+			}
+
 			ButtonEvent buttonEvent;
 			while (true)
 			{
