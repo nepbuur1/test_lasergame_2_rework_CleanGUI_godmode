@@ -2488,29 +2488,29 @@
     </mxGraphModel>
   </diagram>
   <diagram name="STD-ButtonInfoControl" id="AHPeE0pkAVcSYF1T927-">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="kCu2Ed_x2A5ZzgsTHIum-0" />
         <mxCell id="kCu2Ed_x2A5ZzgsTHIum-1" parent="kCu2Ed_x2A5ZzgsTHIum-0" />
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-0" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=250;strokeWidth=2;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  ButtonInfoControl - doButtonInfoPage()&lt;/p&gt;" vertex="1">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-0" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=250;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  ButtonInfoControl - doButtonInfoPage()&lt;/p&gt;" vertex="1">
           <mxGeometry height="390" width="810" x="10" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-1" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pContinueButton) flagContinuePressed.set()&lt;/p&gt;" vertex="1">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-1" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pContinueButton) flagContinuePressed.set()&lt;/p&gt;" vertex="1">
           <mxGeometry height="60" width="526" x="152" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-2" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;strokeColor=#2e7d32;" value="" vertex="1">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-2" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="410" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-3" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="WaitForContinue" vertex="1">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-3" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="rounded=1;whiteSpace=wrap;html=1;" value="WaitForContinue" vertex="1">
           <mxGeometry height="40" width="100" x="380" y="249" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-4" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;strokeColor=#2e7d32;fontColor=#2e7d32;" value="" vertex="1">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-4" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="410" y="350" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-5" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" source="AQHbiJzzmoyddYZwN-ur-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;align=center;labelBackgroundColor=default;" target="AQHbiJzzmoyddYZwN-ur-3" value="&lt;div&gt;/ bConnected = adcButtons.isConnected();&lt;/div&gt;&lt;div&gt;buttonInfoPageDisplayControl.showButtonInfoPage(bConnected);&lt;/div&gt;&lt;div&gt;flagContinuePressed.clear()&lt;/div&gt;">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-5" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" source="AQHbiJzzmoyddYZwN-ur-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=center;labelBackgroundColor=default;" target="AQHbiJzzmoyddYZwN-ur-3" value="&lt;div&gt;/ bConnected = adcButtons.isConnected();&lt;/div&gt;&lt;div&gt;buttonInfoPageDisplayControl.showButtonInfoPage(bConnected);&lt;/div&gt;&lt;div&gt;flagContinuePressed.clear()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="AQHbiJzzmoyddYZwN-ur-6" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" source="AQHbiJzzmoyddYZwN-ur-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" target="AQHbiJzzmoyddYZwN-ur-4" value="flagContinuePressed&amp;nbsp;&lt;div&gt;/ buttonInfoPageDisplayControl.hideButtonInfoPage()&lt;/div&gt;">
+        <mxCell id="AQHbiJzzmoyddYZwN-ur-6" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" source="AQHbiJzzmoyddYZwN-ur-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="AQHbiJzzmoyddYZwN-ur-4" value="flagContinuePressed&amp;nbsp;&lt;div&gt;/ buttonInfoPageDisplayControl.hideButtonInfoPage()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="m0Z6GlPVakSJ5UepNy74-0" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="endArrow=none;html=1;rounded=1;" value="">
@@ -2523,31 +2523,31 @@
     </mxGraphModel>
   </diagram>
   <diagram name="ButtonInfoPageDisplayControl" id="mFdoroi3Rt8XLz9-FegP">
-    <mxGraphModel dx="632" dy="978" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="nUaiiQ3_n64finr22Q7G-0" />
         <mxCell id="nUaiiQ3_n64finr22Q7G-1" parent="nUaiiQ3_n64finr22Q7G-0" />
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-0" parent="nUaiiQ3_n64finr22Q7G-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=210;strokeWidth=2;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  ButtonInfoPageDisplayControl&lt;/p&gt;" vertex="1">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-0" parent="nUaiiQ3_n64finr22Q7G-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=210;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  ButtonInfoPageDisplayControl&lt;/p&gt;" vertex="1">
           <mxGeometry height="420" width="810" x="10" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-1" parent="nUaiiQ3_n64finr22Q7G-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showButtonInfoPage(bool bConnected) / poolConnected.write(bConnected); flagHideButtonInfoPage.clear(); flagShowButtonInfoPage.set();&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideButtonInfoPage / flagShowButtonInfoPage.clear(); flagHideButtonInfoPage.set();&lt;/p&gt;" vertex="1">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-1" parent="nUaiiQ3_n64finr22Q7G-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showButtonInfoPage(bool bConnected) / poolConnected.write(bConnected); flagHideButtonInfoPage.clear(); flagShowButtonInfoPage.set();&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideButtonInfoPage / flagShowButtonInfoPage.clear(); flagHideButtonInfoPage.set();&lt;/p&gt;" vertex="1">
           <mxGeometry height="90" width="600" x="120" y="60" as="geometry" />
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-2" parent="nUaiiQ3_n64finr22Q7G-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;strokeColor=#2e7d32;" value="" vertex="1">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-2" parent="nUaiiQ3_n64finr22Q7G-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="40" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-3" parent="nUaiiQ3_n64finr22Q7G-1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="Hidden" vertex="1">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-3" parent="nUaiiQ3_n64finr22Q7G-1" style="rounded=1;whiteSpace=wrap;html=1;" value="Hidden" vertex="1">
           <mxGeometry height="40" width="170" x="540" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-4" parent="nUaiiQ3_n64finr22Q7G-1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="Shown" vertex="1">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-4" parent="nUaiiQ3_n64finr22Q7G-1" style="rounded=1;whiteSpace=wrap;html=1;" value="Shown" vertex="1">
           <mxGeometry height="40" width="170" x="540" y="370" as="geometry" />
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-5" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;align=left;labelBackgroundColor=none;" target="C7_Nkc5Sz8MV-gk_sX7z-3" value="initPanels();&amp;nbsp; &amp;nbsp;// background, title, 4 info lines, buttonContinue (&quot;Ga verder&quot;)&lt;br&gt;PageRoot&amp;lt;10&amp;gt; pageButtonInfo(&quot;rootButtonInfoPageDisplay&quot;,display);&lt;br&gt;defineDisplayHierarchy(pageButtonInfo);&lt;br&gt;hidePage(pageButtonInfo)">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-5" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=none;" target="C7_Nkc5Sz8MV-gk_sX7z-3" value="initPanels();&amp;nbsp; &amp;nbsp;// background, title, 4 info lines, buttonContinue (&quot;Ga verder&quot;)&lt;br&gt;PageRoot&amp;lt;10&amp;gt; pageButtonInfo(&quot;rootButtonInfoPageDisplay&quot;,display);&lt;br&gt;defineDisplayHierarchy(pageButtonInfo);&lt;br&gt;hidePage(pageButtonInfo)">
           <mxGeometry relative="1" x="-0.8889" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-6" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" target="C7_Nkc5Sz8MV-gk_sX7z-4" value="flagShowButtonInfoPage /&amp;nbsp;&lt;div&gt;fillInfoLines();&amp;nbsp; &lt;br&gt;// tekst hangt af van poolConnected&lt;br&gt;showPage(pageButtonInfo)&lt;/div&gt;">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-6" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="C7_Nkc5Sz8MV-gk_sX7z-4" value="flagShowButtonInfoPage /&amp;nbsp;&lt;div&gt;fillInfoLines();&amp;nbsp; &lt;br&gt;// tekst hangt af van poolConnected&lt;br&gt;showPage(pageButtonInfo)&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.2308" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
@@ -2556,7 +2556,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-7" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;strokeColor=#2e7d32;fontColor=#2e7d32;" target="C7_Nkc5Sz8MV-gk_sX7z-3" value="flagHideButtonInfoPage &lt;br&gt;/ hidePage(pageButtonInfo)">
+        <mxCell id="C7_Nkc5Sz8MV-gk_sX7z-7" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" source="C7_Nkc5Sz8MV-gk_sX7z-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="C7_Nkc5Sz8MV-gk_sX7z-3" value="flagHideButtonInfoPage &lt;br&gt;/ hidePage(pageButtonInfo)">
           <mxGeometry relative="1" x="-0.5385" y="-10" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
@@ -2690,7 +2690,7 @@
     </mxGraphModel>
   </diagram>
   <diagram name="STD-GameOverDisplayControl" id="Y9ppuywa5yMfpNZ6aGcs">
-    <mxGraphModel dx="1294" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="oe7GdN5sLLdbybtO89G7-0" />
         <mxCell id="oe7GdN5sLLdbybtO89G7-1" parent="oe7GdN5sLLdbybtO89G7-0" />
@@ -2887,7 +2887,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="std-firebincontrol-20260823" name="STD FireBinControl">
-    <mxGraphModel dx="1298" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />

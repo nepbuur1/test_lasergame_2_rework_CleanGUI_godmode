@@ -1,5 +1,17 @@
 # Claude log
 
+## 2026-10-19 — pong_dg_adv.drawio: groen weer zwart
+
+In `apps/pong_cleangui_dg_adv/models/pong_dg_adv.drawio` zelf (geen kopie) zijn alle 28
+groene kleurinstellingen (`strokeColor=#2e7d32`/`fontColor=#2e7d32`) weggehaald. Die 15
+cellen hebben daardoor weer de standaardkleur, zwart.
+
+- Er stond alleen nog groen in de tabs `STD-ButtonInfoControl` en
+  `ButtonInfoPageDisplayControl`.
+- Per cel vergeleken met een kopie van vóór de wijziging: buiten die kleurinstellingen is
+  niets veranderd.
+- Er is nergens nog `2e7d32` te vinden.
+
 ## 2026-10-19 — pong_dg_adv-modellen bijgewerkt voor ADC_buttons en de infopagina (in temp/)
 
 Alles staat in `temp/pong_dg_adv_mermaid/`; meer uitleg in de README daar.
