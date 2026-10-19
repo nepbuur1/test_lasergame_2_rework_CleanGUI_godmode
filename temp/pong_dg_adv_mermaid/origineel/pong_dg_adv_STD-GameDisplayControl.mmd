@@ -1,0 +1,129 @@
+---
+title: "std GameDisplayControl"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : updateGameObjects(ballStates, crateStates, fireBinStates, score) /
+    interface : poolBallStates.write(ballStates)#59; poolCrateStates.write(crateStates)#59;
+    interface : poolFireBinStates.write(fireBinStates)#59; poolScore.write(score)#59;
+    interface : flagBallPositionUpdated.set()
+    interface : updatePaddlePosition(x) / poolPaddlePosition.write(x)#59; flagPaddlePositionUpdated.set()
+    interface : showGamePage() / flagDeshowGamePage.clear()#59; flagShowGamePage.set()
+    interface : hideGamePage() / flagShowGamePage.clear()#59; flagDeshowGamePage.set()
+    interface : showPaddle() / flagHidePaddle.clear()#59; flagShowPaddle.set()
+    interface : hidePaddle() / flagShowPaddle.clear()#59; flagHidePaddle.set()
+    interface : showGameOverLabel() / flagHideGameOverLabel.clear()#59; flagShowGameOverLabel.set()
+    interface : hideGameOverLabel() / flagShowGameOverLabel.clear()#59; flagHideGameOverLabel.set()
+    interface : getWidth() / return width#59; getHeight() / return height#59;
+    interface : getBallOffScreenY() / return (height-1) - screenHeight - ballPanelSizePix().y/2#59;
+    interface : // deze drie#58; geen aanpassing na initialisatie/constructie -#gt; geen synchronisatie nodig
+    state "Hidden" as Hidden
+    Hidden : flagDeshowGamePage / . // al uit beeld#58; niets te doen, flag consumeren.
+    state "Shown" as Shown
+    Shown : flagShowGamePage / . // al in beeld#58; niets te doen, flag consumeren.
+    Shown : flagShowPaddle / showPaddleAndButtons()
+    Shown : flagHidePaddle / hidePaddleAndButtons()
+    Shown : flagShowGameOverLabel / doShowGameOverLabel(pageGame)
+    Shown : flagHideGameOverLabel / doHideGameOverLabel()
+    Shown : flagPaddlePositionUpdated / syncPaddlePanelPos()
+    Shown : flagBallPositionUpdated / applyGameState()#59; redrawWholePage(pageGame)
+
+    %% Transities
+    [*] --> Hidden : initPanels()#59;<br>assert(display.isBuffered())#59; // de app rekent op de backbuffer<br>GamePageRoot pageGame(#quot;rootGameDisplay#quot;, display)#59;<br>defineDisplayHierarchy(pageGame)#59;<br>hidePage(pageGame)#59; // het spel begint op de startpagina
+    Hidden --> Shown : flagShowGamePage /<br>showPage(pageGame)
+    Shown --> Hidden : flagDeshowGamePage /<br>hidePage(pageGame)
+
+    %% Notes
+    state "Toestanden" as note1
+    note1 : Hidden#58; de spelpagina is niet in beeld. Er wordt niets getekend#59;
+    note1 : binnenkomende beeld- en peddelvlaggen worden niet afgewacht
+    note1 : en dus ook niet verwerkt.
+    note1 : Shown#58; de spelpagina is in beeld en wordt bijgewerkt op elke
+    note1 : stand die GameControl en PaddleControl doorgeven.
+    state "void defineDisplayHierarchy(IWidget#amp; pageRoot)" as note2
+    note2 : #123;
+    note2 : pageRoot.addChildWidget(backgroundPanel)#59;
+    note2 : pageRoot.addChildWidget(bottomLinePanel)#59;
+    note2 : pageRoot.addChildWidget(leftBorderPanel)#59;
+    note2 : pageRoot.addChildWidget(rightBorderPanel)#59;
+    note2 : pageRoot.addChildWidget(topBorderPanel)#59;
+    note2 : pageRoot.addChildWidget(paddlePanel)#59;
+    note2 : pageRoot.addChildWidget(buttonLeft)#59;
+    note2 : pageRoot.addChildWidget(buttonRight)#59;
+    note2 : // De crates vóór de ballen, zodat een bal er overheen gaat en niet
+    note2 : // erachter verdwijnt op het moment dat hij hem raakt.
+    note2 : for (int i = 0#59; i #lt; MaxNofCrates#59; i++)
+    note2 : #123;
+    note2 : pageRoot.addChildWidget(arCratePanels[i])#59;
+    note2 : #125;
+    note2 : for (int i = 0#59; i #lt; MaxNofFireBins#59; i++)
+    note2 : #123;
+    note2 : pageRoot.addChildWidget(arFireBinPanels[i])#59;
+    note2 : #125;
+    note2 : for (int i = 0#59; i #lt; NofScoreDigits#59; i++)
+    note2 : #123;
+    note2 : pageRoot.addChildWidget(arScoreDigitPanels[i])#59;
+    note2 : #125;
+    note2 : // De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een
+    note2 : // kaatsing tegen de peddel#58; een brandende bal valt onder de doellijn
+    note2 : // door en komt daarbij over de peddelknoppen heen.
+    note2 : for (int i = 0#59; i #lt; MaxNofBalls#59; i++)
+    note2 : #123;
+    note2 : pageRoot.addChildWidget(arBallPanels[i])#59;
+    note2 : #125;
+    note2 : // En het GAME OVER-vignet daar nog overheen.
+    note2 : pageRoot.addChildWidget(buttonGameOverLabel)#59;
+    note2 : #125;
+    state "void applyGameState()" as note3
+    note3 : #123;
+    note3 : BallStates ballStates#59;
+    note3 : poolBallStates.read(ballStates)#59;
+    note3 : CrateStates crateStates#59;
+    note3 : poolCrateStates.read(crateStates)#59;
+    note3 : FireBinStates fireBinStates#59;
+    note3 : poolFireBinStates.read(fireBinStates)#59;
+    note3 : int32_t score#59;
+    note3 : poolScore.read(score)#59;
+    note3 : applyCrateStates(crateStates)#59;
+    note3 : applyFireBinStates(fireBinStates)#59;
+    note3 : applyScore(score)#59;
+    note3 : applyBallStates(ballStates)#59;
+    note3 : #125;
+    state "Waarom per frame de hele boom - deze app rekent op de backbuffer" as note4
+    note4 : van de PAL8-adapter#59; GameDisplayControl#58;#58;main() controleert dat.
+    note4 : Tekenen in geheugen is bijna gratis, maar uitsturen kost altijd
+    note4 : het hele scherm (~31 ms). Dan is de hele boom opnieuw opbouwen
+    note4 : en er een redraw() overheen doen goedkoper dan het slim proberen
+    note4 : te doen - en flikkervrij#58; er komt pas iets op het scherm als het
+    note4 : beeld af is.
+    note4 : redraw() en niet show()#58; de boom zit vol widgets die met opzet
+    note4 : uit staan (ongebruikte bal-, crate- en vuurkorfslots, en na
+    note4 : hidePaddle ook de peddel). show() zou die weer aanzetten.
+    state "Selectie van private functies" as note5
+    note5 : Als vuistregel laat je in ieder geval private functies in je STD zien die
+    note5 : #nbsp;#nbsp;#nbsp;#nbsp;berichten sturen naar andere objecten uit je object model.
+    note5 : Verder (zoals in deze STD) kun je naar believen private functies toevoegen als
+    note5 : #nbsp;#nbsp;#nbsp;#nbsp;je vind dat ze iets belangrijks verduidelijken.
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note1,note2,note3,note4,note5 noteBlock

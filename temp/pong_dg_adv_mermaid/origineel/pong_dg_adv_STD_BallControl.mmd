@@ -1,0 +1,86 @@
+---
+title: "std BallControl - update()"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : spawnInTheMiddle() / bFlagSpawnInTheMiddle = true // bool, called from Spawnables (same Task)
+    interface : spawnAt(posX, posY) / spawnAtPosX = posX#59; spawnAtPosY = posY#59; bFlagSpawnAt = true // bool, same Task
+    interface : getBallState() / if (state == STATE_IDLE)
+    interface : return BallState()#59;
+    interface : else
+    interface : return BallState(posX, posY,
+    interface : (state == STATE_FALLING_OUT) ||
+    interface : (state == STATE_BURNING_UP),
+    interface : indexBurnAnimationStep) // no Pool, same Task
+    state "Idle" as Idle
+    state "Running" as Running
+    state choice1 <<choice>>
+    state "FallingOut" as FallingOut
+    state "BurningUp" as BurningUp
+
+    %% Transities
+    [*] --> Idle
+    Idle --> Running : [bFlagSpawnInTheMiddle] /<br>bFlagSpawnInTheMiddle = false#59; startInTheMiddle()
+    Idle --> Running : [bFlagSpawnAt] /<br>bFlagSpawnAt = false#59; startAt(spawnAtPosX, spawnAtPosY)
+    Running --> choice1 : [else]<br>/ moveStep()
+    Running --> FallingOut : [posY + ballRadius #lt;= 0]
+    choice1 --> Running : [else]
+    choice1 --> BurningUp : [pBallCollisionCheck-#gt;isFireBinTouchedAtPos(posX,posY,ballRadius))] /<br>nofBurnUpClockStepsLeft = NofBallBurnUpSteps#59;<br>indexBurnAnimationStep = 0
+    FallingOut --> Idle : [posY #lt;= pGameDisplayControl<br>-#gt;getBallOffScreenY()] /<br>pDepot-#gt;release(indexSlot)
+    FallingOut --> FallingOut : [else] /<br>posX += vX#59;<br>posY += vY#59;<br>indexBurnAnimationStep++
+    BurningUp --> Idle : [nofBurnUpClockStepsLeft #lt;= 0] /<br>pDepot-#gt;release(indexSlot)
+    BurningUp --> FallingOut : [posY + ballRadius #lt;= 0]
+    BurningUp --> BurningUp : [else] /<br>nofBurnUpClockStepsLeft--#59;<br>indexBurnAnimationStep++#59;<br>moveStep()
+
+    %% Notes
+    state "Update() calls / Handler Pattern" as note1
+    note1 : BallControl receives update() calls from a Handler.
+    note1 : So rather than contintuously, only on every update() call, the conditions for
+    note1 : #nbsp;#nbsp;#nbsp;#nbsp;evaluating the current state are evaluated.
+    state "moveStep()" as note2
+    note2 : posX += vX#59; posY += vY#59;
+    note2 : bounceOffWallsIfHit()#59;
+    note2 : paddlePosition = pBallCollisionCheck-#gt;getPaddlePosition()#59;
+    note2 : if (bouncePaddleIfHit(paddlePosition))
+    note2 : pBallListener-#gt;ballBouncedOnPaddle()#59; // notify for score+=1
+    note2 : CrateHit hit = pBallCollisionCheck-#gt;getCrateHitAtPos(posX,posY,ballRadius)#59;
+    note2 : if (hit.bHit)
+    note2 : #123;
+    note2 : pBallCollisionCheck-#gt;crateWasHitAtPos(hit)#59;
+    note2 : bounceOffCrate(hit)#59;
+    note2 : #125;
+    note2 : if (state == STATE_RUNNING #amp;#amp; pBallCollisionCheck-#gt;isFireBinTouchedAtPos
+    note2 : (posX,posY,ballRadius))
+    note2 : #123;
+    note2 : nofBurnUpClockStepsLeft = NofBallBurnUpSteps#59;
+    note2 : indexBurnAnimationStep = 0#59;
+    note2 : state = STATE_BURNING_UP#59;
+    note2 : #125;
+    state "State meaning" as note3
+    note3 : Idle#58; In the depot#59; no active state is published.
+    note3 : Running#58; Normal movement and collisions.
+    note3 : BurningUp#58; Still collides#59; ends when its burn clock expires.
+    note3 : FallingOut#58; Burns and falls without collisions#59; ends off-screen.
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note1,note2,note3 noteBlock

@@ -1,0 +1,96 @@
+---
+title: "om Pong DG (decentralised Graphics) - met ADC_buttons en ButtonInfo-pagina (nieuw in groen)"
+config:
+  layout: elk
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+flowchart LR
+    %% Objecten
+    startPageControl["«control»<br>startPageControl"]
+    buttonSpStart["«boundary»<br>buttonSpStart"]
+    startPageDisplayControl["«isActive»<br>«boundary»<br>startPageDisplayControl"]
+    buttonGoStart["«boundary»<br>buttonGoStart"]
+    mainControl["«isActive»<br>«control»<br>mainControl"]
+    gameOverPageControl["«control»<br>gameOverPageControl"]
+    gameOverDisplayControl["«isActive»<br>«boundary»<br>gameOverDisplayControl"]
+    hallOfFame["«entity»<br>hallOfFame"]
+    nameInputControl["«boundary»<br>nameInputControl"]
+    nameInputfield["«boundary»<br>nameInputfield"]
+    crateControl["«control»<br>crateControl"]
+    ballControl["«control»<br>ballControl"]
+    spawnables["«entity»<br>spawnables"]
+    fireBinControl["«control»<br>fireBinControl"]
+    gameControl["«control»<br>gameControl"]
+    buttonGameOverLabel["«boundary»<br>buttonGameOverLabel"]
+    paddleControl["«isActive»<br>«control»<br>paddleControl"]
+    gameDisplayControl["«isActive»<br>«boundary»<br>gameDisplayControl"]
+    buttonLeft["«boundary»<br>buttonLeft"]
+    buttonRight["«boundary»<br>buttonRight"]
+    adcButtons["«isActive»<br>«boundary»<br>adcButtons"]:::nieuw
+    buttonInfoControl["«control»<br>buttonInfoControl"]:::nieuw
+    buttonInfoPageDisplayControl["«isActive»<br>«boundary»<br>buttonInfoPageDisplayControl"]:::nieuw
+    buttonContinue["«boundary»<br>buttonContinue"]:::nieuw
+
+    %% Berichten
+    startPageControl -->|"showStartPage,<br>hideStartPage"| startPageDisplayControl
+    buttonSpStart -->|"buttonPressed(pButton)"| startPageControl
+    buttonGoStart -->|"buttonPressed(pButton)"| gameOverPageControl
+    mainControl -->|"doStartPage"| startPageControl
+    mainControl -->|"doGameOver(score)"| gameOverPageControl
+    mainControl -->|"doGame,<br>getScore"| gameControl
+    gameOverPageControl -->|"showGameOverPage,<br>hideGameOverPage,<br>showHallOfFame(hallOfFame)"| gameOverDisplayControl
+    gameOverPageControl -->|"isQualifyingScore(score),<br>insert(strName,score),<br>save"| hallOfFame
+    gameOverPageControl -->|"doQueryName(strName,nofCharsMax)"| nameInputControl
+    gameOverDisplayControl -->|"getEntry(index)"| hallOfFame
+    nameInputControl -->|"showNameInput"| gameOverDisplayControl
+    nameInputControl -->|"getTextValue(strName)"| nameInputfield
+    nameInputfield -->|"inputNewKey(pInputfield,strKey)"| nameInputControl
+    crateControl -->|"spawnBallsAt(x,y,nofBalls)"| spawnables
+    ballControl -->|"getCrateHitAtPos(x,y,ballRadius),<br>crateWasHitAtPos(crateHit),<br>isFireBinTouchedAtPos(x,y,ballRadius),<br>getPaddlePosition"| spawnables
+    ballControl -->|"ballBouncedOnPaddle"| gameControl
+    ballControl -->|"getWidth,<br>getHeight,<br>getBallOffScreenY"| gameDisplayControl
+    spawnables -->|"init(pDepot,pBallSpawner,indexSlot),<br>spawnAt(x,y),<br>update,<br>isHitAtPos(x,y,ballRadius),<br>getPosX,<br>getPosY,<br>wasHit,<br>getCrateState"| crateControl
+    spawnables -->|"init(gameDisplayControl,pBallField,pDepot,indexSlot),<br>setBallListener(pBallListener),<br>spawnInTheMiddle,<br>spawnAt(x,y),<br>update,<br>getBallState"| ballControl
+    spawnables -->|"init(pDepot,indexSlot),<br>spawnAt(x,y),<br>update,<br>isTouchedAtPos(x,y,ballRadius),<br>getFireBinState"| fireBinControl
+    spawnables -->|"updateGameObjects(ballStates,crateStates,fireBinStates,score)"| gameDisplayControl
+    gameControl -->|"spawnBallInTheMiddle,<br>spawnCrateAt(x,y),<br>spawnFireBinAt(x,y),<br>releaseCratesAndFireBins,<br>setPaddlePosition(x)"| spawnables
+    gameControl -->|"enable,<br>disable"| paddleControl
+    gameControl -->|"showGamePage,<br>hideGamePage,<br>showGameOverLabel,<br>hideGameOverLabel,<br>getWidth,<br>getHeight"| gameDisplayControl
+    buttonGameOverLabel -->|"buttonPressed(pButton)"| gameControl
+    paddleControl -->|"getWidth,<br>updatePaddlePosition(x),<br>showPaddle,<br>hidePaddle"| gameDisplayControl
+    buttonLeft -->|"buttonPressed(pButton),<br>buttonReleased(pButton)"| paddleControl
+    buttonRight -->|"buttonPressed(pButton),<br>buttonReleased(pButton)"| paddleControl
+    mainControl -->|"doButtonInfoPage"| buttonInfoControl
+    buttonInfoControl -->|"isConnected"| adcButtons
+    buttonInfoControl -->|"showButtonInfoPage(bConnected),<br>hideButtonInfoPage"| buttonInfoPageDisplayControl
+    buttonContinue -->|"buttonPressed(pButton)"| buttonInfoControl
+    adcButtons -->|"buttonPressed(buttonIndex),<br>buttonReleased(buttonIndex)"| paddleControl
+
+    %% Notes
+    note_1["Note: normally, it's okay to postpone adding<br>handler patterns to the class diagram phase. this<br>time, however, I decided to update the object<br>model with it too, because of the insertion of a<br>#quot;Spawnables#quot; object to faciliate mass data<br>transfer between tasks (which is not possible with<br>a simple Handler pattern alone)."]:::note
+    note_2["Note: as far as this object model is concerned,<br>the DisplayControl objects may be viewed as<br>boundary objects."]:::note
+    note_3["Note: normally, it's okay to postpone «isActive»<br>stereotyping to the class diagram, after Task<br>structuring. I chose to update the object model<br>with the results of that task structuring, also<br>resulting in some #quot;do#quot; functions, rather than<br>asynchronous #quot;start#quot; and #quot;finish#quot; handshakes."]:::note
+    note_4["Note: calls starting with #quot;do#quot; imply union of<br>tasks, in this case based on control cohesion"]:::note
+
+    classDef default fill:#ffffff,stroke:#333333,color:#000000
+    linkStyle default stroke:#333333,color:#000000
+    classDef nieuw fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    linkStyle 28,29,30,31,32 stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    classDef note fill:#fff9c4,stroke:#9e9e9e,stroke-dasharray:4 3,color:#000000

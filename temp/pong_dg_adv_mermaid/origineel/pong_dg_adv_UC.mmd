@@ -1,0 +1,57 @@
+---
+title: "ud Pong"
+config:
+  layout: elk
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+    clusterBkg: "#ffffff"
+    clusterBorder: "#333333"
+---
+flowchart LR
+    %% Actoren
+    User@{ shape: text, label: "<span style='font-size:36px'>웃</span><br>User" }
+
+    %% Systeemgrens
+    subgraph sys_3D_Printer ["3D-Printer"]
+        UC01_Main(["UC01_Main"])
+        UC03_GameOverHandling(["UC03_GameOverHandling"])
+        UC02_GameStarting(["UC02_GameStarting"])
+        UC08_FireBinHandling(["UC08_FireBinHandling"])
+        UC04_GamePlaying(["UC04_GamePlaying"])
+        UC07_PresentHandling(["UC07_PresentHandling"])
+        UC05_BallHandling(["UC05_BallHandling"])
+        UC06_PaddleHandling(["UC06_PaddleHandling"])
+    end
+
+    %% Relaties
+    User --- UC01_Main
+    UC01_Main -.->|"«include»"| UC03_GameOverHandling
+    UC01_Main -.->|"«include»"| UC02_GameStarting
+    UC01_Main -.->|"«include»"| UC04_GamePlaying
+    UC04_GamePlaying -.->|"«include»"| UC08_FireBinHandling
+    UC04_GamePlaying -.->|"«include»"| UC07_PresentHandling
+    UC04_GamePlaying -.->|"«include»"| UC05_BallHandling
+    UC04_GamePlaying -.->|"«include»"| UC06_PaddleHandling
+
+    classDef default fill:#ffffff,stroke:#333333,color:#000000
+    linkStyle default stroke:#333333,color:#000000
+    classDef actor fill:none,stroke:none,color:#000000
+    class User actor
+    classDef boundary fill:#ffffff,stroke:#333333,color:#000000
+    class sys_3D_Printer boundary

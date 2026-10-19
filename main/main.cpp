@@ -69,11 +69,11 @@ namespace crt
 //#include <Pong2.ino>						// console-versie, apps/pong/pong
 //#include <Pong_CleanGUI_cg.ino>			// touchscreen-versie, apps/pong_cleangui_cg
 //#include <Pong_CleanGUI_dg.ino>			// touchscreen-versie, apps/pong_cleangui_dg
-//#include <Pong_CleanGUI_dg_adv.ino>			// touchscreen-versie, apps/pong_cleangui_dg_adv
+#include <Pong_CleanGUI_dg_adv.ino>			// touchscreen-versie, apps/pong_cleangui_dg_adv
 
 // **** CYD_tools_crt ****
 //#include <ADC_buttons.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
-#include <TestWorstCaseVoltageToBorderDistance.ino>	// test: worst case afstand (mV) tot de dichtstbijzijnde beslisgrens, per combinatie
+//#include <TestWorstCaseVoltageToBorderDistance.ino>	// test: worst case afstand (mV) tot de dichtstbijzijnde beslisgrens, per combinatie
 
 // **** CYD_tools_frt ****
 //#include <ADC_buttons_frt.ino>			// idem, FreeRTOS-variant (zonder CleanRTOS)

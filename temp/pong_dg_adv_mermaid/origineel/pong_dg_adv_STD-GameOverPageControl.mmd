@@ -1,0 +1,42 @@
+---
+title: "std GameOverPageControl - doGameOver()"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : buttonPressed(IButton* pButton) / if(pButton == pGameOverPageStartButton) flagStartPressed.set()
+    state "WaitingForUserName" as WaitingForUserName
+    WaitingForUserName : do/ nameInputControl.doQueryName(strName, sizeof(strName))#59;
+    WaitingForUserName : exit/ hallOfFame.insert(strName, score)#59;
+    WaitingForUserName : hallOfFame.save()#59;
+    state choice1 <<choice>>
+    state "WaitingForStart" as WaitingForStart
+    WaitingForStart : entry / gameOverDisplayControl.showHallOfFame (hallOfFame.getHallOfFameData())#59;
+    WaitingForStart : flagStartPressed.clear()#59;
+
+    %% Transities
+    [*] --> choice1 : / gameOverDisplayControl<br>.showGameOverPage()#59;
+    WaitingForUserName --> WaitingForStart
+    choice1 --> WaitingForUserName : hallOfFame.isQualifyingScore(score)
+    choice1 --> WaitingForStart : [else]
+    WaitingForStart --> [*] : flagStartPressed<br>/ gameOverDisplayControl.hideGameOverPage()

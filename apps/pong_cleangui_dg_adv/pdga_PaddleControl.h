@@ -3,6 +3,7 @@
 #pragma once
 #include <crt_CleanRTOS.h>
 #include <crt_Logger.h>
+#include <crt_IADC_buttons.h>
 #include "pdga_GameDisplayControl.h"
 
 // This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
@@ -12,7 +13,11 @@ namespace pong_cleangui_dg_adv
 {
 	// Zie pdga_BallControl.h: logger komt uit namespace crt, niet uit deze.
 
-	class PaddleControl : public Task, public IButtonListener
+	// De peddel luistert naar twee soorten knoppen tegelijk: de twee touchscreenknoppen
+	// (IButtonListener, via GameDisplayControl) en twee knoppen van de weerstandsladder
+	// (IADC_buttonsListener, via ADC_buttons). Beide zetten dezelfde flags; de toestandsmachine
+	// hieronder merkt het verschil niet.
+	class PaddleControl : public Task, public IButtonListener, public IADC_buttonsListener
 	{
 		enum State
 		{
@@ -24,6 +29,10 @@ namespace pong_cleangui_dg_adv
 		// De peddel schuift op dezelfde beeldklok als de bal, zodat hij net zo
 		// vloeiend beweegt en niet in horten en stoten.
 		static constexpr uint64_t repeatPeriodUs = FrameIntervalMs * 1000;
+
+		// Welke knoppen van de weerstandsladder de peddel besturen (buttonIndex 0 = S1).
+		static const int AdcButtonLeft  = 0;	// S1
+		static const int AdcButtonRight = 1;	// S2
 
 	private:
 		State state;
@@ -44,7 +53,8 @@ namespace pong_cleangui_dg_adv
 		IButton* pButtonRight;
 
 	public:
-		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, GameDisplayControl& gameDisplayControl) :	
+		PaddleControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber, GameDisplayControl& gameDisplayControl,
+		              IADC_buttons& adcButtons) :	
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber), 
 			state(STATE_DISABLED),
 			gameDisplayControl(gameDisplayControl),
@@ -65,6 +75,7 @@ namespace pong_cleangui_dg_adv
 			poolPaddlePos.write(paddlePosition);
 			pButtonLeft = gameDisplayControl.addLeftButtonListener(this);
 			pButtonRight = gameDisplayControl.addRightButtonListener(this);
+			adcButtons.addButtonListener(this);
 			start();
 		}
 
@@ -110,6 +121,39 @@ namespace pong_cleangui_dg_adv
 			// not interested.
 		}
 	};
+
+	// Van ADC_buttons, uit diens taak. Alleen een flag zetten, net als bij de touchscreenknoppen.
+	void buttonPressed(int buttonIndex)
+	{
+		if (buttonIndex == AdcButtonLeft)
+		{
+			flagLeftPressed.set();
+		}
+		else if (buttonIndex == AdcButtonRight)
+		{
+			flagRightPressed.set();
+		}
+		else
+		{
+			// not interested.
+		}
+	}
+
+	void buttonReleased(int buttonIndex)
+	{
+		if (buttonIndex == AdcButtonLeft)
+		{
+			flagLeftReleased.set();
+		}
+		else if (buttonIndex == AdcButtonRight)
+		{
+			flagRightReleased.set();
+		}
+		else
+		{
+			// not interested.
+		}
+	}
 
 	void enable()
 	{

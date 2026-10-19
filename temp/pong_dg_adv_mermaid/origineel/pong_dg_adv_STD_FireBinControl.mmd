@@ -1,0 +1,64 @@
+---
+title: "std FireBinControl - update()"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : spawnAt(posX, posY) / spawnAtPosX = posX#59; spawnAtPosY = posY#59; bFlagSpawnAt =
+    interface : #nbsp;#nbsp;#nbsp;#nbsp;true // no Pool, no Flag, same Task
+    interface : reset() / posX = 0#59; posY = 0#59; nofStepsLeft = 0#59; indexAnimationStep = 0#59;
+    interface : #nbsp;#nbsp;#nbsp;#nbsp;bFlagSpawnAt = false#59; spawnAtPosX = 0#59; spawnAtPosY = 0#59;
+    interface : getPosX() / return posX // no Pool, same Task
+    interface : getPosY() / return posY // no Pool, same Task
+    interface : isTouchedAtPos(ballPosX, ballPosY, ballRadius) /
+    interface : if (state != STATE_BURNING) return false#59;
+    interface : int halfSize = FireBinSizePix/2
+    interface : int dx = (ballPosX #gt; posX) ? (ballPosX - posX) #58; (posX - ballPosX)#59;
+    interface : int dy = (ballPosY #gt; posY) ? (ballPosY - posY) #58; (posY - ballPosY)#59;
+    interface : return (dx #lt; halfSize + ballRadius) #amp;#amp; (dy #lt; halfSize + ballRadius)#59; // direct call, same Task
+    interface : getFireBinState() / if (state != STATE_BURNING) #123;return FireBinState()#59;#125;
+    interface : else return FireBinState(posX, posY, indexAnimationStep)#59; // no Pool, same Task
+    state "InDepot" as InDepot
+    state "Burning" as Burning
+    state choice1 <<choice>>
+
+    %% Transities
+    [*] --> InDepot : / posX = 0#59;<br>posY = 0#59;<br>nofStepsLeft = 0#59;<br>indexAnimationStep = 0#59;<br>bFlagSpawnAt = false#59;<br>spawnAtPosX = 0#59;<br>spawnAtPosY = 0#59;
+    InDepot --> Burning : [bFlagSpawnAt] /<br>bFlagSpawnAt = false#59;<br>startAt(spawnAtPosX, spawnAtPosY)
+    Burning --> choice1 : / indexAnimationStep++#59;<br>nofStepsLeft--
+    choice1 --> InDepot : [nofStepsLeft #lt;= 0] /<br>pDepot-#gt;release(indexSlot)
+    choice1 --> Burning : [nofStepsLeft #gt; 0]
+
+    %% Notes
+    state "Update() calls / Handler Pattern" as note1
+    note1 : Depot calls update() only while the slot is in use. InDepot evaluates
+    note1 : #nbsp;#nbsp;#nbsp;#nbsp;bFlagSpawnAt#59; Burning advances animation and lifetime. No waitable is used#58; the
+    note1 : #nbsp;#nbsp;#nbsp;#nbsp;calls share one Task and update() never blocks.
+    state "Depot Release" as note2
+    note2 : Depot#58;#58;release() and releaseAll() call reset(), which clears per-life runtime data.
+    state "State meaning" as note3
+    note3 : InDepot#58; No active FireBinState is published. While the slot is obtained, each
+    note3 : #nbsp;#nbsp;#nbsp;#nbsp;update() evaluates bFlagSpawnAt.
+    note3 : Burning#58; The fire bin is visible, animated and counting down.
+    classDef noteBlock fill:#fff9c4,stroke:#9e9e9e,color:#000000
+    class note1,note2,note3 noteBlock

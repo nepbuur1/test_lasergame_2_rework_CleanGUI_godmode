@@ -18,6 +18,8 @@
 
 // All Tasks should be created in this main file.
 #include <crt_Logger.h>
+#include <crt_ADC_buttons.h>
+#include "pdga_ButtonInfoPageDisplayControl.h"
 #include "pdga_StartPageDisplayControl.h"
 #include "pdga_GameDisplayControl.h"
 #include "pdga_NameInputPageDisplayControl.h"
@@ -106,6 +108,8 @@ namespace pong_cleangui_dg_adv
 	// pdga_HallOfFame.h.
 	HallOfFame hallOfFame("/hallOfFame");
 
+	// De allereerste pagina: of het externe toetsenbord (adcButtons hieronder) is aangesloten.
+	ButtonInfoPageDisplayControl buttonInfoPageDisplayControl("ButtonInfoPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	GameDisplayControl gameDisplayControl("GameDisplayControl", 3 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
 
@@ -115,7 +119,12 @@ namespace pong_cleangui_dg_adv
 	NameInputPageDisplayControl nameInputPageDisplayControl("NameInputPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	HallOfFameDisplayControl hallOfFameDisplayControl("HallOfFameDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
-	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl);
+	// Zes knoppen op een weerstandsladder aan GPIO35 (libs/CYD_tools_crt). S1 en S2 sturen de
+	// peddel naar links en rechts, naast de touchscreenknoppen; zie pdga_PaddleControl.h.
+	// Prioriteit 2: hij tekent niet, maar moet wel op tijd meten (elke 10 ms, ~1 ms werk).
+	ADC_buttons<1 /*MAXLISTENERCOUNT*/> adcButtons("ADC_buttons", 2 /*priority*/, 4096 /*stackBytes*/, ARDUINO_RUNNING_CORE);
+
+	PaddleControl paddleControl("PaddleControl", 1 /*priority*/, 5000 /*stack size*/, ARDUINO_RUNNING_CORE, gameDisplayControl, adcButtons);
 
 	// Hier stonden de spawnables en hun beeldklok als losse globals. Ze zitten nu in
 	// GameControl: dat drijft de klok aan, dus dat hoort ze ook te bezitten. Het
@@ -126,6 +135,7 @@ namespace pong_cleangui_dg_adv
 	// updateSpawnables() aan, en daar hangt de balketen tot en met publishStates()
 	// onder. De Handler-taak die dat eerder deed had daar zijn eigen ~5,5 KB voor.
 	MainControl mainControl("MainControl", 1 /*priority*/, 9000 /*stack size*/, ARDUINO_RUNNING_CORE,
+	                        buttonInfoPageDisplayControl, adcButtons,
 	                        startPageDisplayControl, gameDisplayControl,
 	                        nameInputPageDisplayControl, hallOfFameDisplayControl,
 	                        paddleControl, hallOfFame);

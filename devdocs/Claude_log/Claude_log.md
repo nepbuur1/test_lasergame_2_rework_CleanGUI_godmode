@@ -1,5 +1,72 @@
 # Claude log
 
+## 2026-10-19 — pong_dg_adv-modellen bijgewerkt voor ADC_buttons en de infopagina (in temp/)
+
+Alles staat in `temp/pong_dg_adv_mermaid/`; meer uitleg in de README daar.
+`apps/pong_cleangui_dg_adv/models/pong_dg_adv.drawio` zelf is niet aangeraakt.
+
+- **Mermaid:**
+  - `origineel/`: alle 17 tabs, omgezet met ModelAnalysis `AllesNaarMermaid`;
+  - `bijgewerkt/`: 7 modellen met de nieuwe elementen in groen (OM, CD, STD-MainControl,
+    STD-PaddleControl, UC, plus de nieuwe STD-ButtonInfoControl en
+    STD-ButtonInfoPageDisplayControl);
+  - `png/`: die 7 als PNG.
+- **`pong_dg_adv_bijgewerkt.drawio`:** een kopie van het origineel met dezelfde
+  toevoegingen in groen. Er is alleen toegevoegd; niets is verplaatst.
+  - Wat Marius zelf al in het OM en CD had gezet, is gebruikt en groen gemaakt, met twee
+    hernoemingen: `buttonInfoPageDisplayControl` en `doButtonInfoPage`.
+  - Behalve de bedoelde aanpassingen is per cel nagekeken dat er niets veranderd is.
+  - `AllesNaarMermaid` leest het bestand foutloos.
+  - Met draw.io desktop geëxporteerd en bekeken.
+- **Layout nog te doen (Marius):** er zitten overlappingen in het CD, het UC en de nieuwe
+  STD's.
+
+## 2026-10-19 — pong_cleangui_dg_adv: knoppen-infopagina bij het opstarten
+
+Vóór de allereerste startpagina laat Pong nu eenmalig een infopagina zien over het
+externe toetsenbord (de weerstandsladder met zes knoppen op GPIO35).
+
+- **`pdga_ButtonInfoPageDisplayControl.h`** (nieuw): eigen taak en `PageRoot<10>`, gebouwd
+  zoals `StartPageDisplayControl`:
+  - achtergrond, de titel (`imageTitleSuperPong`, op y=16), vier gecentreerde `Text`-regels
+    (font 2) en een knop "Ga verder" (font 4, rood, zonder plaatje);
+  - geen fakkels;
+  - welke tekst er staat, komt via `showButtonInfoPage(bool bConnected)` in een `Pool<bool>`
+    binnen. Alleen de eigen taak zet de teksten.
+- **`pdga_ButtonInfoControl.h`** (nieuw): samengevoegd met de MainControl-taak, zoals
+  `StartPageControl`. `doButtonInfoPage()` vraagt `adcButtons.isConnected()`, toont de
+  pagina en wacht op "Ga verder".
+- **Teksten** (in regels gebroken):
+  - aangesloten: "Extern 6 button ADC_Buttons keyboard detected. You may use its first two
+    buttons for moving left and right.";
+  - niet aangesloten: "For optimal framerate, connect an extern 6 button ADC_Buttons
+    keyboard and reboot."
+- **`MainControl`**: nieuwe begintoestand `STATE_BUTTON_INFO_PAGE`. Daarin eerst
+  `vTaskDelay(200 ms)`, zodat `ADC_buttons` zijn controle bij het opstarten gedaan heeft;
+  daarna door naar `STATE_START_PAGE`. De constructor krijgt de nieuwe DisplayControl en
+  `IADC_buttons&` mee.
+- **`Pong_CleanGUI_dg_adv_ino.h`**: `buttonInfoPageDisplayControl` (prioriteit 3, stack
+  10000) erbij; `adcButtons` gaat ook naar `mainControl`.
+- **Getest op de CYD** (Marius): de pagina verschijnt met de "aangesloten"-tekst, en
+  "Ga verder" gaat naar de startpagina. De "niet aangesloten"-tekst is niet op het scherm
+  gezien; `isConnected()` zelf is eerder met S1 ingedrukt bij het opstarten op false getest.
+- README.txt van de app aangevuld; de modellen in `models/` niet.
+
+## 2026-10-19 — pong_cleangui_dg_adv: peddel ook met S1/S2 van de weerstandsladder
+
+`PaddleControl` luistert nu naast de touchscreenknoppen (`IButtonListener`) ook naar
+`ADC_buttons` (`IADC_buttonsListener`).
+
+- **Knoppen:** S1 = links, S2 = rechts (`AdcButtonLeft`/`AdcButtonRight`, buttonIndex 0
+  en 1). Ze zetten dezelfde flags als de touchscreenknoppen, dus de toestandsmachine is
+  ongewijzigd. De constructor krijgt er een `IADC_buttons&` bij.
+- **De ADC_buttons-taak** staat in `Pong_CleanGUI_dg_adv_ino.h`: prioriteit 2, 4096 bytes
+  stack, defaults: GPIO35, max 3 knoppen.
+- `main/main.cpp` heeft nu `Pong_CleanGUI_dg_adv.ino` actief; de test staat uit.
+- **Getest op de CYD:** de kalibratie is goed ("geen knop" 2462 mV), en de peddel beweegt
+  goed met S1/S2 naast de touchscreenknoppen (Marius).
+- README.txt van de app aangevuld. De modellen in `models/` zijn niet bijgewerkt.
+
 ## 2026-10-19 — ADC_buttons: `isConnected()`
 
 `ADC_buttons` (crt en frt) en de interface `IADC_buttons` hebben een publieke functie

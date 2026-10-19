@@ -1,0 +1,53 @@
+---
+title: "std PaddleControl"
+config:
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+stateDiagram-v2
+    direction TB
+    %% Toestanden
+    state "«interface»" as interface
+    interface : getPaddlePosition / return poolPaddlePos.read(tempPaddlePos)
+    interface : buttonPressed(IButton* pButton) / if(pButton == pButtonLeft) flagLeftPressed.set()
+    interface : else if(pButton == pButtonRight) flagRightPressed.set()
+    interface : buttonReleased(IButton* pButton) / if(pButton == pButtonLeft) flagLeftReleased.set()
+    interface : else if(pButton == pButtonRight) flagRightReleased.set()
+    interface : enable / flagEnable.set()
+    interface : disable / flagDisable.set()
+    state "Disabled" as Disabled
+    state "Moving" as Moving
+    state choice1 <<choice>>
+    state choice2 <<choice>>
+    state "Enabled" as Enabled
+    state choice3 <<choice>>
+
+    %% Transities
+    [*] --> Disabled
+    Disabled --> Enabled : flagEnable /<br>flagLeftPressed.clear()#59;<br>flagRightPressed.clear()#59;<br>displayControl.showPaddle()
+    Moving --> Disabled : flagDisable /<br>moveStepTimer.stop()#59;<br>paddleDirection=0#59;<br>gameDisplayControl.hidePaddle()
+    Moving --> choice1 : flagLeftReleased
+    Moving --> choice1 : flagRightReleased
+    Moving --> choice2 : moveStepTimer
+    choice1 --> Enabled : moveStepTimer.stop()#59;<br>paddleDirection=0
+    choice2 --> Moving : / paddlePosition =<br>calcNewPaddlePosition(paddlePosition,paddleDirection)#59;<br>poolPaddlePos.write(paddlePosition)#59;<br>gameDisplayControl.updatePaddlePosition(paddlePosition)#59;
+    Enabled --> Disabled : flagDisable/<br>gameDisplayControl.hidePaddle()
+    Enabled --> choice3 : flagRightPressed /<br>paddleDirection = +1
+    Enabled --> choice3 : flagLeftPressed /<br>paddleDirection = -1
+    choice3 --> choice2 : flagLeftReleased.clear()#59;<br>flagRightReleased.clear()#59;<br>moveStepTimer.start_periodic(repeatPeriodUs)#59;

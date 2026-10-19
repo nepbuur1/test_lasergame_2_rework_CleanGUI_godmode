@@ -4,6 +4,7 @@
 #include <crt_CleanRTOS.h>
 
 #include "pdga_HallOfFame.h"
+#include "pdga_ButtonInfoControl.h"
 #include "pdga_StartPageControl.h"
 #include "pdga_GameControl.h"
 #include "pdga_GameOverControl.h"
@@ -19,6 +20,7 @@ namespace pong_cleangui_dg_adv
 	{
 		enum State
 		{
+			STATE_BUTTON_INFO_PAGE,	// alleen de allereerste keer, na het opstarten
 			STATE_START_PAGE,
 			STATE_GAME_RUNNING,
 			STATE_GAME_OVER
@@ -30,6 +32,7 @@ namespace pong_cleangui_dg_adv
 		// based on control cohesion.
 		GameControl gameControl;
 		GameOverControl gameOverControl;
+		ButtonInfoControl buttonInfoControl;
 		StartPageControl startPageControl;
 
 	public:
@@ -39,14 +42,16 @@ namespace pong_cleangui_dg_adv
 		// gaat door naar GameOverControl, dat hem meteen doorgeeft aan zijn
 		// NameInputControl en er zelf niets van hoeft te weten.
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
+					ButtonInfoPageDisplayControl& buttonInfoPageDisplayControl, IADC_buttons& adcButtons,
 					StartPageDisplayControl& startPageDisplayControl, GameDisplayControl& gameDisplayControl,
 					NameInputPageDisplayControl& nameInputPageDisplayControl,
 					HallOfFameDisplayControl& hallOfFameDisplayControl, PaddleControl& paddleControl,
 					HallOfFame& hallOfFame) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
-			state(STATE_START_PAGE),
+			state(STATE_BUTTON_INFO_PAGE),
 			gameControl(this, gameDisplayControl, paddleControl),
 			gameOverControl(this, nameInputPageDisplayControl, hallOfFameDisplayControl, hallOfFame),
+			buttonInfoControl(this, buttonInfoPageDisplayControl, adcButtons),
 			startPageControl(this, startPageDisplayControl)
 		{
 			// Dat de naampagina meldt wanneer de naam is ingetypt (UC03 stap
@@ -71,6 +76,16 @@ namespace pong_cleangui_dg_adv
 
 				switch(state)
 				{
+					case STATE_BUTTON_INFO_PAGE:
+						// Eerst ADC_buttons de tijd geven om op te starten: isConnected() is pas
+						// geldig na zijn controle bij het opstarten (±100 ms). De vTaskDelay(1000)
+						// bovenaan main() dekt dat al, maar deze wacht maakt de afhankelijkheid
+						// expliciet, en blijft kloppen als die bovenste ooit korter wordt.
+						vTaskDelay(pdMS_TO_TICKS(200));
+						buttonInfoControl.doButtonInfoPage();
+						state = STATE_START_PAGE;
+						break;
+
 					case STATE_START_PAGE:
 						startPageControl.doStartPage();
 						state = STATE_GAME_RUNNING;

@@ -23,3 +23,18 @@ Disadvantage:
 - The backbuffer takes memory. On ESP32, there is not enough memory to 
   facilitate an RGB56 framebuffer. For that reason, a one-byte-per-pixel
   paletted framebuffer is used. 
+
+Paddle control via hardware buttons:
+Besides the two touchscreen buttons, the paddle can also be moved with
+buttons S1 (left) and S2 (right) of the resistor ladder on GPIO35
+(crt::ADC_buttons, libs/CYD_tools_crt). PaddleControl listens to both;
+they set the same flags. The ADC_buttons task is created in
+Pong_CleanGUI_dg_adv_ino.h. Which ladder buttons are used is set by
+AdcButtonLeft/AdcButtonRight in pdga_PaddleControl.h.
+
+Button info page (first page after boot, shown only once):
+Before the first start page, MainControl waits 200 ms (so that ADC_buttons has
+done its boot check) and then shows ButtonInfoPageDisplayControl via
+ButtonInfoControl. Depending on adcButtons.isConnected() it tells that the
+external 6 button keyboard was detected (and that S1/S2 move the paddle), or
+advises to connect it and reboot. "Ga verder" leads to the start page.

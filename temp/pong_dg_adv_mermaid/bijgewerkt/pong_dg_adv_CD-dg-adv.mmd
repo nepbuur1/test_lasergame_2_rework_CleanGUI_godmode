@@ -1,0 +1,400 @@
+---
+title: "cd Pong DG-ADV (decentralised Graphics, Advanced) - met ADC_buttons en ButtonInfo-pagina (nieuw in groen)"
+config:
+  layout: elk
+  theme: base
+  themeCSS: "& { background-color: #ffffff; }"
+  themeVariables:
+    background: "#ffffff"
+    mainBkg: "#ffffff"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#333333"
+    nodeBorder: "#333333"
+    textColor: "#000000"
+    nodeTextColor: "#000000"
+    titleColor: "#000000"
+    classText: "#000000"
+    lineColor: "#333333"
+    edgeLabelBackground: "#ffffff"
+    noteBkgColor: "#fff9c4"
+    noteTextColor: "#000000"
+    noteBorderColor: "#9e9e9e"
+---
+classDiagram
+    direction TB
+    %% Klassen
+    class ButtonInfoControl {
+        <<control>>
+        -buttonInfoPageDisplayControl : ButtonInfoPageDisplayControl#amp;
+        -adcButtons : IADC_buttons#amp;
+        +doButtonInfoPage()
+        +buttonPressed(pButton:IButton#42;)
+    }
+    class ButtonInfoPageDisplayControl {
+        <<isActive» «boundary>>
+        -buttonContinue : PlayButton
+        -arInfoLines : Text#lt;0#gt;[4]
+        -poolConnected : Pool#lt;bool#gt;
+        +addButtonInfoContinueButtonListener(bl:IButtonListener#42;) IButton#42;
+        +showButtonInfoPage(bConnected:bool)
+        +hideButtonInfoPage()
+    }
+    class IADC_buttons {
+        <<interface>>
+        +addButtonListener(pListener:IADC_buttonsListener#42;)
+        +isButtonPressed(buttonIndex:int) bool
+        +getPressedMask() uint8_t
+        +getMillivolts() uint16_t
+        +isConnected() bool
+    }
+    class IADC_buttonsListener {
+        <<interface>>
+        +buttonPressed(buttonIndex:int)
+        +buttonReleased(buttonIndex:int)
+    }
+    class ADC_buttons_1["ADC_buttons #lt;1#gt;"] {
+        <<isActive» «boundary>>
+        -poolState : Pool#lt;State#gt;
+        +addButtonListener(pListener:IADC_buttonsListener#42;)
+        +isButtonPressed(buttonIndex:int) bool
+        +getPressedMask() uint8_t
+        +getMillivolts() uint16_t
+        +isConnected() bool
+    }
+    class PlayButton {
+        <<boundary>>
+        +addButtonListener(bl:IButtonListener#42;)
+    }
+    class IButtonListener {
+        <<interface>>
+        +buttonPressed(pButton:IButton#42;)
+        +buttonReleased(pButton:IButton#42;)
+    }
+    class MainControl {
+        <<isActive» «control>>
+        -gameControl : GameControl
+        -gameOverControl : GameOverControl
+        -startPageControl : StartPageControl
+        -buttonInfoControl : ButtonInfoControl (nieuw)
+    }
+    class StartPageDisplayControl {
+        <<isActive» «boundary>>
+        -buttonSpStart : ButtonSpStart
+        +showStartPage()
+        +hideStartPage()
+    }
+    class StartPageControl {
+        <<control>>
+        -startPageDisplayControl : IStartPageDisplayControl#amp;
+        +doStartPage()
+        +buttonPressed(pButton:IButton#42;)
+    }
+    class TorchesDisplayHelpers {
+        <<utility>>
+        +nextTorchIntervalUs() uint64_t$
+        +initTorches(arTorchPanels:Panel#lt;0#gt;#42;, screenWidth:int, buttonTopPix:int, buttonHeightPix:int)$
+        +stepTorches(arTorchPanels:Panel#lt;0#gt;#42;, arIndexTorchFrame:int32_t#42;)$
+    }
+    class PlayAgainButton {
+        <<boundary>>
+        +addButtonListener(bl:IButtonListener#42;)
+    }
+    class HallOfFame {
+        <<entity>>
+        +arEntry : HallOfFameEntry[5]
+        +isQualifyingScore(score:int32_t) bool
+        +insert(strName:const char#42;, score:int32_t)
+        +save()
+        +getEntry(index:int) const HallOfFameEntry#amp;
+    }
+    class GameOverPageControl {
+        <<control>>
+        -gameOverDisplayControl : IGameOverDisplayControl#amp;
+        -hallOfFame : HallOfFame#amp;
+        -nameInputControl : NameInputControl
+        +doGameOver(score:int32_t)
+        +buttonPressed(pButton:IButton#42;)
+    }
+    class HallOfFameDisplayControl {
+        <<isActive» «boundary>>
+        -buttonGoStart : ButtonGoStart
+        +showHallOfFame(hallOfFame:const HallOfFame#amp;)
+        +hideHallOfFamePage#41;#40;
+        +addPlayAgainButtonListener(bl:IButtonListener#42;)
+    }
+    class HallOfFameEntry {
+        <<entity>>
+        +strName:char[21]
+        +score:int32_t
+    }
+    class NameInputDisplayControl {
+        <<isActive» «boundary>>
+        -inputField: InputField#lt;0,2,20#gt;
+        +showHallOfFame(hallOfFame:const HallOfFame#amp;)
+        +hideHallOfFamePage#41;#40;
+        +addPlayAgainButtonListener(bl:IButtonListener#42;)
+    }
+    class GameControl {
+        <<control>>
+        -gameDisplayControl : IGameDisplayControl#amp;
+        -spawnables : Spawnables#amp;
+        -paddleControl : PaddleControl#amp;
+        +doGame()
+        +getScore() int32_t
+        +ballBouncedOnPaddle()
+        +buttonPressed(pButton:IButton#42;)
+    }
+    class NameInputControl {
+        <<control>>
+        -gameOverDisplayControl : IGameOverDisplayControl#amp;
+        -pNameInputfield : IInputfield#42;
+        +doQueryName(strName:char#42;, nofCharsMax:int)
+        +inputNewKey(pInputfield:IInputfield#42;, strKey:const char#42;)
+    }
+    class NameInputfield {
+        <<boundary>>
+        -pInputfieldListener : IInputfieldListener#42;
+        +getTextValue(strName:crt::std::string#amp;)
+    }
+    class IInputfieldListener {
+        <<interface>>
+        +inputNewKey(pInputfield:IInputfield#42;, strKey:const char#42;)
+    }
+    class IBallListener {
+        <<interface>>
+        +ballBouncedOnPaddle()
+    }
+    class TouchScreenButton_1_10["TouchScreenButton #lt;1,10#gt;"] {
+        <<boundary>>
+        +addButtonListener(bl:IButtonListener#42;)
+    }
+    class PaddleControl {
+        <<isActive» «control>>
+        -displayControl : IGameDisplayControl#amp;
+        +enable()
+        +disable()
+        +getPaddlePosition() int
+        +buttonPressed(pButton:IButton#42;)
+        +buttonReleased(pButton:IButton#42;)
+        +buttonPressed(buttonIndex:int) (nieuw)
+        +buttonReleased(buttonIndex:int) (nieuw)
+    }
+    class Spawnables {
+        <<entity>>
+        -ballDepot : Depot#lt;BallControl, MaxNofBalls#gt;
+        -crateDepot : Depot#lt;CrateControl, MaxNofCrates#gt;
+        -fireBinDepot : Depot#lt;FireBinControl, MaxNofFireBins#gt;
+        -gameDisplayControl : IGameDisplayControl#amp;
+        +spawnBallInTheMiddle() bool
+        +spawnCrateAt(posX:int, posY:int) bool
+        +spawnFireBinAt(posX:int, posY:int) bool
+        +spawnBallsAt(posX:int, posY:int, nofBalls:int)
+        +releaseCratesAndFireBins()
+        +getNofBallsInUse() int
+        +setPaddlePosition(paddlePosition:int)
+        +getPaddlePosition() int
+        +updateCratesAndFireBins()
+        +updateBalls()
+        +publishStates(score:int32_t)
+        +getCrateHitAtPos(ballPosX:int, ballPosY:int, ballRadius:int) CrateHit
+        +crateWasHitAtPos(hit:const CrateHit#amp;)
+        +isFireBinTouchedAtPos(ballPosX:int, ballPosY:int, ballRadius:int) bool
+    }
+    class GameDisplayControl {
+        <<isActive» «boundary>>
+        -buttonLeft : ButtonLeft
+        -buttonRight : ButtonRight
+        -buttonGameOverLabel : ButtonGameOverLabel
+        +getWidth() int
+        +getHeight() int
+        +getBallOffScreenY() int
+        +showGamePage()
+        +hideGamePage()
+        +showPaddle()
+        +hidePaddle()
+        +updatePaddlePosition(x:int)
+        +showGameOverLabel()
+        +hideGameOverLabel()
+        +updateGameObjects(ballStates:const BallStates#amp;, crateStates:const CrateStates#amp;, fireBinStates:const FireBinStates#amp;, score:int32_t)
+    }
+    class IGameDisplayControl {
+        <<interface>>
+        +getWidth() int
+        +getHeight() int
+        +getBallOffScreenY() int
+        +showGamePage()
+        +hideGamePage()
+        +showPaddle()
+        +hidePaddle()
+        +updatePaddlePosition(x:int)
+        +showGameOverLabel()
+        +hideGameOverLabel()
+        +updateGameObjects(ballStates:const BallStates#amp;, crateStates:const CrateStates#amp;, fireBinStates:const FireBinStates#amp;, score:int32_t)
+    }
+    class Depot_BallControl_MaxNofBalls["Depot#lt;BallControl, MaxNofBalls#gt;"] {
+        <<entity>>
+        +obtain() int
+        +release(index:int)
+        +releaseAll()
+        +getItem(index:int) T#amp;
+        +isInUse(index:int) bool
+        +getNofInUse() int
+        +getCapacity() unsigned int
+        +update()
+    }
+    class BallControl {
+        <<control>>
+        -pGameDisplayControl : IGameDisplayControl#42;
+        -pBallCollisionCheck : IBallCollisionCheck#42;
+        -pBallListener : IBallListener#42;
+        +init(gameDisplayControl:IGameDisplayControl#amp;, pBallField:IBallField#42;, pDepot:IDepot#42;, indexSlot:int)
+        +setBallListener(pBallListener:IBallListener#42;)
+        +spawnInTheMiddle()
+        +spawnAt(posX:int, posY:int)
+        +update()
+        +getBallState() BallState
+    }
+    class IBallCollisionCheck {
+        <<interface>>
+        +getCrateHitAtPos(ballPosX:int, ballPosY:int,ballRadius:int) CrateHit
+        +crateWasHitAtPos(hit:CrateHit#amp;)
+        +isFireBinTouchedAtPos(ballPosX:int,ballPosY:int,ballRadius:int) bool
+        +getPaddlePosition() int
+    }
+    class IDepot {
+        <<interface>>
+        +release()
+    }
+    class IBallSpawner {
+        <<interface>>
+        +spawnBallsAt(posX:int, posY:int, nofBalls)
+    }
+    class CrateControl {
+        <<control>>
+        -pBallSpawner : IBallSpawner#42;
+        +init(pDepot:IDepot#42;, pBallSpawner:IBallSpawner#42;, indexSlot:int)
+        +spawnAt(posX:int, posY:int)
+        +update()
+        +isHitAtPos(ballPosX:int, ballPosY:int, ballRadius:int) bool
+        +getPosX() int
+        +getPosY() int
+        +wasHit()
+        +getCrateState() CrateState
+    }
+    class Depot_CrateControl_MaxNofCrates["Depot#lt;CrateControl, MaxNofCrates#gt;"] {
+        <<entity>>
+        +obtain() int
+        +release(index:int)
+        +releaseAll()
+        +getItem(index:int) T#amp;
+        +isInUse(index:int) bool
+        +getNofInUse() int
+        +getCapacity() unsigned int
+        +update()
+    }
+    class IDepotItem {
+        <<interface>>
+        +reset()
+        +update
+    }
+    class Depot_FireBinControl_MaxNofFireBins["Depot#lt;FireBinControl, MaxNofFireBins#gt;"] {
+        <<entity>>
+        +obtain() int
+        +release(index:int)
+        +releaseAll()
+        +getItem(index:int) T#amp;
+        +isInUse(index:int) bool
+        +getNofInUse() int
+        +getCapacity() unsigned int
+        +update()
+    }
+    class FireBinControl {
+        <<control>>
+        +init(pDepot:IDepot#42;, indexSlot:int)
+        +spawnAt(posX:int, posY:int)
+        +update()
+        +isTouchedAtPos(ballPosX:int, ballPosY:int, ballRadius:int) bool
+        +getFireBinState() FireBinState
+    }
+
+    %% Relaties
+    IButtonListener <|.. ButtonInfoControl
+    MainControl *-- ButtonInfoControl
+    ButtonInfoControl --> ButtonInfoPageDisplayControl
+    ButtonInfoControl --> IADC_buttons
+    ButtonInfoPageDisplayControl *-- PlayButton
+    IADC_buttons <|.. ADC_buttons_1
+    ADC_buttons_1 --> IADC_buttonsListener
+    IADC_buttonsListener <|.. PaddleControl
+    PaddleControl ..> IADC_buttons : addButtonListener
+    PlayButton --> IButtonListener
+    IButtonListener <|.. StartPageControl
+    IButtonListener <|.. GameOverPageControl
+    IButtonListener <|.. GameControl
+    IButtonListener <|.. PaddleControl
+    MainControl *-- StartPageControl
+    MainControl *-- GameOverPageControl
+    MainControl *-- GameControl
+    StartPageDisplayControl *-- PlayButton
+    StartPageDisplayControl ..> TorchesDisplayHelpers
+    StartPageControl --> StartPageDisplayControl
+    PlayAgainButton --> IButtonListener
+    HallOfFame *-- "5" HallOfFameEntry
+    GameOverPageControl --> HallOfFame
+    GameOverPageControl --> HallOfFameDisplayControl
+    GameOverPageControl *-- NameInputControl
+    HallOfFameDisplayControl ..> TorchesDisplayHelpers
+    HallOfFameDisplayControl *-- PlayAgainButton
+    HallOfFameDisplayControl ..> HallOfFame
+    NameInputDisplayControl *-- NameInputfield
+    GameControl --> PaddleControl
+    GameControl *-- Spawnables
+    GameControl --> IGameDisplayControl
+    NameInputControl --> NameInputDisplayControl
+    NameInputControl --> NameInputfield
+    NameInputfield --> IInputfieldListener
+    IInputfieldListener <|.. NameInputControl
+    IBallListener <|.. GameControl
+    TouchScreenButton_1_10 --> IButtonListener
+    PaddleControl --> IGameDisplayControl
+    Spawnables --> IGameDisplayControl
+    Spawnables *-- Depot_BallControl_MaxNofBalls
+    Spawnables ..> BallControl
+    Spawnables ..> CrateControl
+    Spawnables *-- Depot_CrateControl_MaxNofCrates
+    Spawnables *-- Depot_FireBinControl_MaxNofFireBins
+    Spawnables ..> FireBinControl
+    GameDisplayControl *-- "buttonLeft,buttonRight" TouchScreenButton_1_10
+    GameDisplayControl *-- "buttonGameOverLabel" TouchScreenButton_1_10
+    IGameDisplayControl <|.. GameDisplayControl
+    Depot_BallControl_MaxNofBalls *-- "MaxNofBalls" BallControl
+    BallControl --> IBallListener
+    BallControl --> IGameDisplayControl
+    BallControl --> IBallCollisionCheck
+    BallControl --> IDepot
+    IBallCollisionCheck <|.. Spawnables
+    IDepot <|.. Depot_BallControl_MaxNofBalls
+    IDepot <|.. Depot_CrateControl_MaxNofCrates
+    IBallSpawner <|.. Spawnables
+    CrateControl --> IDepot
+    CrateControl --> IBallSpawner
+    CrateControl --> FireBinControl
+    Depot_CrateControl_MaxNofCrates *-- "MaxNofCrates" CrateControl
+    IDepotItem <|.. BallControl
+    IDepotItem <|.. CrateControl
+    IDepotItem <|.. FireBinControl
+    Depot_FireBinControl_MaxNofFireBins *-- "MaxNofFireBins" FireBinControl
+    FireBinControl --> IDepot
+
+    %% Notes
+    note for PlayButton "(== TouchScreenButton #lt;1,10#gt;)"
+    note for PlayAgainButton "(== TouchScreenButton #lt;1,10#gt;)"
+    note for IDepotItem "IDepotItem<br>There is a static_assert (compile time) that<br>verifies whether the template type in the Depot is<br>derived from IDepotItem, thus enforcing the<br>presence of an update() and a reset() function for<br>items stored in a Depot."
+    note for MainControl "Groen = nieuw: ADC_buttons en de ButtonInfo-pagina.<br>Mermaid kan in een klassediagram geen losse members<br>of relaties kleuren: nieuwe members in bestaande klassen<br>staan met (nieuw); alle nieuwe relaties raken een groene klasse."
+
+    style ButtonInfoControl fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    style ButtonInfoPageDisplayControl fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    style IADC_buttons fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    style IADC_buttonsListener fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
+    style ADC_buttons_1 fill:#ffffff,stroke:#2e7d32,stroke-width:2px,color:#2e7d32
