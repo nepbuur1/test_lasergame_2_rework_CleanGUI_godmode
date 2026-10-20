@@ -31,7 +31,7 @@ namespace crt
 		// een hoge-prioriteitstaak zo op een mutex die een lagere taak op dezelfde
 		// core vasthoudt, dan komt die lagere taak nooit meer aan de beurt om hem
 		// vrij te geven. De hoge taak blijft dan eeuwig draaien, en de idle-taak ook
-		// niet: de task watchdog vuurt. Gezien in pong_cleangui_dg_adv
+		// niet: de task watchdog vuurt. Gezien in pong_super
 		// (2026-10-20): GameDisplayControl (prio 3) in Pool<int>::read, terwijl
 		// PaddleControl (prio 1) midden in de write zat.
 		// Met een blokkerende take krijgt de houder via priority inheritance

@@ -127,7 +127,7 @@ Vlaggen:
 ## img2rgb565.py --pal8 — één palet voor een hele images-boom
 
 ```
-python3 tools/img2rgb565.py --pal8 apps/pong_cleangui_dg_adv/images
+python3 tools/img2rgb565.py --pal8 apps/pong_super/images
 ```
 
 Zet niet één plaatje om maar de **hele boom**, naar één byte per pixel: een
@@ -218,7 +218,7 @@ Transparante pixels tellen niet mee voor het palet.
 `images/`, gegenereerde headers in `images/_rgb565/` én `images/_pal8/`, en een
 viewer die `arAllImages[]` afloopt met twee touchknoppen.
 
-`apps/pong_cleangui_dg_adv` is het PAL8-geval van begin tot eind: de bronnen
+`apps/pong_super` is het PAL8-geval van begin tot eind: de bronnen
 worden getekend door `images/make_pong_images.py`, alles staat in `_pal8/`, en
 `_userPalette.h` legt de kleuren vast die de code zelf nog noemt.
 
@@ -234,7 +234,7 @@ desktop-app op de Windows-kant aan te roepen. Het formaat volgt de extensie van 
 uitvoernaam; de schaal (default 2) geldt alleen voor bitmaps.
 
 ```
-tools/drawio-export.sh apps/pong_cleangui_dg_adv/models/pong_dg_adv.drawio \
+tools/drawio-export.sh apps/pong_super/models/pong_dg_adv.drawio \
     "STD BallControl" /tmp/ball.png
 ```
 

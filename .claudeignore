@@ -33,7 +33,7 @@ compile_commands.json
 # Hier stond "apps" op de negeerlijst, met de opmerking "voor nu even niet
 # nodig". Dat klopt niet meer: de apps zijn juist waar het werk zit. De
 # show/enable/draw-refactor uit devdocs/Claude_instructions/ raakt
-# pong_cleangui_dg_adv, _dg, _cg, keukenweegschaal en apps/pong/pong - vier van
+# pong_super, _dg, _cg, keukenweegschaal en apps/pong_ascii_quest_with_3_bugs (toen apps/pong/pong) - vier van
 # de tien stappen. Met apps op de negeerlijst zou Claude die bestanden niet
 # vinden en de migratie half doen zonder het te merken.
 #

@@ -140,24 +140,23 @@ set(COMPONENT_ADD_INCLUDEDIRS
 # kiest met zijn #include van de .ino welke ervan er gebouwd wordt, en een
 # includepad op zichzelf compileert niets.
 #
-# Hier stond dat apps/pong/pong zou botsen omdat die nog de kale crt_-namen
+# Hier stond dat apps/pong_ascii_quest_with_3_bugs (toen nog apps/pong/pong) zou botsen omdat die nog de kale crt_-namen
 # gebruikt. Dat klopt niet (meer): die vijf headers - crt_BallControl.h,
 # crt_CharMatrix.h, crt_GameControl.h, crt_PaddleControl.h en
 # crt_SceneDisplayControl.h - komen nergens anders in de boom voor, en hun
 # klassen ook niet. De drie CleanGUI-varianten dragen elk hun eigen prefix
-# (pcg_, pdg_, pdga_) en hun eigen namespace, dus onderling botsen ze evenmin.
-# Nagegaan op 2026-08-12 door beide richtingen te bouwen: Pong_CleanGUI_dg_adv
+# (psim_, pdg_, psup_) en hun eigen namespace, dus onderling botsen ze evenmin.
+# Nagegaan op 2026-08-12 door beide richtingen te bouwen: Pong_super
 # met dit pad aan, en Pong2 met de drie andere paden aan. Allebei groen.
-"../apps/pong/pong"
-"../apps/pong_cleangui_cg"
-"../apps/pong_cleangui_dg"
-"../apps/pong_cleangui_dg_adv"
+"../apps/pong_ascii_quest_with_3_bugs"
+"../apps/pong_simple"
+"../apps/pong_super"
 
 # Gereedschap bij die laatste: losse programma's die aan de opslag op het
 # bord komen, elk in een eigen map. Zie de README daar. Ook hier geldt dat
 # een includepad op zichzelf niets compileert - main.cpp kiest.
-"../apps/pong_cleangui_dg_adv/tools/ClearHallOfFame"
-"../apps/pong_cleangui_dg_adv/tools/ClearCalibrations"
+"../apps/pong_super/tools/ClearHallOfFame"
+"../apps/pong_super/tools/ClearCalibrations"
 
 # StateMachineTemplatePro: de .ino staat in de map zelf, en de bronnen includen
 # elkaar als "app/....hpp", dus de map zelf is het includepad.

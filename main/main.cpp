@@ -66,10 +66,9 @@ namespace crt
 //#include <ImageViewer.ino>
 //#include <MultiPanel.ino>
 //#include <ShowEnableSemantics.ino>			// zelftest, internal/tests: wat show, enable en tekenen elk wel en niet doen
-//#include <Pong2.ino>						// console-versie, apps/pong/pong
-//#include <Pong_CleanGUI_cg.ino>			// touchscreen-versie, apps/pong_cleangui_cg
-//#include <Pong_CleanGUI_dg.ino>			// touchscreen-versie, apps/pong_cleangui_dg
-#include <Pong_CleanGUI_dg_adv.ino>			// touchscreen-versie, apps/pong_cleangui_dg_adv
+//#include <Pong2.ino>						// console-versie, apps/pong_ascii_quest_with_3_bugs
+#include <Pong_simple.ino>			// touchscreen-versie, apps/pong_simple
+//#include <Pong_super.ino>			// touchscreen-versie, apps/pong_super
 
 // **** CYD_tools_crt ****
 //#include <ADC_buttons.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
@@ -82,7 +81,7 @@ namespace crt
 //#include <StateMachineTemplatePro.ino>		// apps/StateMachineTemplatePro (FreeRTOS-variant van MachineControl, met InputSimulator)
 //#include <DisplayId.ino>					// apps/DisplayId: welke displaycontroller zit erop? (ID + testpatroon per rotatie)
 
-// **** Gereedschap, apps/pong_cleangui_dg_adv/tools ****
+// **** Gereedschap, apps/pong_super/tools ****
 //#include <ClearHallOfFame.ino>				// wist de top-5 in /hallOfFame
 //#include <ClearCalibrations.ino>			// wist de touchkalibratie in /TouchCalData1 - kost een vinger om terug te krijgen
 
