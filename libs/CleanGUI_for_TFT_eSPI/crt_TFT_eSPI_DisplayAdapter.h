@@ -1057,6 +1057,11 @@ namespace crt
             }
             else
             {
+                // De tik waarmee om herkalibratie gevraagd werd, ligt er vaak nog.
+                // calibrateTouch() begint meteen in de hoek linksboven te meten en
+                // zou die tik dan als eerste hoek nemen, waar hij ook lag. Zie
+                // waitUntilTouchReleased().
+                waitUntilTouchReleased(3000);
                 calibrateRotationIntoTable(table, rotation, bAskedForRecalibration, nullptr);
                 saveCalTable(table);
                 _tft.setTouch(table.arCalData[rotation]);

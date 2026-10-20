@@ -1,5 +1,95 @@
 # Claude log
 
+## 2026-10-20 — CleanRTOS: Mutex/SimpleMutex blokkeren nu (task watchdog in pong adv)
+
+pong_cleangui_dg_adv liep na een tijdje vast. Om de 5 s vuurde de task watchdog:
+`IDLE1` werd niet meer gevoerd en op CPU 1 draaide alleen nog `GameDisplayCont`. Volgens
+de backtrace stond die in `SimpleMutex::lock()`, vanuit `Pool<int>::read` in
+`syncPaddlePanelPos()`.
+
+- **Oorzaak:** priority inversion zonder uitweg.
+  - `SimpleMutex::lock()` (en `Mutex::lock()`) probeerden de mutex te pakken met timeout 0
+    en deden bij mislukken `taskYIELD()`.
+  - `taskYIELD()` laat alleen taken van gelijke of hogere prioriteit voor. Pakt
+    GameDisplayControl (prio 3) de pool terwijl PaddleControl (prio 1, zelfde core) midden
+    in `updatePaddlePosition` → `poolPaddlePosition.write` zit, dan komt PaddleControl nooit
+    meer aan de beurt om de mutex vrij te geven.
+  - Bij een take met timeout 0 is er ook geen priority inheritance.
+- **Fix** in `libs/CleanRTOS/src/internals/crt_SimpleMutex.h` en
+  `libs/CleanRTOS/src/crt_Mutex.h`: `xSemaphoreTake(…, portMAX_DELAY)`, zonder de lus.
+  Wachten voedt de watchdog vanzelf, en de houder krijgt via priority inheritance
+  tijdelijk de hoge prioriteit.
+- `idf.py build` lukt. Nog niet op de CYD getest: het vastlopen kwam pas na een tijdje
+  spelen.
+- De `-Wvolatile`-waarschuwingen in `libs/CleanGUI_async/src/crt_AsyncDisplay.h` (`++` op
+  een volatile) stonden er al en hebben hier niets mee te maken. Op verzoek van Marius
+  toch opgeruimd: vier keer `x++` → `x = x + 1` op `nofCommandsWritten` en
+  `nofCommandsExecuted`. Het gedrag is gelijk gebleven, en de build geeft ze niet meer.
+
+## 2026-10-20 — TFT_eSPI: de nieuwe CYD (Inim) en de oude (Guition) met dezelfde build
+
+Vervolg op DisplayId hieronder. De software werkt nu op beide schermtypen zonder dat er
+iets aan de build hoeft te veranderen.
+
+- **Diagnose op de nieuwe CYD:**
+  - het paneel staat van zichzelf liggend (320 kolommen); de ILI9341 staat staand;
+  - rood en blauw zijn andersom;
+  - de ILI9341-initialisatie en de commando's werken verder gewoon.
+- **`libs/TFT_eSPI`**, alleen voor de ILI9341-driver:
+  - `init()` leest RDID1..3 (0xDA..0xDC) met de nieuwe `readPanelId()`. Bij `1081B3` gaat
+    elke rotatie een kwartslag door: de MADCTL-waarde van rotatie r+1, met breedte en
+    hoogte nog steeds van r. Ook het kleurvolgordebit van MADCTL gaat om.
+  - Ook de gammacurve: de ILI9341-curve maakte de middentonen te licht, zodat
+    rood-op-donkergrijs (GAME OVER) roze op middelgrijs werd. Voor dit paneel zet `init()`
+    nu de curve uit `ST7789_Init.h` (0xE0/0xE1, 14 bytes). Marius koos die uit vier
+    varianten met de gammaproef in DisplayId (`DISPLAYID_GAMMA_TEST`).
+  - Daarna blijft GAME OVER op de nieuwe CYD lichter dan op de oude: rozerood op
+    lichter grijs. pong_cg kiest daar zelf 0xFF4040 op 0x202020. Naast een referentie op
+    de pc-monitor lijkt de nieuwe CYD het meest op wat de code vraagt. De oude CYD maakt
+    donkere tinten donkerder, waardoor 0xFF4040 er puur rood uitzag. Marius laat het zo.
+    Gamma staat in registers van de controller, dus het kost niets per pixel.
+  - Nieuwe publieke functies `setPanelRotationOffset`, `setPanelColorOrderSwapped` (met
+    getters) en `readPanelId`, voor een paneel dat nog niet bekend is.
+  - Geïmplementeerd in `TFT_eSPI.h`/`.cpp` en `TFT_Drivers/ILI9341_Rotation.h`.
+  - Het lezen gaat met een eigen leesroutine op 1 MHz (`readRegister8Slow`), zonder de
+    ILI9341-indextruc van `readcommand8`. Let op: na een `readcommand8(0xD3, …)` leest de
+    nieuwe controller RDID als 0; daarom gebeurt de herkenning in `init()`, vóór al het
+    andere.
+- **`crt_TFT_eSPI_DisplayAdapter.h`:** vóór het kalibreren wordt gewacht tot het scherm
+  losgelaten is. Eerst nam de nieuwe CYD de tik waarmee je om herkalibratie vraagt meteen
+  als hoek linksboven.
+- **Getest:**
+  - nieuwe CYD: DisplayId (alle vier de rotaties, kleuren) en pong_cg (kalibratie, spel,
+    kleuren) zijn door Marius bekeken en kloppen.
+  - oude CYD: pong_cg geeft paneel-ID `000000`, offset 0 en geen kleurwissel, dus alles
+    zoals vroeger. Of het er op het scherm goed uitziet, heeft Marius nog niet gemeld.
+- `main/main.cpp` staat weer op `Pong_CleanGUI_cg.ino`. DisplayId blijft als gereedschap
+  beschikbaar, in `main.cpp` uitgecommentarieerd, en toont nu ook zes kleurwoorden.
+
+## 2026-10-20 — DisplayId: welke displaycontroller zit er op de nieuwe CYD (Inim)?
+
+Aanleiding: op een nieuwe CYD (merk Inim) loopt de touchkalibratie van pong_cg mis. Het oude
+scherm (Guition) werkt goed.
+
+Nieuw gereedschap `apps/DisplayId/`. Het staat nu actief in `main/main.cpp` in plaats van
+`Pong_CleanGUI_cg.ino`; het includepad staat in `main/CMakeLists.txt`.
+
+- **Wat het doet:**
+  - de ID-registers van de controller uitlezen, met een eigen trage SPI-leesroutine
+    (1 MHz) in plaats van het ILI9341-specifieke `readcommand8`;
+  - per rotatie een testpatroon tekenen: een kader en vier gekleurde hoeken;
+  - MADCTL teruglezen.
+- **Uitkomst op de nieuwe CYD:**
+  - RDID1/2/3 = `10 81 B3`. RDDID (0x04) geeft hetzelfde, na de dummybit.
+  - 0xD3 (ILI9341-ID) = `00 00 00`.
+  - Het is dus geen ILI9341 en ook geen standaard ST7789 (`85 85 52`).
+  - MADCTL leest per rotatie precies terug wat TFT_eSPI schrijft (`48`, `28`, `88`, `E8`),
+    dus de rotatie komt aan.
+  - COLMOD = `05` (16 bit).
+- Nog te doen:
+  - wat Marius op het scherm ziet bij het testpatroon;
+  - dezelfde meting op de oude CYD, ter vergelijking.
+
 ## 2026-10-20 — NameInputDisplayControl: STATE_SHOWN wacht niet meer op flagShowNameInputPage
 
 In `STATE_SHOWN` werd ook op `flagShowNameInputPage` gewacht, maar daar gebeurde niets mee.

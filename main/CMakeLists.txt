@@ -163,6 +163,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
 # elkaar als "app/....hpp", dus de map zelf is het includepad.
 "../apps/StateMachineTemplatePro"
 
+# DisplayId: leest het ID van de displaycontroller uit (ILI9341 of ST7789?) en
+# tekent per rotatie een testpatroon.
+"../apps/DisplayId"
+
 #"../apps/TestHwLibGlcOled"
 # Adafruit libs for driving SSD1306 OLED:
 # "../libs/Adafruit_SSD1306"

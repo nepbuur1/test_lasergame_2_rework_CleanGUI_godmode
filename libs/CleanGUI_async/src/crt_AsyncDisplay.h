@@ -105,14 +105,14 @@ namespace crt
 					// commands come in fast.
 					int64_t timeBeforeUs = esp_timer_get_time();
 					curCommand.execute(display, *pPrintContext);
-					nofCommandsExecuted++;
+					nofCommandsExecuted = nofCommandsExecuted + 1;	// geen ++: dat is op een volatile deprecated in C++20 (-Wvolatile)
 					int64_t timeAfterUs = esp_timer_get_time();
 					ESP_LOGI("cmd", "%-20s %6d us  (t=%d)",
 						commandTypeName(curCommand.getCommandType()),
 						(int)(timeAfterUs - timeBeforeUs), (int)(timeAfterUs / 1000));
 #else
 					curCommand.execute(display, *pPrintContext);
-					nofCommandsExecuted++;
+					nofCommandsExecuted = nofCommandsExecuted + 1;	// geen ++: dat is op een volatile deprecated in C++20 (-Wvolatile)
 #endif
 					// Een present() maakt de buffer juist schoon; al het andere
 					// laat er iets in achter dat nog uitgestuurd moet worden.
@@ -207,7 +207,7 @@ namespace crt
 			// veel netter dan zelf pollen met vTaskDelay: de schrijver wordt
 			// direct gewekt zodra er ruimte vrijkomt, in plaats van pas bij de
 			// volgende tick.
-			nofCommandsWritten++;
+			nofCommandsWritten = nofCommandsWritten + 1;	// geen ++: dat is op een volatile deprecated in C++20 (-Wvolatile)
 			queueCommands.write(displayCommand);
 		}
 
@@ -224,7 +224,7 @@ namespace crt
 			PrintContext* pPrintContext = queryPrintContext(displayCommand.getTask());
 			assert(pPrintContext != nullptr);
 			displayCommand.execute(display, *pPrintContext);
-			nofCommandsExecuted++;
+			nofCommandsExecuted = nofCommandsExecuted + 1;	// geen ++: dat is op een volatile deprecated in C++20 (-Wvolatile)
 		}
 
 		PrintContext* queryPrintContext(const Task* pTask)

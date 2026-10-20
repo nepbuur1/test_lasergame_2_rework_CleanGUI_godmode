@@ -38,21 +38,15 @@ namespace crt
 			//xSemaphoreGive(freeRtosMutex);	// In case of a binary semaphore: that one should be given before it can be taken.
 		}
 		
+		// Blokkerend wachten, niet pollen met taskYIELD(): zie SimpleMutex::lock()
+		// voor de priority inversion die dat gaf.
 		void lock(Task* pTask)
 		{
-			while (true)
-			{
-				assert(mutexID > pTask->mutexIdStack.top()); // Error : Potential Deadlock : Within each thread, never try to lock a mutex with lower mutex priority than a mutex that is locked(before it).
+			assert(mutexID > pTask->mutexIdStack.top()); // Error : Potential Deadlock : Within each thread, never try to lock a mutex with lower mutex priority than a mutex that is locked(before it).
 
-				// max tickDelay is the constant portMAX_DELAY
-				rc = xSemaphoreTake(freeRtosMutex, 0.0001 /* tickDelay */);
-				if (rc == pdPASS)
-				{
-					assert(pTask->mutexIdStack.push(mutexID));// Assert would mean that either the amount of nested concurrently locked mutexes for this task exceeds the constant MAX_MUTEXNESTING, or the lock and unlock of the mutex are not performed in the same task.
-					break;
-				}
-				taskYIELD(); // Feed the wdt.
-			}
+			rc = xSemaphoreTake(freeRtosMutex, portMAX_DELAY);
+			assert(rc == pdPASS);
+			assert(pTask->mutexIdStack.push(mutexID));// Assert would mean that either the amount of nested concurrently locked mutexes for this task exceeds the constant MAX_MUTEXNESTING, or the lock and unlock of the mutex are not performed in the same task.
 		}
 		
 		void unlock(Task* pTask)

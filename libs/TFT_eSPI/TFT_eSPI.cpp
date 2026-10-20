@@ -769,6 +769,38 @@ void TFT_eSPI::init(uint8_t tc)
 
   end_tft_write();
 
+#if defined (ILI9341_DRIVER) || defined(ILI9341_2_DRIVER)
+  // CYD-uitbreiding: een paneel dat van zichzelf liggend staat herkennen, zie
+  // setPanelRotationOffset() in TFT_eSPI.h. Gemeten op een CYD van het merk
+  // Inim (2026-10-20): RDID1..3 = 10 81 B3; het paneel staat liggend, heeft
+  // rood en blauw andersom en wil een andere gammacurve. De gewone CYD (Guition, ILI9341) geeft daar iets
+  // anders en houdt alles bij het oude.
+  {
+    uint32_t panelId = readPanelId();
+    bool bLandscapeRgbPanel = (panelId == 0x1081B3);
+    _panelRotationOffset = bLandscapeRgbPanel ? 1 : 0;
+    _panelMadctlXor      = bLandscapeRgbPanel ? TFT_MAD_BGR : 0;
+
+    // Met de ILI9341-gammacurve van hierboven worden de middentonen op dit paneel
+    // te licht (rood op donkergrijs werd roze op middelgrijs). De curve uit
+    // ST7789_Init.h komt het dichtst bij de oude CYD; vergeleken met
+    // apps/DisplayId (gammaproef).
+    if (bLandscapeRgbPanel)
+    {
+      static const uint8_t arGammaP[14] = { 0xD0,0x00,0x02,0x07,0x0A,0x28,0x32,0x44,0x42,0x06,0x0E,0x12,0x14,0x17 };
+      static const uint8_t arGammaN[14] = { 0xD0,0x00,0x02,0x07,0x0A,0x28,0x31,0x54,0x47,0x0E,0x1C,0x17,0x1B,0x1E };
+      writecommand(0xE0);
+      for (int i = 0; i < 14; i++) writedata(arGammaP[i]);
+      writecommand(0xE1);
+      for (int i = 0; i < 14; i++) writedata(arGammaN[i]);
+    }
+  #ifdef ESP_PLATFORM
+    ESP_LOGI("TFT_eSPI", "paneel-ID %06X, rotatie-offset %u, rood/blauw omgedraaid: %s",
+             (unsigned)panelId, (unsigned)_panelRotationOffset, _panelMadctlXor ? "ja" : "nee");
+  #endif
+  }
+#endif
+
   setRotation(rotation);
 
 #if defined (TFT_BL) && defined (TFT_BACKLIGHT_ON)
@@ -2846,6 +2878,58 @@ uint16_t TFT_eSPI::getTextPadding(void)
 uint8_t TFT_eSPI::getRotation(void)
 {
   return rotation;
+}
+
+/***************************************************************************************
+** CYD-uitbreiding: paneel dat van zichzelf liggend staat. Zie TFT_eSPI.h.
+***************************************************************************************/
+void TFT_eSPI::setPanelRotationOffset(uint8_t offset)
+{
+  _panelRotationOffset = offset % 4;
+  setRotation(rotation);	// de huidige rotatie opnieuw, nu met de nieuwe offset
+}
+
+uint8_t TFT_eSPI::getPanelRotationOffset(void)
+{
+  return _panelRotationOffset;
+}
+
+void TFT_eSPI::setPanelColorOrderSwapped(bool bSwapped)
+{
+  _panelMadctlXor = bSwapped ? TFT_MAD_BGR : 0;
+  setRotation(rotation);	// MADCTL opnieuw schrijven, nu met de andere kleurvolgorde
+}
+
+bool TFT_eSPI::isPanelColorOrderSwapped(void)
+{
+  return _panelMadctlXor != 0;
+}
+
+// Een register van een byte lezen, op 1 MHz: lezen mag bij deze controllers maar
+// tot ~6 MHz, en SPI_READ_FREQUENCY staat hier hoger. Zonder het 0xD9-indexcommando
+// van readcommand8(): dat is ILI9341-specifiek, en juist bij een onbekende
+// controller willen we weten wat er zit.
+uint8_t TFT_eSPI::readRegister8Slow(uint8_t cmd)
+{
+  uint8_t reg = 0;
+#if !defined(TFT_PARALLEL_8_BIT) && !defined(RP2040_PIO_INTERFACE)
+  DMA_BUSY_CHECK;
+  spi.beginTransaction(SPISettings(1000000, MSBFIRST, TFT_SPI_MODE));
+  CS_L;
+  DC_C; tft_Write_8(cmd);
+  DC_D; reg = tft_Read_8();
+  CS_H;
+  spi.endTransaction();
+#endif
+  return reg;
+}
+
+uint32_t TFT_eSPI::readPanelId(void)
+{
+  uint32_t id = (uint32_t)readRegister8Slow(0xDA) << 16;
+  id |= (uint32_t)readRegister8Slow(0xDB) << 8;
+  id |= (uint32_t)readRegister8Slow(0xDC);
+  return id;
 }
 
 /***************************************************************************************

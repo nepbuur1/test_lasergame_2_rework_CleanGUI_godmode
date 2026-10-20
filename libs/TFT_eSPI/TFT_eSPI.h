@@ -450,6 +450,22 @@ class TFT_eSPI : public Print
   void     setRotation(uint8_t r); // Set the display image orientation to 0, 1, 2 or 3
   uint8_t  getRotation(void);      // Read the current rotation
 
+  // CYD-uitbreiding (niet uit de originele TFT_eSPI). Er zijn CYD's (merk Inim)
+  // met een controller die het ILI9341-commando's slikt, maar waarvan het
+  // paneel van zichzelf liggend staat (320 kolommen) in plaats van staand. Daar
+  // moet elke rotatie de MADCTL-waarde van de rotatie een kwartslag verder
+  // krijgen; breedte en hoogte blijven zoals TFT_eSPI ze bij de gevraagde
+  // rotatie verwacht. init() herkent zo'n paneel aan zijn ID (readPanelId) en
+  // zet de offset zelf; met setPanelRotationOffset kan het ook met de hand,
+  // voor een paneel dat hier nog niet bekend is. Hetzelfde paneel heeft ook rood
+  // en blauw andersom dan de ILI9341; setPanelColorOrderSwapped draait daarom het
+  // kleurvolgordebit van MADCTL om. Werkt alleen met de ILI9341-driver.
+  void     setPanelRotationOffset(uint8_t offset); // 0 = staand paneel (ILI9341), 1 = liggend paneel
+  uint8_t  getPanelRotationOffset(void);
+  void     setPanelColorOrderSwapped(bool bSwapped);
+  bool     isPanelColorOrderSwapped(void);
+  uint32_t readPanelId(void);      // RDID1..3 (0xDA, 0xDB, 0xDC) als 0x00XXYYZZ
+
   void     invertDisplay(bool i);  // Tell TFT to invert all displayed colours
 
 
@@ -847,6 +863,10 @@ class TFT_eSPI : public Print
 
   int32_t  _init_width, _init_height; // Display w/h as input, used by setRotation()
   int32_t  _width, _height;           // Display w/h as modified by current rotation
+
+  uint8_t  _panelRotationOffset = 0;  // CYD-uitbreiding, zie setPanelRotationOffset()
+  uint8_t  _panelMadctlXor = 0;       // CYD-uitbreiding, zie setPanelColorOrderSwapped()
+  uint8_t  readRegister8Slow(uint8_t cmd); // een register lezen op 1 MHz, zonder ILI9341-indextruc
   int32_t  addr_row, addr_col;        // Window position - used to minimise window commands
 
   int16_t  _xPivot;   // TFT x pivot point coordinate for rotated Sprites

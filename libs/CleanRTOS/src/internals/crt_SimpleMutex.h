@@ -25,18 +25,22 @@ namespace crt
 			//xSemaphoreGive(freeRtosMutex);	// In case of a binary semaphore: that one should be given before it can be taken.
 		}
 		
+		// Blokkerend wachten, en niet pollen met een timeout van 0 plus taskYIELD().
+		// Dat laatste gaf priority inversion zonder uitweg: taskYIELD() geeft de
+		// processor alleen aan taken met dezelfde of een hogere prioriteit. Wacht
+		// een hoge-prioriteitstaak zo op een mutex die een lagere taak op dezelfde
+		// core vasthoudt, dan komt die lagere taak nooit meer aan de beurt om hem
+		// vrij te geven. De hoge taak blijft dan eeuwig draaien, en de idle-taak ook
+		// niet: de task watchdog vuurt. Gezien in pong_cleangui_dg_adv
+		// (2026-10-20): GameDisplayControl (prio 3) in Pool<int>::read, terwijl
+		// PaddleControl (prio 1) midden in de write zat.
+		// Met een blokkerende take krijgt de houder via priority inheritance
+		// tijdelijk de prioriteit van de wachter, maakt hij zijn korte stukje af en
+		// geeft hij de mutex vrij. Wachten voedt de watchdog vanzelf.
 		void lock()
 		{
-			while (true)
-			{
-				// max tickDelay is the constant portMAX_DELAY
-				rc = xSemaphoreTake(freeRtosMutex, 0.0001 /* tickDelay */);
-				if (rc == pdPASS)
-				{
-					break;
-				}
-				taskYIELD(); // Feed the wdt.
-			}
+			rc = xSemaphoreTake(freeRtosMutex, portMAX_DELAY);
+			assert(rc == pdPASS);
 		}
 		
 		void unlock()
