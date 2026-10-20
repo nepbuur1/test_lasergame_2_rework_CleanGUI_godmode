@@ -152,6 +152,12 @@ set(COMPONENT_ADD_INCLUDEDIRS
 "../apps/pong_simple"
 "../apps/pong_super"
 
+# apps_frt: dezelfde apps, maar de eigen klassen op vanilla FreeRTOS in plaats van
+# CleanRTOS. Eigen bestandsnamen (psupf_, Pong_super_frt) en een eigen namespace,
+# zodat ze naast de CleanRTOS-versie op het includepad kunnen staan.
+"../apps_frt/pong_super_frt"
+"../apps_frt/pong_simple_frt"
+
 # Gereedschap bij die laatste: losse programma's die aan de opslag op het
 # bord komen, elk in een eigen map. Zie de README daar. Ook hier geldt dat
 # een includepad op zichzelf niets compileert - main.cpp kiest.

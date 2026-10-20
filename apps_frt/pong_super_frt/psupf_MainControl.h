@@ -1,0 +1,134 @@
+// by Marius Versteegen, 2023
+
+#pragma once
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/event_groups.h>
+#include <freertos/queue.h>
+#include <freertos/timers.h>
+#include <esp_log.h>
+
+#include "psupf_HallOfFame.h"
+#include "psupf_ButtonInfoControl.h"
+#include "psupf_StartPageControl.h"
+#include "psupf_GameControl.h"
+#include "psupf_GameOverControl.h"
+
+// This file contains the code of multiple tasks that run concurrently and notify eachother using flags.
+
+using namespace crt;
+namespace pong_super_frt
+{
+	// Zie psupf_BallControl.h: logger komt uit namespace crt, niet uit deze.
+
+	class MainControl
+	{
+
+		// --- FreeRTOS (was CleanRTOS) ---
+		// MainControl wacht zelf nergens op: dat doen de control-objecten die
+		// hij aanroept, elk met een eigen eventGroup. Hij heeft alleen een taak.
+		TaskHandle_t taskHandle;
+
+		enum State
+		{
+			STATE_BUTTON_INFO_PAGE,	// alleen de allereerste keer, na het opstarten
+			STATE_START_PAGE,
+			STATE_GAME_RUNNING,
+			STATE_GAME_OVER
+		};
+
+	private:
+	    State state;
+		// Control objects that have been merged to the current task
+		// based on control cohesion.
+		GameControl gameControl;
+		GameOverControl gameOverControl;
+		ButtonInfoControl buttonInfoControl;
+		StartPageControl startPageControl;
+
+	public:
+		// Elke pagina heeft zijn eigen DisplayControl, dus die komen hier alle vier
+		// binnen. Elk control-object krijgt precies die mee waar het iets van moet
+		// weten - GameControl kent de startpagina niet en andersom. De naampagina
+		// gaat door naar GameOverControl, dat hem meteen doorgeeft aan zijn
+		// NameInputControl en er zelf niets van hoeft te weten.
+		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
+					ButtonInfoDisplayControl& buttonInfoDisplayControl, frt::IADC_buttons& adcButtons,
+					StartPageDisplayControl& startPageDisplayControl, GameDisplayControl& gameDisplayControl,
+					NameInputDisplayControl& nameInputDisplayControl,
+					HallOfFameDisplayControl& hallOfFameDisplayControl, PaddleControl& paddleControl,
+					HallOfFame& hallOfFame) :
+			taskHandle(nullptr),
+			state(STATE_BUTTON_INFO_PAGE),
+			gameControl(gameDisplayControl, paddleControl),
+			gameOverControl(nameInputDisplayControl, hallOfFameDisplayControl, hallOfFame),
+			buttonInfoControl(buttonInfoDisplayControl, adcButtons),
+			startPageControl(startPageDisplayControl)
+		{
+			// Dat de naampagina meldt wanneer de naam is ingetypt (UC03 stap
+			// 1b) regelt NameInputControl zelf: die wacht erop, dus die vraagt het
+			// aan. Hier stond daar een regel voor, en dat was een derde plek die van
+			// die melding moest weten.
+
+			xTaskCreatePinnedToCore(staticMain, taskName, taskSizeBytes, this, taskPriority, &taskHandle, taskCoreNumber);
+		}
+
+	private:
+
+
+		// --- FreeRTOS-hulpfuncties ---
+		static void staticMain(void* pvParameters)
+		{
+			static_cast<MainControl*>(pvParameters)->main();
+		}
+
+
+
+		/*override keyword not supported*/
+		void main()
+		{
+			vTaskDelay(1000); // wait for other threads to have started up as well.
+
+			while (true)
+			{
+				vTaskDelay(1);
+
+				switch(state)
+				{
+					case STATE_BUTTON_INFO_PAGE:
+						// Eerst ADC_buttons de tijd geven om op te starten: isConnected() is pas
+						// geldig na zijn controle bij het opstarten (±100 ms). De vTaskDelay(1000)
+						// bovenaan main() dekt dat al, maar deze wacht maakt de afhankelijkheid
+						// expliciet, en blijft kloppen als die bovenste ooit korter wordt.
+						vTaskDelay(pdMS_TO_TICKS(200));
+						buttonInfoControl.doButtonInfoPage();
+						state = STATE_START_PAGE;
+						break;
+
+					case STATE_START_PAGE:
+						startPageControl.doStartPage();
+						state = STATE_GAME_RUNNING;
+						break;
+
+					case STATE_GAME_RUNNING:
+						gameControl.doGame();
+						state = STATE_GAME_OVER;
+						break;
+
+					case STATE_GAME_OVER:
+						// De score van het zojuist gespeelde spel gaat mee: UC03
+						// beslist ermee of er om een naam wordt gevraagd.
+						gameOverControl.doGameOver(gameControl.getScore());
+						state = STATE_GAME_RUNNING;
+						break;
+
+					default:
+						assert(false);
+				}
+
+				vTaskDelay(1);
+			}
+		}
+	}; // end class MainControl
+
+};// end namespace pong_super_frt

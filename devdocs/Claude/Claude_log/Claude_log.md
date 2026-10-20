@@ -1,5 +1,128 @@
 # Claude log
 
+## 2026-10-21 — apps_frt/pong_simple_frt: pong_simple op vanilla FreeRTOS
+
+Op dezelfde manier als pong_super_frt hieronder.
+
+- **Namen:** `psimf_*.h`, namespace `pong_simple_frt`, app `Pong_simple_frt.ino`/`_ino.h`.
+- **Model** (`models/drawio/pong_simple_frt.drawio`; het gekopieerde `pong_cg.drawio` is
+  in deze kopie weg):
+  - de STD's zijn omgezet met `StdCleanRtosNaarStdFreeRtos`;
+  - vooraf in de kopie de afkortingen uitgeschreven die de tool niet begrijpt:
+    `flagLeft/RightPressed.clear()` → twee aparte `clear()`s, net zo voor Released;
+  - en `poolBallPosition.write(TwoNumbers(x,y))` → eerst een variabele
+    `TwoNumbers ballPosition(x,y)`.
+  - In `apps/pong_simple/models/drawio/pong_cg.drawio` staan die afkortingen nog; ze
+    komen uit de STD's die ik daar gisteren toevoegde.
+- **Code:**
+  - met hetzelfde omzetscript als bij pong_super_frt; dat bewaart nu meteen het resultaat
+    van een enkele wait in `firedBits`, zodat de startknopfout van daar hier niet
+    terugkomt;
+  - met de hand: MainControl heeft geen eventGroup meer en roept de control-objecten aan
+    zonder `this`;
+  - de FreeRTOS-leden zijn van `IBallControlListener` naar `BallControl` verplaatst (het
+    script zette ze in de eerste klasse van het bestand);
+  - de oude logger-opmerking in BallControl is bijgewerkt.
+- **Build:**
+  - includepad `../apps_frt/pong_simple_frt`;
+  - `main/main.cpp` staat nu op `Pong_simple_frt.ino`; Pong_super_frt staat
+    uitgecommentarieerd.
+- **Getest:** bouwt zonder waarschuwingen in de eigen bestanden, en start op de CYD zonder
+  fouten. Marius speelde een volledige ronde: startscherm, spel met de touchknoppen, game
+  over en opnieuw spelen. Alles werkt.
+
+## 2026-10-21 — apps_frt/pong_super_frt: pong_super op vanilla FreeRTOS
+
+Een kopie van `apps/pong_super`. De eigen klassen gebruiken vanilla FreeRTOS in plaats van
+CleanRTOS; de bibliotheken (CleanGUI, AsyncDisplay) blijven CleanRTOS-gebaseerd.
+
+- **Namen:**
+  - headers `psupf_*.h`, namespace `pong_super_frt`, app `Pong_super_frt.ino`/`_ino.h`;
+  - daardoor kan hij naast pong_super op het includepad staan.
+  - `tools/` is niet meegekopieerd.
+- **Model** (`models/pong_super_frt.drawio`, het oude `pong_dg_adv.drawio` is in deze kopie
+  weg):
+  - de STD-tabs zijn omgezet met ModelAnalysis `StdCleanRtosNaarStdFreeRtos`
+    (`--vakkenGroeien`);
+  - de tab `ButtonInfoDisplayControl` met `--tab` erbij, en hernoemd naar
+    `STD-ButtonInfoDisplayControl`;
+  - vooraf twee typefouten in de kopie verbeterd: `flagFrameOverLabelPressed` →
+    `flagGameOverLabelPressed`, en `timeGameOverLabel` → `timerGameOverLabel` (STD-GameControl);
+  - `timerTorch` start met `xTimerChangePeriod`, omdat de periode per keer verschilt.
+  - In `apps/pong_super/models/pong_dg_adv.drawio` staan die twee typefouten nog.
+  - De tab STD-GameOverDisplayControl hoort bij een klasse die niet meer bestaat; hij is
+    meegekopieerd zoals hij was.
+- **Code:** de vaste CleanRTOS-patronen zijn met een script omgezet:
+  - Flag → eventbit;
+  - wait → `xEventGroupWaitBits(pdTRUE)`;
+  - waitAny/hasFired → `xEventGroupWaitBits(pdFALSE)` en per bit wissen;
+  - Pool → queue van lengte 1;
+  - Timer → FreeRTOS-timer met callback;
+  - Task → `xTaskCreatePinnedToCore`;
+  - logger → `ESP_LOGI`.
+  - Daarna met de hand:
+    - MainControl heeft geen eventGroup meer; de control-objecten hebben elk een eigen
+      eventGroup en geen `Task* pTask` meer;
+    - PaddleControl is helemaal handwerk;
+    - Depot is geen `IHandlerListener` meer;
+    - de .ino gebruikt `frt::ADC_buttons` uit CYD_tools_frt.
+- **Build:**
+  - includepad `../apps_frt/pong_super_frt` in `main/CMakeLists.txt`;
+  - `main/main.cpp` staat nu op `Pong_super_frt.ino`; daarvoor stond hij op
+    `Pong_simple.ino`.
+- **Getest:**
+  - bouwt zonder waarschuwingen in de eigen bestanden;
+  - geflasht op de nieuwe CYD: start zonder fouten, en de knop op de infopagina reageert.
+  - Een volledige speeltest (spel, game over, naaminvoer, hall of fame, ADC-knoppen)
+    moet Marius nog doen.
+- **Eerste test:** het startscherm reageerde niet op de startknop.
+  - Oorzaak: in CleanRTOS onthoudt `wait(flag)` ook wat er vuurde, zodat een
+    `hasFired(flag)` erna true geeft (de DisplayControls doen dat in STATE_HIDDEN).
+  - In de omzetting werd het resultaat van die `xEventGroupWaitBits` niet bewaard, dus
+    `hasFired` gaf false en de pagina werd nooit aangezet.
+  - Nu staat overal `firedBits = xEventGroupWaitBits(..., pdTRUE, ...)`; dat is op 10
+    plekken aangepast.
+- **Tweede test, door Marius:** een volledige ronde werkt. Getest: infopagina, start, spel
+  met touch- en ADC-knoppen, crates en vuurkorven, game over, naam invoeren, hall of fame
+  en play again.
+
+## 2026-10-20 — pong_simple: use cases en een bijgewerkte drawio
+
+pong_simple heeft nu net als pong_super use cases en een volledige drawio. Alles is
+afgeleid van de huidige code.
+
+- **`apps/pong_simple/usecases/PongDesign_simple.md` (nieuw):**
+  - UC01_Main tot en met UC06_PaddleHandling, met dezelfde nummering als pong_super;
+  - daaruit valt weg: score, hall of fame, vuurkorven, present crates en naaminvoer.
+  - In UC01 een verschil met pong_super: na game over gaat het spel direct weer van
+    start. Het startscherm komt alleen bij het opstarten (zo staat het in
+    `psim_MainControl.h`).
+- **`apps/pong_simple/models/drawio/pong_cg.drawio`.** Groen is nieuw of aangepast, rood
+  moet weg. Bestaande cellen zijn niet verplaatst; per cel vergeleken met het origineel.
+  - **OM-cg:**
+    - objectnamen `mainControl`, `startPageControl`, `gameOverControl`,
+      `buttonStartPageStart` en `buttonGameOverStart`;
+    - «isActive» bij de vier taken;
+    - de berichtlabels van ball- en paddleControl naar displayControl gelijk aan de
+      code;
+    - `buttonReleased` bij buttonLeft/Right.
+  - **GUI Design:**
+    - `pageGame` → `gamePanel`;
+    - een apart `background`-widget bestaat niet meer (rood);
+    - buttonLeft/Right toegevoegd in de schets en in de bdd;
+    - nieuw: schetsen van de start- en game-overpagina, en de widgetboom onder
+      `pageRoot`.
+  - **Nieuwe tabs, helemaal groen:**
+    - `UC`;
+    - `CD-cg`: 11 klassen, waaronder IBallControlListener, TwoNumbers, IButtonListener
+      en TouchscreenButton;
+    - STD's van MainControl, StartPageControl, GameControl, GameOverControl,
+      BallControl, PaddleControl en DisplayControl.
+  - `AllesNaarMermaid` leest alle tabs zonder waarschuwingen. Met draw.io geëxporteerd
+    en bekeken. De layout is aan Marius; in het CD overlappen BallControl en
+    PaddleControl.
+- Niet aangeraakt: `apps/pong_simple/models/PongDesign_cg.md`, een stub van 7 regels.
+
 ## 2026-10-20 — rename: pong_cleangui_dg_adv → pong_super, pong_cleangui_cg → pong_simple
 
 Overal in het project hernoemd, ook in docs, drawio-modellen, `temp/` en de eerdere
