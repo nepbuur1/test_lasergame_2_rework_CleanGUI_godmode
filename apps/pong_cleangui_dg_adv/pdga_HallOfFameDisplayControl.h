@@ -24,7 +24,7 @@
 //
 // De naaminvoer van UC03 stap 1 zat hier eerder als tweede fase bij in - zelfde
 // taak, zelfde PageRoot, met makeDrawable/makeNonDrawable om te wisselen. Die
-// woont nu in NameInputPageDisplayControl; zie de kop van dat bestand voor wat het
+// woont nu in NameInputDisplayControl; zie de kop van dat bestand voor wat het
 // delen kostte. Wat hier is overgebleven is een pagina die maar een ding toont,
 // en dus geen fasen meer kent.
 //

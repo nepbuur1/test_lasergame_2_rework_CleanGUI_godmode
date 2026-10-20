@@ -17,7 +17,7 @@ namespace pong_cleangui_dg_adv
 	// die weten hoe hun pagina eruitziet, deze weet wat er moet gebeuren.
 	//
 	// Het zijn er twee geworden: de naaminvoer van stap 1 is een eigen pagina met
-	// een eigen DisplayControl (zie de kop van pdga_NameInputPageDisplayControl.h).
+	// een eigen DisplayControl (zie de kop van pdga_NameInputDisplayControl.h).
 	// Deze klasse kent alleen de hall of fame; de naampagina zit achter
 	// NameInputControl, dat er als enige iets van hoeft te weten.
 	class GameOverControl : public IButtonListener
@@ -35,12 +35,12 @@ namespace pong_cleangui_dg_adv
 		Flag flagPlayAgainPressed;
 
 	public:
-		GameOverControl(Task* pTask, NameInputPageDisplayControl& nameInputPageDisplayControl,
+		GameOverControl(Task* pTask, NameInputDisplayControl& nameInputDisplayControl,
 						HallOfFameDisplayControl& hallOfFameDisplayControl, HallOfFame& hallOfFame) :
 			pTask(pTask),
 			hallOfFameDisplayControl(hallOfFameDisplayControl),
 			hallOfFame(hallOfFame),
-			nameInputControl(pTask, nameInputPageDisplayControl),
+			nameInputControl(pTask, nameInputDisplayControl),
 			pPlayAgainButton(nullptr),
 			flagPlayAgainPressed(pTask)
 		{

@@ -34,7 +34,7 @@ AdcButtonLeft/AdcButtonRight in pdga_PaddleControl.h.
 
 Button info page (first page after boot, shown only once):
 Before the first start page, MainControl waits 200 ms (so that ADC_buttons has
-done its boot check) and then shows ButtonInfoPageDisplayControl via
+done its boot check) and then shows ButtonInfoDisplayControl via
 ButtonInfoControl. Depending on adcButtons.isConnected() it tells that the
 external 6 button keyboard was detected (and that S1/S2 move the paddle), or
 advises to connect it and reboot. "Ga verder" leads to the start page.

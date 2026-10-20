@@ -5,7 +5,7 @@
 #include <crt_Logger.h>
 #include <crt_IADC_buttons.h>
 
-#include "pdga_ButtonInfoPageDisplayControl.h"
+#include "pdga_ButtonInfoDisplayControl.h"
 
 using namespace crt;
 namespace pong_cleangui_dg_adv
@@ -18,20 +18,20 @@ namespace pong_cleangui_dg_adv
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		ButtonInfoPageDisplayControl& buttonInfoPageDisplayControl;
+		ButtonInfoDisplayControl& buttonInfoDisplayControl;
 		IADC_buttons& adcButtons;
 		IButton* pContinueButton;
 		Flag flagContinuePressed;
 
 	public:
-		ButtonInfoControl(Task* pTask, ButtonInfoPageDisplayControl& buttonInfoPageDisplayControl, IADC_buttons& adcButtons) :
+		ButtonInfoControl(Task* pTask, ButtonInfoDisplayControl& buttonInfoDisplayControl, IADC_buttons& adcButtons) :
 			pTask(pTask),
-			buttonInfoPageDisplayControl(buttonInfoPageDisplayControl),
+			buttonInfoDisplayControl(buttonInfoDisplayControl),
 			adcButtons(adcButtons),
 			pContinueButton(nullptr),
 			flagContinuePressed(pTask)
 		{
-			pContinueButton = buttonInfoPageDisplayControl.addButtonInfoContinueButtonListener(this);
+			pContinueButton = buttonInfoDisplayControl.addButtonInfoContinueButtonListener(this);
 		}
 
     void buttonPressed(IButton* pButton)
@@ -61,7 +61,7 @@ namespace pong_cleangui_dg_adv
 		void doButtonInfoPage()
 		{
 			bool bConnected = adcButtons.isConnected();
-			buttonInfoPageDisplayControl.showButtonInfoPage(bConnected);
+			buttonInfoDisplayControl.showButtonInfoPage(bConnected);
 			pTask->dumpStackHighWaterMarkIfIncreased(); // This function call takes about 0.25ms! It should be called while debugging only.
 
 			flagContinuePressed.clear();	// een druk van vóór deze pagina telt niet.
@@ -70,7 +70,7 @@ namespace pong_cleangui_dg_adv
 			// STATE_WAIT_FOR_CONTINUE
 			pTask->wait(flagContinuePressed);
 
-			buttonInfoPageDisplayControl.hideButtonInfoPage();
+			buttonInfoDisplayControl.hideButtonInfoPage();
 		}
 	}; // end class ButtonInfoControl
 

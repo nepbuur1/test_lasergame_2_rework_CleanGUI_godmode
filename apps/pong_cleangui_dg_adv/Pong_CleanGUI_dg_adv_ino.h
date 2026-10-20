@@ -19,10 +19,10 @@
 // All Tasks should be created in this main file.
 #include <crt_Logger.h>
 #include <crt_ADC_buttons.h>
-#include "pdga_ButtonInfoPageDisplayControl.h"
+#include "pdga_ButtonInfoDisplayControl.h"
 #include "pdga_StartPageDisplayControl.h"
 #include "pdga_GameDisplayControl.h"
-#include "pdga_NameInputPageDisplayControl.h"
+#include "pdga_NameInputDisplayControl.h"
 #include "pdga_HallOfFameDisplayControl.h"
 #include "pdga_PaddleControl.h"
 #include "pdga_HallOfFame.h"
@@ -109,14 +109,14 @@ namespace pong_cleangui_dg_adv
 	HallOfFame hallOfFame("/hallOfFame");
 
 	// De allereerste pagina: of het externe toetsenbord (adcButtons hieronder) is aangesloten.
-	ButtonInfoPageDisplayControl buttonInfoPageDisplayControl("ButtonInfoPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	ButtonInfoDisplayControl buttonInfoDisplayControl("ButtonInfoDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	StartPageDisplayControl startPageDisplayControl("StartPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	GameDisplayControl gameDisplayControl("GameDisplayControl", 3 /*priority*/, 20000 /*stack size*/, ARDUINO_RUNNING_CORE, 1000 /*frameDelayMs*/, asyncDisplay, freeFonts);
 
 	// De game-over-afhandeling is twee pagina's, en dus twee taken: eerst de
 	// naaminvoer (alleen bij een top-5-score), daarna de hall of fame. Ze staan
 	// nooit tegelijk in beeld - GameOverControl roept ze strikt na elkaar aan.
-	NameInputPageDisplayControl nameInputPageDisplayControl("NameInputPageDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
+	NameInputDisplayControl nameInputDisplayControl("NameInputDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 	HallOfFameDisplayControl hallOfFameDisplayControl("HallOfFameDisplayControl", 3 /*priority*/, 10000 /*stack size*/, ARDUINO_RUNNING_CORE, asyncDisplay, freeFonts);
 
 	// Zes knoppen op een weerstandsladder aan GPIO35 (libs/CYD_tools_crt). S1 en S2 sturen de
@@ -135,9 +135,9 @@ namespace pong_cleangui_dg_adv
 	// updateSpawnables() aan, en daar hangt de balketen tot en met publishStates()
 	// onder. De Handler-taak die dat eerder deed had daar zijn eigen ~5,5 KB voor.
 	MainControl mainControl("MainControl", 1 /*priority*/, 9000 /*stack size*/, ARDUINO_RUNNING_CORE,
-	                        buttonInfoPageDisplayControl, adcButtons,
+	                        buttonInfoDisplayControl, adcButtons,
 	                        startPageDisplayControl, gameDisplayControl,
-	                        nameInputPageDisplayControl, hallOfFameDisplayControl,
+	                        nameInputDisplayControl, hallOfFameDisplayControl,
 	                        paddleControl, hallOfFame);
 }
 

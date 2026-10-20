@@ -24,21 +24,26 @@ config:
 flowchart LR
     %% Objecten
     startPageControl["«control»<br>startPageControl"]
-    buttonSpStart["«boundary»<br>buttonSpStart"]
+    buttonStart["«boundary»<br>buttonStart"]
     startPageDisplayControl["«isActive»<br>«boundary»<br>startPageDisplayControl"]
-    buttonGoStart["«boundary»<br>buttonGoStart"]
+    buttonPlayAgain["«boundary»<br>buttonPlayAgain"]
     mainControl["«isActive»<br>«control»<br>mainControl"]
-    gameOverPageControl["«control»<br>gameOverPageControl"]
-    gameOverDisplayControl["«isActive»<br>«boundary»<br>gameOverDisplayControl"]
+    gameOverControl["«control»<br>gameOverControl"]
+    hallOfFameDisplayControl["«isActive»<br>«boundary»<br>hallOfFameDisplayControl"]
     hallOfFame["«entity»<br>hallOfFame"]
-    nameInputControl["«boundary»<br>nameInputControl"]
-    nameInputfield["«boundary»<br>nameInputfield"]
+    buttonInfoControl["«control»<br>buttonInfoControl"]
+    buttonInfoDisplayControl["«isActive»<br>«boundary»<br>buttonInfoDisplayControl"]
+    nameInputControl["«control»<br>nameInputControl"]
+    nameInputDisplayControl["«isActive»<br>«boundary»<br>nameInputDisplayControl"]
+    buttonContinue["«boundary»<br>buttonContinue"]
+    inputfield["«boundary»<br>inputfield"]
     crateControl["«control»<br>crateControl"]
     ballControl["«control»<br>ballControl"]
     spawnables["«entity»<br>spawnables"]
     fireBinControl["«control»<br>fireBinControl"]
     gameControl["«control»<br>gameControl"]
     buttonGameOverLabel["«boundary»<br>buttonGameOverLabel"]
+    adcButtons["«isActive»<br>«boundary»<br>adcButtons"]
     paddleControl["«isActive»<br>«control»<br>paddleControl"]
     gameDisplayControl["«isActive»<br>«boundary»<br>gameDisplayControl"]
     buttonLeft["«boundary»<br>buttonLeft"]
@@ -46,30 +51,38 @@ flowchart LR
 
     %% Berichten
     startPageControl -->|"showStartPage,<br>hideStartPage"| startPageDisplayControl
-    buttonSpStart -->|"buttonPressed(pButton)"| startPageControl
-    buttonGoStart -->|"buttonPressed(pButton)"| gameOverPageControl
+    buttonStart -->|"buttonPressed(pButton)"| startPageControl
+    buttonPlayAgain -->|"buttonPressed(pButton)"| gameOverControl
     mainControl -->|"doStartPage"| startPageControl
-    mainControl -->|"doGameOver(score)"| gameOverPageControl
+    mainControl -->|"doGameOver(score)"| gameOverControl
+    mainControl -->|"doButtonInfoPage"| buttonInfoControl
     mainControl -->|"doGame,<br>getScore"| gameControl
-    gameOverPageControl -->|"showGameOverPage,<br>hideGameOverPage,<br>showHallOfFame(hallOfFame)"| gameOverDisplayControl
-    gameOverPageControl -->|"isQualifyingScore(score),<br>insert(strName,score),<br>save"| hallOfFame
-    gameOverPageControl -->|"doQueryName(strName,nofCharsMax)"| nameInputControl
-    gameOverDisplayControl -->|"getEntry(index)"| hallOfFame
-    nameInputControl -->|"showNameInput"| gameOverDisplayControl
-    nameInputControl -->|"getTextValue(strName)"| nameInputfield
-    nameInputfield -->|"inputNewKey(pInputfield,strKey)"| nameInputControl
+    gameOverControl -->|"showHallOfFamePage(hallOfFameData),<br>hideHallOfFamePage"| hallOfFameDisplayControl
+    gameOverControl -->|"isQualifyingScore(score),<br>insert(strName,score),<br>save,<br>getHallOfFameData"| hallOfFame
+    gameOverControl -->|"doQueryName(strName,nofCharsMax)"| nameInputControl
+    hallOfFameDisplayControl -->|"getEntry(index)"| hallOfFame
+    buttonInfoControl -->|"showButtonInfoPage(bConnected),<br>hideButtonInfoPage"| buttonInfoDisplayControl
+    buttonInfoControl -->|"isConnected"| adcButtons
+    nameInputControl -->|"showNameInputPage,<br>hideNameInputPage"| nameInputDisplayControl
+    nameInputControl -->|"getTextValue(strName)"| inputfield
+    nameInputDisplayControl -->|"nameInputPageHidden"| nameInputControl
+    nameInputDisplayControl -->|"clearInput"| inputfield
+    buttonContinue -->|"buttonPressed(pButton)"| buttonInfoControl
+    inputfield -->|"inputNewKey(pInputfield,strKey),<br>inputfieldPressed(pInputfield),<br>outsideInputfieldPressed(pInputfield)"| nameInputControl
+    inputfield -->|"inputNewKey(pInputfield,strKey),<br>inputfieldPressed(pInputfield),<br>outsideInputfieldPressed(pInputfield)"| nameInputDisplayControl
     crateControl -->|"spawnBallsAt(x,y,nofBalls)"| spawnables
     ballControl -->|"getCrateHitAtPos(x,y,ballRadius),<br>crateWasHitAtPos(crateHit),<br>isFireBinTouchedAtPos(x,y,ballRadius),<br>getPaddlePosition"| spawnables
     ballControl -->|"ballBouncedOnPaddle"| gameControl
     ballControl -->|"getWidth,<br>getHeight,<br>getBallOffScreenY"| gameDisplayControl
     spawnables -->|"init(pDepot,pBallSpawner,indexSlot),<br>spawnAt(x,y),<br>update,<br>isHitAtPos(x,y,ballRadius),<br>getPosX,<br>getPosY,<br>wasHit,<br>getCrateState"| crateControl
-    spawnables -->|"init(gameDisplayControl,pBallField,pDepot,indexSlot),<br>setBallListener(pBallListener),<br>spawnInTheMiddle,<br>spawnAt(x,y),<br>update,<br>getBallState"| ballControl
+    spawnables -->|"init(gameDisplayControl,pBallCollisionCheck,pDepot,indexSlot),<br>setBallListener(pBallListener),<br>spawnInTheMiddle,<br>spawnAt(x,y),<br>update,<br>getBallState"| ballControl
     spawnables -->|"init(pDepot,indexSlot),<br>spawnAt(x,y),<br>update,<br>isTouchedAtPos(x,y,ballRadius),<br>getFireBinState"| fireBinControl
     spawnables -->|"updateGameObjects(ballStates,crateStates,fireBinStates,score)"| gameDisplayControl
-    gameControl -->|"spawnBallInTheMiddle,<br>spawnCrateAt(x,y),<br>spawnFireBinAt(x,y),<br>releaseCratesAndFireBins,<br>setPaddlePosition(x)"| spawnables
-    gameControl -->|"enable,<br>disable"| paddleControl
+    gameControl -->|"spawnBallInTheMiddle,<br>spawnCrateAt(x,y),<br>spawnFireBinAt(x,y),<br>releaseCratesAndFireBins,<br>setPaddlePosition(x),<br>updateBalls,<br>updateCratesAndFireBins,<br>publishStates(score),<br>setBallListener(pBallListener),<br>getNofBallsInUse,<br>getNofCratesInUse,<br>getNofFireBinsInUse"| spawnables
+    gameControl -->|"enable,<br>disable,<br>getPaddlePosition"| paddleControl
     gameControl -->|"showGamePage,<br>hideGamePage,<br>showGameOverLabel,<br>hideGameOverLabel,<br>getWidth,<br>getHeight"| gameDisplayControl
     buttonGameOverLabel -->|"buttonPressed(pButton)"| gameControl
+    adcButtons -->|"buttonPressed(buttonIndex),<br>buttonReleased(buttonIndex)"| paddleControl
     paddleControl -->|"getWidth,<br>updatePaddlePosition(x),<br>showPaddle,<br>hidePaddle"| gameDisplayControl
     buttonLeft -->|"buttonPressed(pButton),<br>buttonReleased(pButton)"| paddleControl
     buttonRight -->|"buttonPressed(pButton),<br>buttonReleased(pButton)"| paddleControl

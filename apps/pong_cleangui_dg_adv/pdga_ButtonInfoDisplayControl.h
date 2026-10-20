@@ -22,7 +22,7 @@
 using namespace crt;
 namespace pong_cleangui_dg_adv
 {
-	class ButtonInfoPageDisplayControl : public Task
+	class ButtonInfoDisplayControl : public Task
 	{
 		enum State
 		{
@@ -80,7 +80,7 @@ namespace pong_cleangui_dg_adv
 		State state;
 
 	public:
-		ButtonInfoPageDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
+		ButtonInfoDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 							IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			display(display),
@@ -238,6 +238,6 @@ namespace pong_cleangui_dg_adv
 				}
 			}
 		}
-	}; // end class ButtonInfoPageDisplayControl
+	}; // end class ButtonInfoDisplayControl
 
 };// end namespace pong_cleangui_dg_adv

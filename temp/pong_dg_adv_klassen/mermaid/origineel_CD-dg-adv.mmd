@@ -24,6 +24,35 @@ config:
 classDiagram
     direction TB
     %% Klassen
+    class ADC_buttons_1["ADC_buttons#lt;1#gt;"] {
+        <<interface» «boundary>>
+        +addButtonListener(pListener:IADC_buttonsListener#42;)
+        +isButtonPressed(buttonIndex:int) bool
+        +getPressedMask() uint8_t
+        +getMillivolts() uint16_t
+        +isConnected() bool
+    }
+    class ButtonInfoControl {
+        <<control>>
+        -buttonInfoDisplayControl : ButtonInfoDisplayControl#amp;
+        -adcButtons : IADC_buttons#amp;
+        +doButtonInfoPage()
+        +buttonPressed(pButton:IButton#42;)
+    }
+    class ButtonInfoDisplayControl {
+        <<isActive» «boundary>>
+        -buttonContinue : PlayButton
+        +showButtonInfoPage()
+        +hideButtonInfoPage()
+    }
+    class IADC_buttons {
+        <<interface>>
+        +addButtonListener(pListener:IADC_buttonsListener#42;)
+        +isButtonPressed(buttonIndex:int) bool
+        +getPressedMask() uint8_t
+        +getMillivolts() uint16_t
+        +isConnected() bool
+    }
     class PlayButton {
         <<boundary>>
         +addButtonListener(bl:IButtonListener#42;)
@@ -38,10 +67,11 @@ classDiagram
         -gameControl : GameControl
         -gameOverControl : GameOverControl
         -startPageControl : StartPageControl
+        -buttonInfoControl : ButtonInfoControl
     }
     class StartPageDisplayControl {
         <<isActive» «boundary>>
-        -buttonSpStart : ButtonSpStart
+        -buttonSpStart : PlayButton
         +showStartPage()
         +hideStartPage()
     }
@@ -118,6 +148,11 @@ classDiagram
         -pInputfieldListener : IInputfieldListener#42;
         +getTextValue(strName:crt::std::string#amp;)
     }
+    class IADC_buttonsListener {
+        <<interface>>
+        +buttonPressed(buttonIndex:int)
+        +buttonReleased(buttonIndex:int)
+    }
     class IInputfieldListener {
         <<interface>>
         +inputNewKey(pInputfield:IInputfield#42;, strKey:const char#42;)
@@ -138,6 +173,8 @@ classDiagram
         +getPaddlePosition() int
         +buttonPressed(pButton:IButton#42;)
         +buttonReleased(pButton:IButton#42;)
+        +buttonPressed(buttonIndex:int)
+        +buttonReleased(buttonIndex:int)
     }
     class Spawnables {
         <<entity>>
@@ -278,11 +315,18 @@ classDiagram
     }
 
     %% Relaties
+    ADC_buttons_1 <|.. IADC_buttons
+    ADC_buttons_1 --> IADC_buttonsListener
+    ButtonInfoControl --> ADC_buttons_1
+    ButtonInfoControl "Text" --> ButtonInfoDisplayControl
+    PlayButton *-- ButtonInfoDisplayControl
     PlayButton --> IButtonListener
+    IButtonListener <|.. ButtonInfoControl
     IButtonListener <|.. StartPageControl
     IButtonListener <|.. GameOverPageControl
     IButtonListener <|.. GameControl
     IButtonListener <|.. PaddleControl
+    MainControl *-- ButtonInfoControl
     MainControl *-- StartPageControl
     MainControl *-- GameOverPageControl
     MainControl *-- GameControl
@@ -304,9 +348,11 @@ classDiagram
     NameInputControl --> NameInputDisplayControl
     NameInputControl --> NameInputfield
     NameInputfield --> IInputfieldListener
+    IADC_buttonsListener <|.. PaddleControl
     IInputfieldListener <|.. NameInputControl
     IBallListener <|.. GameControl
     TouchScreenButton_1_10 --> IButtonListener
+    PaddleControl ..> IADC_buttons
     PaddleControl --> IGameDisplayControl
     Spawnables --> IGameDisplayControl
     Spawnables *-- Depot_BallControl_MaxNofBalls

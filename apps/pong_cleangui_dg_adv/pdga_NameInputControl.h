@@ -4,7 +4,7 @@
 #include <crt_CleanRTOS.h>
 #include <string.h>
 
-#include "pdga_NameInputPageDisplayControl.h"
+#include "pdga_NameInputDisplayControl.h"
 
 // UC03 stap 1: de speler om zijn naam vragen en pas terugkomen als hij hem heeft
 // ingetypt.
@@ -23,7 +23,7 @@
 // Een control-object en geen taak, net als StartPageControl en GameOverControl:
 // doQueryName() draait in de taak van de aanroeper en blokkeert die tot de naam er
 // is. Het tekenen gebeurt intussen gewoon door in de taak van
-// NameInputPageDisplayControl - die schuift het toetsenbord in beeld en werkt het
+// NameInputDisplayControl - die schuift het toetsenbord in beeld en werkt het
 // veld bij bij elke aanslag.
 //
 // Dat het hele bezoek aan de naampagina - tonen, wachten, weer weg - binnen deze
@@ -37,7 +37,7 @@ namespace pong_cleangui_dg_adv
 	{
 	private:
 		Task* pTask; // The task that this control object is merged to.
-		NameInputPageDisplayControl& nameInputPageDisplayControl;
+		NameInputDisplayControl& nameInputDisplayControl;
 		IInputfield* pNameInputfield;
 		Flag flagNameEntered;
 
@@ -46,15 +46,15 @@ namespace pong_cleangui_dg_adv
 		Flag flagPageHidden;
 
 	public:
-		NameInputControl(Task* pTask, NameInputPageDisplayControl& nameInputPageDisplayControl) :
+		NameInputControl(Task* pTask, NameInputDisplayControl& nameInputDisplayControl) :
 			pTask(pTask),
-			nameInputPageDisplayControl(nameInputPageDisplayControl),
+			nameInputDisplayControl(nameInputDisplayControl),
 			pNameInputfield(nullptr),
 			flagNameEntered(pTask),
 			flagPageHidden(pTask)
 		{
-			pNameInputfield = nameInputPageDisplayControl.addNameInputfieldListener(this);
-			nameInputPageDisplayControl.setNameInputPageListener(this);
+			pNameInputfield = nameInputDisplayControl.addNameInputfieldListener(this);
+			nameInputDisplayControl.setNameInputPageListener(this);
 		}
 
 		// Zie StartPageControl::doStartPage() en GameControl::doGame(): een deelstap
@@ -72,7 +72,7 @@ namespace pong_cleangui_dg_adv
 			flagNameEntered.clear();
 			flagPageHidden.clear();
 
-			nameInputPageDisplayControl.showNameInputPage();
+			nameInputDisplayControl.showNameInputPage();
 
 			// UC03 stap 1b. Alles ertussen - het toetsenbord dat in beeld schuift,
 			// het bijwerken van het veld bij elke aanslag - gebeurt in de taak van
@@ -84,27 +84,13 @@ namespace pong_cleangui_dg_adv
 			// hem zelf via een pool over naar de vragende taak.
 			crt::std::string<MaxNofNameFieldChars> strFieldContent;
 			pNameInputfield->getTextValue(strFieldContent);
-
-			// Op lengte kopieren en niet met strncpy vanaf begin(): crt::std::string
-			// is lengtegebaseerd en houdt GEEN afsluitende nul bij. operator= is
-			// clear() += rhs (zie crt_string.h), en dat schrijft alleen length()
-			// tekens - wat er in de bufferruimte daarachter staat blijft ongemoeid.
-			// Hier is die ruimte stack, dus rommel, en strncpy leest daar dwars
-			// doorheen tot hij toevallig een nulbyte tegenkomt. Dat is precies wat
-			// er als vraagtekens achter de naam in de hall of fame terechtkwam.
-			int nofChars = (int)strFieldContent.length();
-			if (nofChars > (nofCharsMax - 1))
-			{
-				nofChars = nofCharsMax - 1;
-			}
-			memcpy(strName, strFieldContent.begin(), nofChars);
-			strName[nofChars] = '\0';
+			copyStringToNullTerminatedBuffer(strFieldContent, strName, nofCharsMax);
 
 			// En de pagina weer weg. Wachten tot dat gebeurd is en niet alleen
 			// vragen: het toetsenbord schuift eerst naar beneden, en dat is nog een
 			// paar honderd milliseconden tekenwerk op een pagina die tot dan toe in
 			// beeld staat. Het einde daarvan komt binnen via nameInputPageHidden().
-			nameInputPageDisplayControl.hideNameInputPage();
+			nameInputDisplayControl.hideNameInputPage();
 			pTask->wait(flagPageHidden);
 		}
 
@@ -142,6 +128,28 @@ namespace pong_cleangui_dg_adv
 		/* override */ void nameInputPageHidden()
 		{
 			flagPageHidden.set();
+		}
+
+	private:
+		// Zet str in buffer als C-string: hooguit bufferSize-1 tekens plus een
+		// afsluitende nul. bufferSize telt die nul dus mee.
+		//
+		// Op lengte kopieren en niet met strncpy vanaf begin(): crt::std::string
+		// is lengtegebaseerd en houdt GEEN afsluitende nul bij. operator= is
+		// clear() += rhs (zie crt_string.h), en dat schrijft alleen length()
+		// tekens - wat er in de bufferruimte daarachter staat blijft ongemoeid.
+		// In doQueryName() is die ruimte stack, dus rommel, en strncpy leest daar
+		// dwars doorheen tot hij toevallig een nulbyte tegenkomt. Dat is precies wat
+		// er als vraagtekens achter de naam in de hall of fame terechtkwam.
+		static void copyStringToNullTerminatedBuffer(const crt::std::string_base& str, char* buffer, int bufferSize)
+		{
+			int nofChars = (int)str.length();
+			if (nofChars > (bufferSize - 1))
+			{
+				nofChars = bufferSize - 1;
+			}
+			memcpy(buffer, str.begin(), nofChars);
+			buffer[nofChars] = '\0';
 		}
 	}; // end class NameInputControl
 

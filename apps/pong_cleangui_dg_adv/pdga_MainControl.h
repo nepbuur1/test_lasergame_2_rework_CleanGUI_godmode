@@ -42,16 +42,16 @@ namespace pong_cleangui_dg_adv
 		// gaat door naar GameOverControl, dat hem meteen doorgeeft aan zijn
 		// NameInputControl en er zelf niets van hoeft te weten.
 		MainControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
-					ButtonInfoPageDisplayControl& buttonInfoPageDisplayControl, IADC_buttons& adcButtons,
+					ButtonInfoDisplayControl& buttonInfoDisplayControl, IADC_buttons& adcButtons,
 					StartPageDisplayControl& startPageDisplayControl, GameDisplayControl& gameDisplayControl,
-					NameInputPageDisplayControl& nameInputPageDisplayControl,
+					NameInputDisplayControl& nameInputDisplayControl,
 					HallOfFameDisplayControl& hallOfFameDisplayControl, PaddleControl& paddleControl,
 					HallOfFame& hallOfFame) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			state(STATE_BUTTON_INFO_PAGE),
 			gameControl(this, gameDisplayControl, paddleControl),
-			gameOverControl(this, nameInputPageDisplayControl, hallOfFameDisplayControl, hallOfFame),
-			buttonInfoControl(this, buttonInfoPageDisplayControl, adcButtons),
+			gameOverControl(this, nameInputDisplayControl, hallOfFameDisplayControl, hallOfFame),
+			buttonInfoControl(this, buttonInfoDisplayControl, adcButtons),
 			startPageControl(this, startPageDisplayControl)
 		{
 			// Dat de naampagina meldt wanneer de naam is ingetypt (UC03 stap

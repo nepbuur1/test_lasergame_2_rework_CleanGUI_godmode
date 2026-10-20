@@ -1,5 +1,136 @@
 # Claude log
 
+## 2026-10-20 — NameInputDisplayControl: STATE_SHOWN wacht niet meer op flagShowNameInputPage
+
+In `STATE_SHOWN` werd ook op `flagShowNameInputPage` gewacht, maar daar gebeurde niets mee.
+Die vlag en de lege tak zijn weg; `waitAny(flagHideNameInputPage + flagNewKey)`.
+
+- **Waarom dat veilig is:** een show-wens terwijl de pagina al in beeld staat, blijft als
+  vlag staan. De enige weg terug naar `STATE_HIDDEN` loopt via `hideNameInputPage()`, en die
+  wist de show-vlag eerst. Er komt dus geen onterecht opnieuw tonen.
+- **Ook hetzelfde als eerst:** bij hide en daarna direct show in `STATE_SHOWN` (laatste wens
+  telt) blijft de pagina in beeld. Vroeger werd de taak daarvoor even wakker gemaakt; nu niet.
+- Het commentaar in de code legt dit uit.
+- `idf.py build` lukt. Niet op de CYD getest.
+- In `temp/pong_dg_adv_klassen/pong_dg_adv_klassen.drawio` is de regel
+  `flagShowNameInputPage / -` uit toestand `Shown` gehaald, met verder niets aangepast.
+
+## 2026-10-20 — NameInputControl: copyStringToNullTerminatedBuffer
+
+Het omzetten van de ingetypte naam naar een C-string staat niet meer midden in
+`doQueryName()`. Het zit nu in de private functie
+`static void copyStringToNullTerminatedBuffer(const crt::std::string_base& str, char* buffer, int bufferSize)`
+in `pdga_NameInputControl.h`.
+
+- Wat de functie doet, is niet veranderd: hooguit `bufferSize-1` tekens kopiëren en er een
+  afsluitende nul achter zetten.
+- Het commentaar over waarom niet met `strncpy`, is mee verhuisd naar de functie.
+- De functie neemt `string_base`, de basis van `crt::std::string<N>`, zodat hij voor elke
+  maximale lengte werkt.
+- `idf.py build` lukt. Niet op de CYD getest.
+
+## 2026-10-20 — pong_dg_adv_klassen.drawio: STD's voor NameInputControl en NameInputDisplayControl
+
+In `temp/pong_dg_adv_klassen/pong_dg_adv_klassen.drawio` staan twee nieuwe tabs, direct na
+STD-GameOverDisplayControl. Ze zijn in de gewone kleuren getekend, dus niet groen, en volgen
+de stijl van STD-StartPageControl en STD-StartPageDisplayControl.
+
+- **`STD_NameInputControl`**, voor `doQueryName(strName, nofCharsMax)`:
+  - het interfaceblok: `inputNewKey` zet bij "ENTER" `flagNameEntered`, en
+    `nameInputPageHidden` zet `flagPageHidden`;
+  - het verloop: begin → `WaitForName` → bij `flagNameEntered` de naam ophalen en
+    `hideNameInputPage()` → `WaitForPageHidden` → bij `flagPageHidden` naar de eindtoestand.
+- **`STD_NameInputDisplayControl`**:
+  - het interfaceblok: show, hide, `setNameInputPageListener` en `inputNewKey`;
+  - de toestanden `Hidden` en `Shown`;
+  - `Hidden` → `Shown` bij `flagShowNameInputPage`: veld wissen, pagina tonen en het
+    toetsenbord omhoog schuiven;
+  - `Shown` → `Hidden` bij `flagHideNameInputPage`: `enterHidden`;
+  - in `Hidden` een lus bij `flagHideNameInputPage`: `signalPageHidden()`;
+  - in `Shown` de interne transitie `flagNewKey` / hertekenen, behalve bij ENTER;
+  - een note met wat `signalPageHidden()` doet.
+- Alle bestaande tabs zijn per cel ongewijzigd. `AllesNaarMermaid` leest beide nieuwe tabs
+  zonder waarschuwingen. De layout van de nieuwe tabs laat Marius zelf, want de labels
+  overlappen nog.
+
+## 2026-10-20 — pong_dg_adv_klassen.drawio: groen weer zwart
+
+Marius had de layout van OM en CD in `temp/pong_dg_adv_klassen/pong_dg_adv_klassen.drawio` al
+in orde gemaakt. Daarna is al het groen weggehaald:
+
+- 101 style-sleutels `strokeColor/fontColor=#2e7d32`;
+- in 42 labels de inline kleur: `<font color="#2e7d32">` en één
+  `<span style="color: rgb(46, 125, 50)">`. Tags die alleen die kleur droegen zijn weggehaald,
+  inclusief hun sluittag.
+
+Gecontroleerd:
+
+- Per cel vergeleken met de kopie van vóór de wijziging: buiten de kleur is niets veranderd. In
+  de labels is de zichtbare tekst gelijk gebleven.
+- Er is geen groen meer over.
+- OM en CD zijn met draw.io geëxporteerd en bekeken.
+
+`pong_dg_adv_klassen copy.drawio`, de kopie die Marius van de layoutversie maakte, is niet
+aangeraakt.
+
+## 2026-10-20 — pong_dg_adv: OM en CD naast de klassen in de code gelegd (temp/pong_dg_adv_klassen)
+
+De OM- en CD-tabs van `pong_dg_adv.drawio` zijn vergeleken met alle klassen en structs die in
+`apps/pong_cleangui_dg_adv/*.h` gedeclareerd worden. Klassen van elders zijn niet nagelopen. Het
+resultaat staat in een bewerkte kopie, `temp/pong_dg_adv_klassen/pong_dg_adv_klassen.drawio`;
+het origineel is niet aangeraakt.
+
+- **Kleuren:**
+  - groen = nieuw of aangepast. In bestaande tekstcellen staat alleen de veranderde regel in
+    het groen (`<font color>`).
+  - rood = staat in het model, maar bestaat niet in de code. Er is niets verwijderd.
+- **CD:**
+  - 9 klassen erbij: `HallOfFameData`, `INameInputPageListener`, `CrateHit` en de
+    `Ball/Crate/FireBin` State(s)-structs;
+  - verouderde namen en types gecorrigeerd: `GameOverPageControl` → `GameOverControl`,
+    `I…DisplayControl&` → het concrete type, `buttonSpStart`/`buttonGoStart`;
+  - de members en operaties van `NameInputDisplayControl` (het waren die van
+    HallOfFameDisplayControl) en `HallOfFameDisplayControl`;
+  - pijlen omgezet of omgedraaid;
+  - `IGameDisplayControl` is rood.
+- **OM:**
+  - objecten hernoemd naar de membernamen in de code;
+  - `nameInputDisplayControl` toegevoegd, met zijn berichten;
+  - berichtlabels aangevuld;
+  - `getEntry(index)` is rood.
+- **Gecontroleerd:**
+  - per cel vergeleken: niets verwijderd, alleen de bedoelde cellen gewijzigd, geen andere
+    tabs geraakt;
+  - alleen regelvakken binnen gegroeide klassen zijn verschoven;
+  - `AllesNaarMermaid` leest de kopie zonder waarschuwingen;
+  - met draw.io naar PNG geëxporteerd en bekeken.
+- De README in die map heeft de volledige tabel, plus wat buiten de opdracht viel.
+
+## 2026-10-20 — rename: ButtonInfoDisplayControl en NameInputDisplayControl
+
+Overal in het project, ook in bestandsnamen, zijn deze namen hernoemd:
+
+- `ButtonInfoPageDisplayControl` → `ButtonInfoDisplayControl`;
+- `NameInputPageDisplayControl` → `NameInputDisplayControl`, en daarmee ook
+  `INameInputPageDisplayControl` → `INameInputDisplayControl`;
+- in beide gevallen ook de varianten met een kleine letter vooraan (de objectnamen).
+
+- **Bestanden:**
+  - `pdga_ButtonInfoPageDisplayControl.h` → `pdga_ButtonInfoDisplayControl.h`;
+  - `pdga_NameInputPageDisplayControl.h` → `pdga_NameInputDisplayControl.h`.
+  - Hernoemd met gewone `mv`, niet met `git mv`. Git ziet daarom nog een verwijderd en
+    een nieuw bestand.
+- **Aangepast:**
+  - de headers en `Pong_CleanGUI_dg_adv_ino.h` in `apps/pong_cleangui_dg_adv`;
+  - `README.txt`;
+  - `models/pong_dg_adv.drawio`, inclusief de tabnaam;
+  - de eerdere entries in dit log.
+- **Niet aangepast:**
+  - de `PageRoot`-namen `rootButtonInfoPageDisplay` en `rootNameInputPageDisplay`. Dat
+    zijn alleen teksten.
+  - het draw.io-backupbestand `.$pong_dg_adv.drawio.bkp`.
+- **Gebouwd:** `idf.py build` lukt, met Pong als actieve app.
+
 ## 2026-10-19 — pong_dg_adv.drawio: groen weer zwart
 
 In `apps/pong_cleangui_dg_adv/models/pong_dg_adv.drawio` zelf (geen kopie) zijn alle 28
@@ -7,7 +138,7 @@ groene kleurinstellingen (`strokeColor=#2e7d32`/`fontColor=#2e7d32`) weggehaald.
 cellen hebben daardoor weer de standaardkleur, zwart.
 
 - Er stond alleen nog groen in de tabs `STD-ButtonInfoControl` en
-  `ButtonInfoPageDisplayControl`.
+  `ButtonInfoDisplayControl`.
 - Per cel vergeleken met een kopie van vóór de wijziging: buiten die kleurinstellingen is
   niets veranderd.
 - Er is nergens nog `2e7d32` te vinden.
@@ -21,12 +152,12 @@ Alles staat in `temp/pong_dg_adv_mermaid/`; meer uitleg in de README daar.
   - `origineel/`: alle 17 tabs, omgezet met ModelAnalysis `AllesNaarMermaid`;
   - `bijgewerkt/`: 7 modellen met de nieuwe elementen in groen (OM, CD, STD-MainControl,
     STD-PaddleControl, UC, plus de nieuwe STD-ButtonInfoControl en
-    STD-ButtonInfoPageDisplayControl);
+    STD-ButtonInfoDisplayControl);
   - `png/`: die 7 als PNG.
 - **`pong_dg_adv_bijgewerkt.drawio`:** een kopie van het origineel met dezelfde
   toevoegingen in groen. Er is alleen toegevoegd; niets is verplaatst.
   - Wat Marius zelf al in het OM en CD had gezet, is gebruikt en groen gemaakt, met twee
-    hernoemingen: `buttonInfoPageDisplayControl` en `doButtonInfoPage`.
+    hernoemingen: `buttonInfoDisplayControl` en `doButtonInfoPage`.
   - Behalve de bedoelde aanpassingen is per cel nagekeken dat er niets veranderd is.
   - `AllesNaarMermaid` leest het bestand foutloos.
   - Met draw.io desktop geëxporteerd en bekeken.
@@ -38,7 +169,7 @@ Alles staat in `temp/pong_dg_adv_mermaid/`; meer uitleg in de README daar.
 Vóór de allereerste startpagina laat Pong nu eenmalig een infopagina zien over het
 externe toetsenbord (de weerstandsladder met zes knoppen op GPIO35).
 
-- **`pdga_ButtonInfoPageDisplayControl.h`** (nieuw): eigen taak en `PageRoot<10>`, gebouwd
+- **`pdga_ButtonInfoDisplayControl.h`** (nieuw): eigen taak en `PageRoot<10>`, gebouwd
   zoals `StartPageDisplayControl`:
   - achtergrond, de titel (`imageTitleSuperPong`, op y=16), vier gecentreerde `Text`-regels
     (font 2) en een knop "Ga verder" (font 4, rood, zonder plaatje);
@@ -57,7 +188,7 @@ externe toetsenbord (de weerstandsladder met zes knoppen op GPIO35).
   `vTaskDelay(200 ms)`, zodat `ADC_buttons` zijn controle bij het opstarten gedaan heeft;
   daarna door naar `STATE_START_PAGE`. De constructor krijgt de nieuwe DisplayControl en
   `IADC_buttons&` mee.
-- **`Pong_CleanGUI_dg_adv_ino.h`**: `buttonInfoPageDisplayControl` (prioriteit 3, stack
+- **`Pong_CleanGUI_dg_adv_ino.h`**: `buttonInfoDisplayControl` (prioriteit 3, stack
   10000) erbij; `adcButtons` gaat ook naar `mainControl`.
 - **Getest op de CYD** (Marius): de pagina verschijnt met de "aangesloten"-tekst, en
   "Ga verder" gaat naar de startpagina. De "niet aangesloten"-tekst is niet op het scherm
@@ -356,7 +487,7 @@ in de `.drawio`).
 ## 2026-09-07 — pdga: defineDisplayHierarchy ook in GameDisplayControl
 
 In `apps/pong_cleangui_dg_adv` hadden `StartPageDisplayControl`,
-`HallOfFameDisplayControl` en `NameInputPageDisplayControl` het opbouwen van de
+`HallOfFameDisplayControl` en `NameInputDisplayControl` het opbouwen van de
 widgetboom al afgesplitst naar een private `defineDisplayHierarchy(IWidget&)`.
 `GameDisplayControl` deed dat nog los in `main()`: 35 regels `addChildWidget`
 tussen de backbuffer-detectie en `hidePage()`.
@@ -520,7 +651,7 @@ Wat er weg is:
   buffervraag.
 - `TorchesDisplayHelpers::redrawTorches()`; de pagina's doen weer
   `page.redraw(true)` per fakkelstap.
-- `NameInputPageDisplayControl`: de `moveTo`-tak van de schuifbeweging en de
+- `NameInputDisplayControl`: de `moveTo`-tak van de schuifbeweging en de
   buffervoorwaarde bij het typen.
 - De .ino heeft weer een enkele typedef (PAL8); de RGB565-include is weg.
 
@@ -594,7 +725,7 @@ Weg in de drie GUI-apps:
 
 | app | weg |
 | --- | --- |
-| `pong_cleangui_dg_adv` | `IStartPageDisplayControl`, `IGameDisplayControl`, `INameInputPageDisplayControl`, `IHallOfFameDisplayControl` |
+| `pong_cleangui_dg_adv` | `IStartPageDisplayControl`, `IGameDisplayControl`, `INameInputDisplayControl`, `IHallOfFameDisplayControl` |
 | `pong_cleangui_dg` | `IStartPageDisplayControl`, `IGameDisplayControl`, `IGameOverDisplayControl` |
 | `pong_cleangui_cg` | `IDisplayControl` |
 
@@ -636,10 +767,10 @@ De twee fasen van `pdga_GameOverDisplayControl.h` zijn uit elkaar gehaald. Wat
 
 | was | is |
 | --- | --- |
-| `pdga_GameOverDisplayControl.h` (fase NAAM + fase LIJST) | `pdga_NameInputPageDisplayControl.h` en `pdga_HallOfFameDisplayControl.h` |
+| `pdga_GameOverDisplayControl.h` (fase NAAM + fase LIJST) | `pdga_NameInputDisplayControl.h` en `pdga_HallOfFameDisplayControl.h` |
 | `pdga_GameOverPageControl.h` (klasse `GameOverControl`) | `pdga_GameOverControl.h` (zelfde klasse) |
 
-`NameInputControl` hangt nu aan `INameInputPageDisplayControl` in plaats van aan
+`NameInputControl` hangt nu aan `INameInputDisplayControl` in plaats van aan
 de game-over-pagina; `GameOverControl` kent alleen nog de hall of fame en geeft
 de naampagina ongeopend door aan zijn `NameInputControl`. De ino maakt twee
 DisplayControls waar er één stond, en `MainControl` krijgt er één parameter bij.
@@ -690,7 +821,7 @@ naar het model van `pdga_IBallListener.h`.
 virtual void nameInputPageHidden() = 0;
 ```
 
-`NameInputPageDisplayControl::setNameInputPageListener()` is letterlijk
+`NameInputDisplayControl::setNameInputPageListener()` is letterlijk
 `BallControl::setBallListener()`, inclusief de nullptr-toets bij het aanroepen.
 `NameInputControl` implementeert de luisteraar en zet daarin zijn eigen
 `flagPageHidden` — net zoals het in `inputNewKey()` zijn eigen `flagNameEntered`

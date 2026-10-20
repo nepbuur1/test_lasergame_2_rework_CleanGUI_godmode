@@ -55,7 +55,7 @@ namespace pong_cleangui_dg_adv
 	// IInputfieldListener blijft wel: dat is een CleanGUI-luisteraar, en die heeft
 	// wel degelijk meerdere implementaties - deze pagina luistert mee om te
 	// hertekenen, NameInputControl om te weten wat er getypt is.
-	class NameInputPageDisplayControl : public Task, public IInputfieldListener
+	class NameInputDisplayControl : public Task, public IInputfieldListener
 	{
 		enum State
 		{
@@ -106,7 +106,7 @@ namespace pong_cleangui_dg_adv
 		bool bKeyboardIsUp;
 
 	public:
-		NameInputPageDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
+		NameInputDisplayControl(const char *taskName, unsigned int taskPriority, unsigned int taskSizeBytes, unsigned int taskCoreNumber,
 							IDisplay& display, TFT_eSPI_IFreeFonts& freeFonts) :
 			Task(taskName, taskPriority, taskSizeBytes, taskCoreNumber),
 			display(display),
@@ -396,17 +396,16 @@ namespace pong_cleangui_dg_adv
 						break;
 
 					case STATE_SHOWN:
-						waitAny(flagHideNameInputPage + flagShowNameInputPage + flagNewKey);
+						// Niet op flagShowNameInputPage: al in beeld, dus daar valt niets
+						// mee te doen. Blijft hij staan, dan geeft dat niets - de enige
+						// weg terug naar STATE_HIDDEN is hideNameInputPage(), en die
+						// wist hem eerst.
+						waitAny(flagHideNameInputPage + flagNewKey);
 
 						if(hasFired(flagHideNameInputPage))
 						{
 							enterHidden(pageNameInput);
 							state = STATE_HIDDEN;
-						}
-						else if(hasFired(flagShowNameInputPage))
-						{
-							// al in beeld: niets te doen. doQueryName() staat tot ENTER
-							// stil, dus een tweede vraag kan er sowieso niet zijn.
 						}
 						else if(hasFired(flagNewKey))
 						{
@@ -436,6 +435,6 @@ namespace pong_cleangui_dg_adv
 				}
 			}
 		}
-	}; // end class NameInputPageDisplayControl
+	}; // end class NameInputDisplayControl
 
 };// end namespace pong_cleangui_dg_adv
