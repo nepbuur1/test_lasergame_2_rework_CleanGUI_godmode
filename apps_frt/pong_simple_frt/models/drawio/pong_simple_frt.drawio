@@ -1030,24 +1030,24 @@
     </mxGraphModel>
   </diagram>
   <diagram id="simple-48b1847228d1" name="STD-GameControl">
-    <mxGraphModel dx="898" dy="1420" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="gc-frame" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=230;strokeWidth=2;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  GameControl - doGame()&lt;/p&gt;" vertex="1">
-          <mxGeometry height="410" width="670" x="120" y="20" as="geometry" />
+          <mxGeometry height="410" width="560" x="170" y="20" as="geometry" />
         </mxCell>
         <mxCell id="gc-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;ballMissedByPaddle / xEventGroupSetBits(eventGroup, eventBitBallMissedByPaddle)&lt;/p&gt;" vertex="1">
-          <mxGeometry height="52" width="490" x="180" y="60" as="geometry" />
+          <mxGeometry height="52" width="490" x="210" y="60" as="geometry" />
         </mxCell>
         <mxCell id="gc-init" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;strokeColor=#2e7d32;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="410" y="160" as="geometry" />
+          <mxGeometry height="40" width="40" x="340" y="160" as="geometry" />
         </mxCell>
         <mxCell id="gc-wait" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="GameRunning" vertex="1">
-          <mxGeometry height="40" width="130" x="365" y="270" as="geometry" />
+          <mxGeometry height="40" width="130" x="295" y="270" as="geometry" />
         </mxCell>
         <mxCell id="gc-final" parent="1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;strokeColor=#2e7d32;fontColor=#2e7d32;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="410" y="370" as="geometry" />
+          <mxGeometry height="40" width="40" x="340" y="370" as="geometry" />
         </mxCell>
         <mxCell id="gc-e1" edge="1" parent="1" source="gc-init" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" target="gc-wait" value="&lt;div&gt;/ displayControl.showGamePage();&lt;/div&gt;&lt;div&gt;xEventGroupClearBits(eventGroup, eventBitBallMissedByPaddle);&lt;/div&gt;&lt;div&gt;paddleControl.enable();&lt;/div&gt;&lt;div&gt;ballControl.startBall()&lt;/div&gt;">
           <mxGeometry relative="1" x="0.1429" y="10" as="geometry">
@@ -1060,42 +1060,49 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="qDmPZr_9p8j1eKMpppNY-1" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
-          <mxGeometry height="8" width="670" x="120" y="127" as="geometry" />
+          <mxGeometry height="8" width="560" x="170" y="127" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="simple-4ddc24ae79fe" name="STD-GameOverControl">
-    <mxGraphModel dx="746" dy="1114" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1080" dy="1709" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="goc-frame" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=230;strokeWidth=2;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  GameOverControl - doGameOver()&lt;/p&gt;" vertex="1">
-          <mxGeometry height="400" width="1037" x="10" y="20" as="geometry" />
+          <mxGeometry height="420" width="800" x="10" y="40" as="geometry" />
         </mxCell>
         <mxCell id="goc-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pGameOverPageStartButton) xEventGroupSetBits(eventGroup, eventBitStartPressed)&lt;/p&gt;" vertex="1">
-          <mxGeometry height="54" width="927" x="100" y="50" as="geometry" />
+          <mxGeometry height="54" width="740" x="40" y="80" as="geometry" />
         </mxCell>
         <mxCell id="goc-init" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;strokeColor=#2e7d32;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="410" y="150" as="geometry" />
+          <mxGeometry height="40" width="40" x="310" y="180" as="geometry" />
         </mxCell>
         <mxCell id="goc-wait" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="WaitForStart" vertex="1">
-          <mxGeometry height="40" width="130" x="365" y="260" as="geometry" />
+          <mxGeometry height="40" width="130" x="265" y="290" as="geometry" />
         </mxCell>
         <mxCell id="goc-final" parent="1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;strokeColor=#2e7d32;fontColor=#2e7d32;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="410" y="360" as="geometry" />
+          <mxGeometry height="40" width="40" x="310" y="390" as="geometry" />
         </mxCell>
-        <mxCell id="goc-e1" edge="1" parent="1" source="goc-init" target="goc-wait" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" value="&lt;div&gt;/ displayControl.showGameOverPage();&lt;/div&gt;&lt;div&gt;xEventGroupClearBits(eventGroup, eventBitStartPressed)&lt;/div&gt;">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="goc-e1" edge="1" parent="1" source="goc-init" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" target="goc-wait" value="&lt;div&gt;/ displayControl.showGameOverPage();&lt;/div&gt;&lt;div&gt;xEventGroupClearBits(eventGroup, eventBitStartPressed)&lt;/div&gt;">
+          <mxGeometry relative="1" x="-0.1429" y="10" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="goc-e2" edge="1" parent="1" source="goc-wait" target="goc-final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" value="eventBitStartPressed&lt;div&gt;/ displayControl.hideGameOverPage()&lt;/div&gt;">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="goc-e2" edge="1" parent="1" source="goc-wait" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" target="goc-final" value="eventBitStartPressed&lt;div&gt;/ displayControl.hideGameOverPage()&lt;/div&gt;">
+          <mxGeometry relative="1" y="10" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="G47YRC7eHKCZ1_B6Yi_X-1" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="800" x="10" y="147" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="simple-a4e0149d85a0" name="STD-BallControl">
-    <mxGraphModel dx="746" dy="1114" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="856" dy="1355" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1114,16 +1121,16 @@
         <mxCell id="bc-running" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#2e7d32;fontColor=#2e7d32;" value="Running" vertex="1">
           <mxGeometry height="40" width="100" x="200" y="380" as="geometry" />
         </mxCell>
-        <mxCell id="bc-e0" edge="1" parent="1" source="bc-init" target="bc-stopped" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" value="">
+        <mxCell id="bc-e0" edge="1" parent="1" source="bc-init" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;" target="bc-stopped" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="bc-e1" edge="1" parent="1" source="bc-stopped" target="bc-running" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.25;exitY=1;entryX=0.25;entryY=0;" value="eventBitStart&lt;br&gt;/ initialiseRandomStartPos()">
+        <mxCell id="bc-e1" edge="1" parent="1" source="bc-stopped" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.25;exitY=1;entryX=0.25;entryY=0;" target="bc-running" value="eventBitStart&lt;br&gt;/ initialiseRandomStartPos()">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="bc-e2" edge="1" parent="1" source="bc-running" target="bc-stopped" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.75;exitY=0;entryX=0.75;entryY=1;" value="[posY + ballRadius &amp;lt;= 0]&amp;nbsp; // voorbij de doellijn&lt;br&gt;/ pBallControlListener-&amp;gt;ballMissedByPaddle()">
+        <mxCell id="bc-e2" edge="1" parent="1" source="bc-running" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.75;exitY=0;entryX=0.75;entryY=1;" target="bc-stopped" value="[posY + ballRadius &amp;lt;= 0]&amp;nbsp; // voorbij de doellijn&lt;br&gt;/ pBallControlListener-&amp;gt;ballMissedByPaddle()">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="bc-e3" edge="1" parent="1" source="bc-running" target="bc-running" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" value="[else] / updateBallPosition();&lt;br&gt;vTaskDelay(FrameIntervalMs)&amp;nbsp; // 25 keer per seconde">
+        <mxCell id="bc-e3" edge="1" parent="1" source="bc-running" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;strokeColor=#2e7d32;fontColor=#2e7d32;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" target="bc-running" value="[else] / updateBallPosition();&lt;br&gt;vTaskDelay(FrameIntervalMs)&amp;nbsp; // 25 keer per seconde">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="bc-note" parent="1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;strokeColor=#2e7d32;fontColor=#2e7d32;" value="initialiseRandomStartPos(): bal in het midden, vX willekeurig links of rechts, vY omhoog; displayControl.updateBallPosition(posX, posY).&lt;br&gt;&lt;br&gt;updateBallPosition(): een stap verder; ketsen tegen de muren; ketsen tegen de peddel (paddleControl.getPaddlePos()), schuiner naarmate verder van het midden; displayControl.updateBallPosition(posX, posY)." vertex="1">
