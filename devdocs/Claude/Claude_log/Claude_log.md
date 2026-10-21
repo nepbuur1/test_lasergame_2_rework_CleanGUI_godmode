@@ -1,5 +1,751 @@
 # Claude log
 
+## 2026-10-22 — Groen terug naar de normale kleur in alle vier de drawio's
+
+- Op Marius' verzoek is al het groen (#2e7d32) weggehaald, met `scratchpad/dc/ungreen.py`.
+  Back-ups staan in `scratchpad/dc/voor_ungreen`.
+  - **Stijlen:** `strokeColor=#2e7d32` en `fontColor=#2e7d32` zijn weg, dus geldt de
+    standaardkleur.
+    - pong_cg: 349 keer.
+    - pong_simple_frt: 349 keer.
+    - pong_dg_adv: 53 keer.
+    - pong_super_frt: 49 keer.
+  - **Tekst:** `<font color="#2e7d32">` is `<font>` geworden (15 keer per pong_simple-model),
+    en `color: rgb(46, 125, 50);` is uit de inline-stijlen gehaald (3 keer per
+    pong_simple-model).
+- Een zoekactie op `2e7d32` en `rgb(46,125,50)` vindt niets meer. Steekproef met PNG-exports
+  (pong_simple PaddleControl, pong_super_frt CrateControl): alles zwart.
+- De gele callback-notes zijn niet aangeraakt.
+- **Correctie:** eerst stond hier dat de rode, vervallen tab GameOverDisplayControl niet was
+  aangeraakt. Die tab bestond toen al niet meer: Marius had hem in beide pong_super-modellen
+  al opgeruimd, volgens de back-ups op 2026-10-21 tussen 22:20 en 23:05. Er staat ook nergens
+  meer rood (`#c62828`) in.
+
+## 2026-10-22 — CrateControl: wasHit() met echte body in het interface-blok
+
+- Marius vond de interface-regel `wasHit()  // direct call, same Task; behaviour: see the
+  wasHit() arrow from Closed` vaag. Die verwijzing had ik er eerder zelf neergezet, ter
+  vervanging van de pseudocode.
+- Nu heeft `wasHit()` zijn echte body uit `psup_/psupf_CrateControl.h`, net als
+  `spawnAt(...)` in hetzelfde blok (`scratchpad/dc/crate_washit_body.py`):
+  ```
+  wasHit() / if (nofHitsLeft > 0) nofHitsLeft--; if (!isOpened()) return;
+             if (pBallSpawner != nullptr) pBallSpawner->spawnBallsAt(posX, posY, NofBallsPerCrate);
+             assert(pDepot != nullptr); pDepot->release(indexSlot);  // direct call, same Task
+  ```
+  - De vervolgregels staan onder de eerste action (5b2); geen regel is langer dan 120
+    tekens.
+- Het blok is 30 px hoger. De scheidingslijn en alles eronder schoven mee, en het frame
+  groeide. Het interface-blok is groen.
+- Gedaan in pong_super en pong_super_frt, en gecontroleerd met een PNG-export.
+
+## 2026-10-22 — CrateControl: decision node voor de teller bij wasHit()
+
+- **Op Marius' aanwijzing** (richtlijn 5b1): alleen de `if` bij `wasHit()` wordt een decision
+  node, in pong_super en pong_super_frt (`scratchpad/dc/crate_counter.py`). Die beïnvloedt de
+  flow: de ruit erna beslist met `isOpened()` (`nofHitsLeft <= 0`).
+  - `Closed --wasHit()-->` een nieuwe ruit. Daaruit gaan `[nofHitsLeft > 0] / nofHitsLeft--`
+    en `[else]`, allebei naar de ruit `isOpened()`.
+  - De `if (pBallSpawner != nullptr)` op de pijl `[isOpened()]` blijft staan: die beïnvloedt
+    de flow niet.
+- **Layout:**
+  - de ruit `isOpened()` staat 10 px lager, en het knikpunt van `[isOpened()]` zakt mee;
+  - `[!isOpened()]` loopt nu onderlangs, want de rechterkant is voor `[else]`;
+  - in crt staan de drie notes 50 px lager en is het frame 60 px hoger. In frt was er al
+    ruimte.
+- Nieuwe en gewijzigde cellen zijn groen. Gecontroleerd met PNG-exports van beide tabs.
+
+## 2026-10-21 — Teruggedraaid: "geen if langs een pijl"; de juiste regel vastgelegd
+
+- **Marius trok de regel "geen if langs een pijl" in.** De juiste regel: een `if` in de
+  actions langs een pijl mag alleen als hij geen invloed heeft op de flow van de
+  toestandsmachine in die STD. Een voorbeeld van invloed: een teller die onder een
+  voorwaarde omhoog gaat, terwijl een guard elders op die teller beslist.
+- **Teruggedraaid:** `pong_dg_adv.drawio` en `pong_super_frt.drawio` zijn teruggezet vanaf de
+  back-up van vlak vóór de aanpassingen (`scratchpad/dc/voor_no_ifs`, 23:34).
+  - Beide bestanden waren na mijn laatste wijziging (23:36) niet meer aangeraakt, dus er
+    ging niets anders verloren.
+  - Gecontroleerd met `cmp`: gelijk aan de back-up.
+  - Daarmee zijn CrateControl (geen extra ruiten) en NameInputDisplayControl (pijl, note,
+    frame) weer zoals vóór 23:34.
+- **Richtlijn 5b1** is herschreven met de juiste regel, de voorbeelden en een toetsvraag.
+- **Bug 4** in `TODO_fix_these_bugs.md` is herschreven: een controle op ifs die een
+  variabele veranderen die in een guard gelezen wordt.
+- **Opgemerkt, niet aangepast:** `wasHit() / if (nofHitsLeft > 0) nofHitsLeft--` in
+  CrateControl lijkt Marius' eigen voorbeeld van "wel invloed": de ruit erna beslist met
+  `isOpened()` (`nofHitsLeft <= 0`). Voorgelegd.
+
+## 2026-10-21 — Geen if-statements langs pijlen: decision nodes
+
+- **Marius' regel:** langs een pijl staat geen `if`; een keuze is een decision node.
+  - Vastgelegd als richtlijn 5b1.
+  - Als bug 4 in `D:\Dev_Large\Python\ModelAnalysis\TODO_fix_these_bugs.md`: de
+    STD-criteria staan ifs in actions nog toe.
+- **Gezocht** met `scratchpad/dc/edge_ifs.py` in de vier drawio's. Pijlen met een if kwamen
+  alleen voor in pong_super en pong_super_frt, telkens drie.
+- **STD CrateControl** (`no_ifs.py`, `crate_labels.py`):
+  - `wasHit()` gaat nu naar een nieuwe ruit. Die heeft `[nofHitsLeft > 0] / nofHitsLeft--`
+    en `[else]`, allebei naar de ruit `isOpened()`.
+  - `[isOpened()]` gaat naar een tweede nieuwe ruit. Die heeft
+    `[pBallSpawner != nullptr] / pBallSpawner->spawnBallsAt(...); pDepot->release(indexSlot)`
+    en `[else] / pDepot->release(indexSlot)`. Volgens 5b is er geen mergenode, want de
+    gedeelde actie is kort.
+  - De ruit `isOpened()` staat 10 px lager. `[!isOpened()]` loopt nu onderlangs. De notes
+    onderin staan 50 px lager en het frame is 50 px hoger.
+- **STD NameInputDisplayControl:**
+  - De pijl Shown → Hidden is nu `... / enterHidden(pageNameInput)`, zoals in de code. De
+    body van `enterHidden` stond als uitleg op de pijl, met de if erin.
+  - De code van `enterHidden(PAGE& page)` staat nu in de note bij `signalPageHidden()`
+    (5c: hij roept de listener aan).
+  - De note staat niet meer over Shown heen, en het frame is hoger.
+- Nieuwe en gewijzigde cellen zijn groen. Gecontroleerd met PNG-exports.
+- **Open (Marius):** in Shown van NameInputDisplayControl staat nog een if in een EAB binnen
+  de toestand: `... if(strKey != "ENTER") pageNameInput.redraw(true)`. Valt dat ook onder
+  de regel?
+
+## 2026-10-21 — HallOfFameDisplayControl: pool-read uit fillHallOfFameLines() naar de case
+
+- **Code** (`psup_HallOfFameDisplayControl.h`, `psupf_HallOfFameDisplayControl.h`), op Marius'
+  aanwijzing:
+  - `HallOfFameData snapshot{}` is een member;
+  - `fillHallOfFameLines(const HallOfFameData& hallOfFameData)` rekent alleen met wat hij krijgt;
+  - beide aanroepen in de cases (Hidden → Shown, en de nieuwe lijst in Shown) zijn nu
+    `poolHallOfFame.read(snapshot); fillHallOfFameLines(snapshot);`. In frt is dat
+    `xQueuePeek(hallOfFameQueue, &snapshot, 0); ...`.
+- **STD HallOfFameDisplayControl**, in beide modellen:
+  - de pijl Hidden → Shown en het eerste EAB in Shown lezen eerst de pool of queue;
+  - in de note staat `fillHallOfFameLines` alleen nog met signatuur en samenvatting. De
+    60 regels code zijn weg, en de kop van het eerste deel is "(timer)".
+  - Shown, de terugpijl, het frame en de note groeiden of schoven mee.
+  - De regels voor 120 tekens en de scheidingslijn zijn opnieuw gecontroleerd: in orde.
+- **Richtlijn 2b** in `ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`:
+  - synchronisatie (pool, queue, flag, timer) staat in de case, rekenwerk in een functie
+    met parameters;
+  - de buffer mag een member zijn;
+  - een getter zonder bijwerking, zoals `display.getTextWidth`, telt niet als interactie.
+- **Gebouwd:** Pong_super en Pong_super_frt zijn groen. Niet geflasht. `main.cpp` staat op
+  `Pong_simple.ino`.
+- **Opgemerkt:** de gele callback-note in de frt-tab staat nu onder het frame en is wit.
+  Dat komt niet van mij; vermoedelijk heeft Marius hem verplaatst.
+
+## 2026-10-21 — Signaturen in bold in alle notes van pong_super en pong_super_frt
+
+Uitgevoerd met `scratchpad/dc/bold_sigs2.py`. Dat is `bold_sigs.py`, uitgebreid voor
+regels in `<div>`'s, voor opmaak-tags vooraan een regel, en voor regels die met `void` en
+al helemaal bold zijn.
+
+- **Nieuw bold** (`void` zelf niet):
+  - `spawnObject()` in GameControl (crt en frt);
+  - de timer-callbacks in frt: `timerFrameCallback` en `timerGameOverLabelCallback`
+    (GameControl), en `timerTorchCallback` (StartPageDisplayControl, HallOfFameDisplayControl,
+    de vervallen GameOverDisplayControl).
+- **`void` uit de bold:** `applyGameState()` en `defineDisplayHierarchy(IWidget& pageRoot)` in
+  GameDisplayControl (crt en frt). Die stonden er als `<b>void ...</b>`.
+- **NameInputDisplayControl:** `signalPageHidden()` is `void signalPageHidden()` geworden,
+  zoals in de code, met de signatuur in bold.
+- Al goed waren `moveStep()` (BallControl), `movePaddle()` (PaddleControl) en de nieuwe
+  hof-note.
+- Een tweede ronde vindt niets meer. Gecontroleerd met PNG-exports van frt
+  GameDisplayControl en NameInputDisplayControl.
+
+## 2026-10-21 — Geen klassenaam voor eigen functies in STD-notes
+
+- **Marius' regel:** een eigen functie staat in een note zonder klassenaam, dus
+  `void timerFrameCallback(TimerHandle_t xTimer)` en niet `void GameControl::timerFrameCallback(...)`.
+  Toegevoegd aan richtlijn 5c.
+- **Doorgevoerd** met `scratchpad/dc/strip_class.py`, alleen op definitieregels in notes:
+  - pong_simple_frt, STD-PaddleControl: `repeatTimerCallback`;
+  - pong_super_frt:
+    - STD-GameControl: `timerFrameCallback` en `timerGameOverLabelCallback`;
+    - `timerTorchCallback` in StartPageDisplayControl, HallOfFameDisplayControl en de
+      vervallen GameOverDisplayControl.
+  - Aanroepen als `TorchesDisplayHelpers::stepTorches()` zijn niet aangeraakt.
+- In de crt-modellen kwam het niet voor. Een tweede ronde vindt niets meer.
+- Marius' nieuwe inleidende zin in de callback-note van GameControl is gebleven.
+
+## 2026-10-21 — Scheidingslijn onder het interface-blok: overal een line-vertex over de hele framebreedte
+
+- **Regel (Marius):** onder het interface-blok van elke STD staat een horizontale
+  scheidingslijn, van de linker- tot de rechterkant van het frame.
+  - Het type is een *line*-vertex, die alleen horizontaal kan zijn, zoals in pong_simple
+    STD-GameOverControl.
+  - Vastgelegd als richtlijn 5b3 in
+    `ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`.
+- **Doorgevoerd** met `scratchpad/dc/separators.py` in de vier drawio's:
+  - **pong_simple en pong_simple_frt:** StartPage, Game, GameOver en BallControl hadden
+    al de goede lijn. PaddleControl en DisplayControl hadden er geen; die hebben er nu een,
+    15 px onder het blok.
+  - **pong_super en pong_super_frt:** alle STD's (15 per model, inclusief de vervallen
+    GameOverDisplayControl) hadden een gewone lijn (edge), vaak korter dan het frame.
+    - Vervangen door een line-vertex met de x en breedte van het frame.
+    - Op dezelfde hoogte, maar minstens 10 px onder het blok. Daardoor ging hij in frt
+      HallOfFame 5 px omlaag.
+    - De oude lijnen zijn verwijderd.
+  - De nieuwe lijnen zijn groen.
+  - MainControl heeft geen interface-blok en dus geen lijn.
+- **Controle:** een tweede ronde van het script vindt overal de goede lijn. Ook
+  gecontroleerd met PNG-exports van pong_simple PaddleControl, pong_super GameDisplayControl
+  en pong_super_frt HallOfFame.
+
+## 2026-10-21 — STD HallOfFameDisplayControl gelijk met de code; typfouten crt GameControl
+
+**STD HallOfFameDisplayControl** in `pong_dg_adv.drawio` en `pong_super_frt.drawio`
+(`scratchpad/dc/hof_sync.py`, `hof_fix2.py`). Het model volgt nu
+`psup_/psupf_HallOfFameDisplayControl.h`; gewijzigde en nieuwe cellen zijn groen.
+
+- **Interface:**
+  - `showHallOfFamePage(const HallOfFameData& hallOfFameData)` schrijft eerst de pool
+    (crt) of de queue (frt), en zet dan de flags of eventbits.
+  - `hideHallOfFamePage()` is ongewijzigd van inhoud.
+  - `addPlayAgainButtonListener` staat er niet in: dat is een initialiserende functie.
+- **Initpijl:** alleen wat `main()` voor de lus doet: `/ initPanels(); PAGE pageHallOfFame(...);
+  defineDisplayHierarchy(...); hidePage(...)`.
+  - In crt ontbrak de `/`.
+  - In frt is `xTimerCreate(...)` eraf: de timer wordt in de constructor gemaakt.
+- **Hidden → Shown:** `fillHallOfFameLines(); showPage(pageHallOfFame);` en het opwinden van
+  de fakkelklok. In frt via `usToTicks(...)`, zoals in de code.
+- **Shown → Hidden:** `/ enterHidden(pageHallOfFame)`.
+- **Shown:** twee EAB's.
+  - Nieuw is het EAB voor een nieuwe lijst: `fillHallOfFameLines(); pageHallOfFame.redraw(true);`
+    en de klok opnieuw.
+  - In het fakkel-EAB is `show(true)` vervangen door `redraw(true)`, zoals in de code.
+- **Nieuwe note** onder het frame (richtlijn 5c):
+  - de code van `fillHallOfFameLines()` (pool/queue en display) en `enterHidden(PAGE& page)`
+    (timer), letterlijk uit de header en met alle comments, om zelf te snoeien;
+  - `initPanels`, `defineDisplayHierarchy`, `showPage`, `hidePage` en
+    `selectNextAnimationFrameOfTorches` met een samenvatting; in frt ook `usToTicks`;
+  - signaturen in bold.
+- **Layout:**
+  - Shown is gecentreerd onder Hidden en zo breed als de tekst.
+  - Terugpijl en frame zijn meegeschoven.
+  - In frt is de eerste interface-regel (>120 tekens) afgebroken na `hallOfFameData;`.
+    Het blok is daarvoor 15 px hoger, en alles eronder schoof mee.
+
+**crt STD-GameControl:** `flagFrameOverLabelPressed.set()` is `flagGameOverLabelPressed.set()`
+geworden, en `timeGameOverLabel.start(...)` is `timerGameOverLabel.start(...)` geworden. Beide
+cellen zijn groen.
+
+Gecontroleerd met PNG-exports van beide tabs in beide modellen.
+
+## 2026-10-21 — Drie modelfouten opgelost in pong_super en pong_super_frt
+
+Uitgevoerd in `pong_dg_adv.drawio` en `pong_super_frt.drawio`, met
+`scratchpad/dc/model_fixes.py`. Gewijzigde cellen zijn groen, de vervallen tab is rood.
+
+1. **GameOverDisplayControl bestaat niet meer.** In de code is het opgesplitst in
+   HallOfFameDisplayControl en NameInputDisplayControl.
+   - De tab heet nu `VERVALLEN STD-GameOverDisplayControl`, is helemaal rood, en heeft een
+     rode note: "deze tab kan weg" (Marius' afspraak: rood = moet weg). Niet verwijderd.
+   - STD-GameOverPageControl volgt nu `GameOverControl::doGameOver()`:
+     - de initpijl heeft geen actie meer; `gameOverDisplayControl.showGameOverPage()`
+       bestaat niet;
+     - de ruit heeft `[hallOfFame.isQualifyingScore(score)]`; de `[]` ontbraken;
+     - WaitingForStart heeft `entry / hallOfFameDisplayControl.showHallOfFamePage(hallOfFame.getHallOfFameData());`
+       en het wissen van PlayAgainPressed;
+     - de eindpijl heeft `...PlayAgainPressed / hallOfFameDisplayControl.hideHallOfFamePage()`;
+     - in het interface-blok staat `if(pButton == pPlayAgainButton)` met
+       `eventBitPlayAgainPressed` (frt) of `flagPlayAgainPressed.set()` (crt).
+   - In crt is WaitingForStart even breed gemaakt als in frt (589).
+2. **STD HallOfFameDisplayControl:** `PAGE pageHallOfFame("rootHallOfFameDisplay",display);`
+   en `hidePage(pageHallOfFame)`, zoals in de code.
+3. **STD-GameControl:** de actions op de pijl uit de onderste ruit naar de eindnode
+   beginnen nu met `/ `.
+
+- Gecontroleerd met PNG-exports.
+- **Nog open, niet aangepast:**
+  - De HallOfFame-STD loopt verder achter op de code:
+    - het interface-blok mist `showHallOfFamePage(data)`, met de queue;
+    - `fillHallOfFameLines()` en `enterHidden(...)` ontbreken;
+    - de timer wordt in de code in de constructor gemaakt;
+    - Shown heeft in de code een extra EAB voor een nieuwe lijst.
+  - De tab heet "GameOverPageControl", de klasse `GameOverControl`.
+  - crt STD-GameControl heeft typfouten: `flagFrameOverLabelPressed.set()` in het
+    interface-blok, en `timeGameOverLabel.start(...)`.
+
+## 2026-10-21 — pong_super_frt: bestaande overlappingen weg; pseudocode in CrateControl weg
+
+- **De drie fakkel-tabs** (STD-StartPageDisplayControl, STD HallOfFameDisplayControl,
+  STD-GameOverDisplayControl), met `scratchpad/dc/torch_layout.py`:
+  - Hidden en Showing/Shown staan 300 px naar rechts. Showing/Shown is breder (550) en
+    hoger (135).
+  - De body van Showing is netjes herschreven, met dezelfde code. De vervolgregels staan
+    onder de eerste action, en `xTimerChangePeriod(...)` is na de komma's afgebroken.
+    Eerst viel die regel rechts buiten het vak.
+  - Het label van de initpijl staat nu onder de pijl, vanaf de startnode, met
+    `xTimerCreate(...)` over drie regels. Eerst overlapte het met Hidden.
+  - In het label van Hidden → Showing is `xTimerChangePeriod(...)` ook afgebroken. In
+    GameOverDisplayControl staat dat label nu midden op de pijl.
+  - De terugpijl schuift mee. Frame en gele callback-note groeien of schuiven waar nodig.
+- **STD-GameControl** (`gc_layout.py`, `gc_layout2.py`):
+  - Running, de drie ruiten, de spawnObject-note en de knikpunten van hun pijlen staan
+    150 px naar rechts. Het frame is breder, en de gele note schuift mee.
+  - **Initlabel:** schone tekst met dezelfde code. Het is links uitgelijnd, onder de pijl,
+    zonder witte achtergrond. Beide `xTimerCreate(...)`-aanroepen zijn na een komma
+    afgebroken. Het bedekte eerst de startnode en het label onder Running.
+  - Het label van de onderste ruit naar de eindnode staat nu rechts van de pijl. Eerst
+    stak het links buiten het frame.
+- **STD CrateControl**, in pong_super én pong_super_frt (`crate_wasHit.py`):
+  - `wasHit() / decrement nofHitsLeft; when opened, spawn ...` (pseudocode) is vervangen
+    door `wasHit()  // direct call, same Task; behaviour: see the wasHit() arrow from Closed`.
+  - Het gedrag staat al in echte code in het implementatiedeel: de pijl `wasHit()` vanuit
+    Closed, en de ruit erna.
+- Alles gecontroleerd met PNG-exports. Backups staan in `scratchpad/dc/voor_*`.
+- **Opgemerkt, niet aangepast:**
+  - STD-GameOverDisplayControl beschrijft een klasse die in de code niet bestaat (er is
+    geen `psupf_GameOverDisplayControl.h`). De tab gebruikt de namen van
+    StartPageDisplayControl: `eventBitShowStartPage`, `pageStart`, `eventBitHideStartPage`.
+  - STD HallOfFameDisplayControl: `hidePage(pageHallofFame)` (kleine f) en
+    `PageRoot<18> ... "rootHallOfFamePageDisplay"`. De code heeft `pageHallOfFame` en
+    `"rootHallOfFameDisplay"`.
+  - STD-GameControl: de pijl uit de onderste ruit naar de eindnode begint zonder `/ `.
+    Uit een ruit horen alleen actions met `/`.
+
+## 2026-10-21 — pong_super_frt: STD-regels hooguit 120 tekens (richtlijn 5b2)
+
+- **Afgebroken:** 25 regels in 13 STD-tabs van `apps_frt/pong_super_frt/models/pong_super_frt.drawio`,
+  met `scratchpad/dc/wrap120.py`.
+  - Afbreekpunt: na een `;`; anders na de `if(...)`-conditie (buttonPressed,
+    inputNewKey); anders na een komma (de `xTimerCreate(...)`-regels).
+  - Vervolgregels uitgelijnd onder de eerste action, met `&nbsp; `-paren. Het aantal is
+    berekend met Arial-metrieken op de getekende tekst.
+  - Gemeten op de getekende tekst, waarin gewone spaties samenvallen. Daardoor bleven
+    `showPaddle()` en `hidePaddle()` in GameDisplayControl onder de 120 (119).
+  - Opmaak-tags (`<span>`) in een regel blijven staan, zoals bij `reset()` in FireBinControl.
+  - BallControl `spawnInTheMiddle()`: afgebroken vlak vóór de `//`-comment. Dat is mijn
+    keuze; in 5b2 als "te bevestigen" gemarkeerd.
+- **Te lage interface-blokken:** in 9 tabs viel de tekst eronder buiten het blok.
+  - De tabs: GameDisplayControl (+75 px), StartPageControl (+15), StartPageDisplayControl
+    (+30), ButtonInfoDisplayControl (+45), GameOverPageControl (+15),
+    GameOverDisplayControl (+30), NameInputControl (+15), NameInputDisplayControl (+45),
+    FireBinControl (+15).
+  - Met `grow_iface.py`: het blok is per extra regel 15 px hoger. De scheidingslijn en
+    alles eronder schuift even ver omlaag, en het frame wordt even veel hoger.
+  - In GameOverPageControl hing de scheidingslijn met `exitY`/`entryY` aan het frame. Die
+    fracties zijn herberekend met `fix_anchor.py`.
+- Alle 13 tabs gecontroleerd met een PNG-export. Backups staan in `scratchpad/dc/voor_*`.
+- **Al eerder zo, niet aangepast:**
+  - In StartPageDisplayControl, HallOfFameDisplayControl en GameOverDisplayControl
+    overlapt het label van de initpijl met de toestand Hidden.
+  - In die tabs valt ook de regel `xTimerChangePeriod(...)` in de toestand Showing rechts
+    buiten het vak.
+  - In GameControl overlapt een label in het midden.
+  - In CrateControl staat pseudocode in het interface-blok:
+    `wasHit() / decrement nofHitsLeft; when opened, spawn NofBallsPerCrate balls ...`.
+
+## 2026-10-21 — pong_simple_frt: de twee lange buttonPressed-regels afgebroken; volgorde van afbreekpunten
+
+- **Marius:** breek een te lange regel af na een `;`. Kan dat niet, dan na de
+  `if(...)`-conditie, en anders na een komma. Toegevoegd aan richtlijn 5b2.
+- In `pong_simple_frt.drawio` zijn de interface-regels van STD-StartPageControl en
+  STD-GameOverControl afgebroken na `if(pButton == ...)`.
+  - `xEventGroupSetBits(...)` staat op de vervolgregel, uitgelijnd onder `if`.
+  - Dat gebeurt met 55 spaties, in Marius' vorm `&nbsp; `.
+  - Het aantal is uitgerekend met Arial-metrieken. Dat klopt op ±1 met Marius'
+    handwerk in STD-DisplayControl.
+- `spc-interface` en `goc-interface` zijn 14 pixels hoger (68). `goc-interface` is
+  daarvoor 6 pixels omhoog geschoven (y=74), zodat hij de scheidingslijn niet raakt.
+- Gecontroleerd met een PNG-export van beide tabs. Er staat geen STD-regel boven de 120
+  tekens meer in `pong_cg.drawio` of `pong_simple_frt.drawio`.
+
+## 2026-10-21 — Richtlijn 5b2: STD-regels hooguit 120 tekens
+
+- **Marius' regel**, toegepast in STD-DisplayControl (crt en frt): een regel in een STD is
+  hooguit 120 tekens, zodat hij op A4 portrait past.
+  - Afbreken na een `;`.
+  - De vervolgregel visueel uitlijnen onder de eerste action, met spaties.
+  - Herhalen tot geen regel langer dan 120 tekens is.
+- Vastgelegd als punt 5b2 in
+  `ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`.
+- **Gecontroleerd** met `scratchpad/dc/long_lines2.py` op alle STD-tabs van
+  `pong_cg.drawio` en `pong_simple_frt.drawio`. Uitlijnspaties tellen niet mee.
+  - crt: geen regels boven 120 tekens.
+  - frt: nog twee, allebei in het interface-blok en zonder `;` om na af te breken:
+    - `buttonPressed(IButton* pButton) / if(pButton == pStartPageStartButton) xEventGroupSetBits(...)`
+      in STD-StartPageControl (123 tekens);
+    - hetzelfde met `pGameOverPageStartButton` in STD-GameOverControl (126 tekens).
+  - Die twee zijn niet aangepast; voorgelegd aan Marius.
+
+## 2026-10-21 — Richtlijn 5c: comments in notes eerst overnemen, Marius snoeit
+
+- **Marius:** bij een note in eerste instantie alle comments uit de code overnemen.
+  Daarna bepaalt hij zelf welk deel hij in de drawio houdt.
+- Vastgelegd in richtlijn 5c
+  (`ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`):
+  - een note met minder comments dan de code loopt niet uit sync;
+  - weggehaalde comments worden niet teruggezet.
+- Het lange comment in `initBallAndPaddlePosition()` blijft in de frt-note staan, op
+  Marius' keuze.
+- Alleen documentatie aangepast.
+
+## 2026-10-21 — Signaturen in bold in de STD-notes (pong_simple + _frt)
+
+- **Marius' regel:** van elke functie waarvan een note de code of een beschrijving geeft,
+  staat de signatuur in bold: naam(parameters), met het returntype ervoor. Een leading
+  `void` is niet bold. Vastgelegd in richtlijn 5c
+  (`ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`).
+- **Toegepast** op alle notes in `pong_cg.drawio` en `pong_simple_frt.drawio`, met
+  `scratchpad/dc/bold_sigs.py`:
+  - STD-PaddleControl: `movePaddle`, `stopMoving`, `calcNewPaddlePosition`;
+  - STD-DisplayControl: alle hulpfuncties;
+  - frt STD-PaddleControl: ook `PaddleControl::repeatTimerCallback(TimerHandle_t xTimer)`
+    in de FreeRTOS-note.
+  Alleen definitie- en beschrijvingsregels; aanroepen binnen de code blijven gewoon.
+- `initBallAndPaddlePosition()` en `countFrameAndReportFps()` in de crt-note had Marius al
+  zelf bold gemaakt; die zijn niet aangeraakt.
+- **Opgemerkt:** in de crt-note van DisplayControl heeft Marius het lange comment uit
+  `initBallAndPaddlePosition()` gehaald. In de frt-note en in de code van beide headers
+  staat het nog.
+- Gecontroleerd met een PNG-export (frt DisplayControl).
+
+## 2026-10-21 — Regel: elke functie in een STD-note heeft een zichtbare aanroep
+
+- **Marius' regel:** van elke functie in een note moet uit het model blijken waar ze
+  wordt aangeroepen:
+  - als action;
+  - of binnen een andere functie uit de note: zichtbaar in de code van die functie, of
+    genoemd in haar beschrijving.
+  Vastgelegd in richtlijn 5c
+  (`ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`).
+- **Gecontroleerd met een script** voor STD-DisplayControl in `pong_cg.drawio` en
+  `pong_simple_frt.drawio`. Alle functies in de note worden aangeroepen:
+  - `initBallAndPaddlePosition()`: in Running, `flagShowGamePage /
+    initBallAndPaddlePosition(); showPage(gamePanel)` (frt: `eventBitShowGamePage`);
+  - de init- en hierarchiefuncties: op de pijl uit de startnode;
+  - de rest: in Running.
+- Niets aan de modellen veranderd.
+
+## 2026-10-21 — STD-PaddleControl (pong_simple + _frt): release-EAB's en afkortingen; grens voor een mergenode
+
+- **Moving → Enabled** (`pc-e4`, crt en frt): de pijl had als label
+  `flagLeftReleased, flagRightReleased / stopMoving()`.
+  - Volgens de kommaregel hoorde `stopMoving()` daarmee alleen bij `flagRightReleased`.
+  - Nu staat er `flagLeftReleased / stopMoving(), flagRightReleased / stopMoving()`, en in
+    frt hetzelfde met `eventBit...`. Op Marius' aanwijzing zonder mergenode.
+- **Afkortingen** (alleen crt, `pc-e1` en `pc-e3`): `flagLeft/RightPressed.clear()` en
+  `flagLeft/RightReleased.clear()` zijn uitgeschreven, elke `clear()` op een eigen regel.
+  Zo lopen de labels niet tegen Moving en de framerand aan. Er zijn geen cellen verplaatst.
+- **Richtlijn 5b** (`ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md`):
+  - een mergenode alleen als de gemeenschappelijke actions erna minstens 40 tekens of 3
+    C++-statements zijn;
+  - daaronder worden de actions bij elk EAB herhaald.
+- Gecontroleerd met een PNG-export van beide tabs.
+- **Niet aangeraakt:** in de frt-tab overlapt het label van de initpijl
+  (`/ repeatTimer = xTimerCreate(...)`) met dat van `eventBitDisable / stopMoving()`. Dat
+  was al zo.
+- Aan de code is niets veranderd. `if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))`
+  gedraagt zich hetzelfde als de twee EAB's.
+
+## 2026-10-21 — DisplayControl (pong_simple + _frt): hulpfuncties, en de STD zonder pseudocode
+
+Marius: in STD-DisplayControl stond pseudocode langs de pijl en in de toestand. Dat is
+verboden; pseudocode mag alleen in een comment-sectie.
+
+- **Code** (`psim_DisplayControl.h`, `psimf_DisplayControl.h`): het werk uit `main()` zit
+  nu in benoemde hulpfuncties.
+  - `defineDisplayHierarchy(IWidget& pageRoot)`: de boom van alle drie de pagina's, zoals
+    in pong_super. `main()` doet nu:
+    1. `PageRoot<20> pageRoot(...)`;
+    2. de drie `init...Panels()`;
+    3. `defineDisplayHierarchy(pageRoot)`;
+    4. drie keer `hidePage(...)`.
+    Eerst stond `hidePage()` per pagina tussen het toevoegen in; dat mag zo, want
+    `addChildWidget` tekent niets.
+  - `showPaddleAndButtons()` en `hidePaddleAndButtons()`: de show/enable- en
+    disable/hide-reeksen, met hun comments.
+  - `movePaddlePanel(int)` en `moveBallPanel(const TwoNumbers&)`: de `moveTo()`-aanroepen.
+  - `countFrameAndReportFps()`: de fps-telling. `nofFrames` en `timeOfLastReportUs` zijn
+    nu members. `timeOfLastReportUs` begint bij de constructie in plaats van bij de start
+    van `main()`; alleen de eerste fps-regel kan daardoor iets afwijken.
+  - Het lezen van de pool/queue blijft zichtbaar in de case.
+- **STD-DisplayControl** in `pong_cg.drawio` en `pong_simple_frt.drawio`:
+  - **pijl uit de startnode:** echte code, `/ PageRoot<20> ...; init...Panels();
+    defineDisplayHierarchy(pageRoot); hidePage(...)` ×3.
+  - **Running:** elk EAB in echte code. De guard staat nu op de juiste plek:
+    `flagShowPaddle [gamePanel.isDrawable()] / showPaddleAndButtons()`. Verder
+    `moveTo(...)` en "fps tellen" vervangen door de echte aanroepen.
+  - **nieuwe note `dc-note`** (groen, onder het frame), volgens richtlijn 5c:
+    - de code van `initBallAndPaddlePosition()` (pools/queues en flags/eventbits) en
+      `countFrameAndReportFps()` (log);
+    - de overige hulpfuncties alleen met signatuur en samenvatting.
+  - Bestaande cellen niet verplaatst; alleen Running is 30 pixels hoger geworden (crt).
+- **Gebouwd:** Pong_simple en Pong_simple_frt zijn groen. Niet geflasht. `main.cpp` staat
+  op `Pong_simple.ino`.
+
+## 2026-10-21 — Codegeneratie_richtlijnen.md alleen nog over CleanRTOS
+
+In `ModelAnalysis\DrawioModelling\Tools\DrawioToCode\Codegeneratie_richtlijnen.md` zijn de
+verwijzingen naar FreeRTOS weggehaald.
+
+- **Inleiding:** de frt-apps zijn weg; de inleiding zegt nu dat de richtlijnen over
+  CleanRTOS gaan.
+- **Punten 3, 4, 5b en 5d:** "crt en frt", "pong_simple_frt" en "pong_super(_frt)" zijn
+  weg.
+- **Punt 5:**
+  - de pool-regel met `TwoNumbers` is weg, want die was alleen nodig voor de omzetting
+    naar FreeRTOS;
+  - het doel is nu "zodat tools ze kunnen lezen".
+- **Punt 6:** het FreeRTOS-patroon "bewaar wat er vuurde" is weg.
+- **Bekende beperking:** dit gaat nu over de STD-parser `std_eab.py`, die DrawioToCode
+  nodig zal hebben, in plaats van over de omzettool. Een half afgebroken zin is daarbij
+  verbeterd.
+- Voor het wijzigen is een kopie gemaakt in de scratchpad van de sessie.
+
+## 2026-10-21 — Codegeneratie_richtlijnen.md verhuisd naar ModelAnalysis
+
+- `devdocs/Claude/Claude_instructions/Codegeneratie_richtlijnen.md` staat nu in
+  `D:\Dev_Large\Python\ModelAnalysis\DrawioModelling\Tools\DrawioToCode\`. Daar komt de
+  tool die uit modellen code gaat genereren.
+- Eerst gekopieerd, met `cmp` gecontroleerd en daarna het origineel verwijderd.
+- Bovenaan staat nu een alinea over het project waar de voorbeelden vandaan komen (de vier
+  pong-apps), en waar het bestand vroeger stond.
+- De verwijzingen naar het oude pad in dit log zijn geschiedenis en blijven staan. Andere
+  verwijzingen waren er niet.
+
+## 2026-10-21 — Correctie EAB-komma; TODO_fix_these_bugs.md in ModelAnalysis
+
+- **Correctie in richtlijn 5b,** na Marius:
+  - de komma scheidt altijd hele EAB's;
+  - `flagA, flagB / x()` zijn twee EAB's, en `x()` hoort alleen bij `flagB`;
+  - een gedeelde actie hoort op de uitgaande pijl van een mergenode.
+  - Ik had eerder geschreven dat dit één EAB met een gedeelde actie was. Dat volgde de
+    ModelAnalysis-parser, en die is hier fout.
+- **Nieuw:** `D:\Dev_Large\Python\ModelAnalysis\TODO_fix_these_bugs.md`. Daar staan de
+  open bugs van de ModelAnalysis-tools:
+  1. `parse_eab` leest meerdere EAB's op één pijl als één EAB (getest);
+  2. guard en actions na een komma gelden voor alle EAB's ervoor, via `alternatives()`
+     (getest met `flagA, flagB [g] / x()`);
+  3. de CleanRTOS/FreeRTOS-criteria noemen de komma nog "en/of binnen een event-deel".
+- Aan de code van ModelAnalysis zelf is niets veranderd.
+
+## 2026-10-21 — Richtlijn 5b: de volledige vorm van een EAB, uit ModelAnalysis
+
+Naar aanleiding van Marius' opmerking dat een EAB ook een guard kan hebben, heb ik
+`D:\Dev_Large\Python\ModelAnalysis` bestudeerd:
+- de STD-criteria in `FastModelFeedback/Config/StdAllRtos` en `StdCleanRtos`;
+- de parser `std_eab.py`.
+
+Punt 5b in `Codegeneratie_richtlijnen.md` heeft nu een sectie "Wat een EAB is":
+- de vorm `event-deel [guard] / actions`, met elk deel optioneel;
+- in het event-deel betekent `,` en/of en `+` en; ook `after(tijd)` kan;
+- welke combinaties waar mogen: geen guard zonder event, decision node alleen
+  `[guard] / actions`, initial node alleen `/ actions`;
+- een EAB als regel in een toestand, en de pseudo-events entry, exit en do.
+
+Er staat ook bij hoe je de komma tussen EAB's onderscheidt van de en/of-komma binnen een
+event-deel.
+
+De beperking van de tools is nagegaan en vastgelegd:
+- `parse_eab` leest een pijllabel met twee EAB's als één EAB; getest.
+- De omzettool en FastModelFeedback gebruiken die parser allebei.
+
+Alleen documentatie aangepast.
+
+## 2026-10-21 — Richtlijn 5b: EAB's op één pijl en de mergenode
+
+`devdocs/Claude/Claude_instructions/Codegeneratie_richtlijnen.md`, punt 5b, herschreven
+naar Marius' uitleg:
+
+- `ev1 / actie1, ev2 / actie2` op één pijl zijn twee EAB's (event-action-blocks). Dat
+  betekent hetzelfde als twee pijlen met elk één EAB, gevolgd door een mergenode.
+- Gaat de pijl rechtstreeks naar een toestand, dan is die mergenode overbodig.
+- Is er nog gemeenschappelijke code, dan komt er eerst een mergenode. Die code staat
+  één keer op de uitgaande pijl, zoals in STD-PaddleControl van pong_simple(_frt).
+- Ik had de ruit eerder "beslisknoop" genoemd. Dat is nu "mergenode", met een regel
+  over het verschil met een beslisknoop (guards, punt 5d).
+- Alleen documentatie aangepast; geen code of drawio.
+
+## 2026-10-21 — Alle toestandsovergangen in de top-level switch; lessen uit Marius' PaddleControl-note
+
+- **Lessen uit Marius' note** bij STD-PaddleControl (pong_simple), vastgelegd in
+  `devdocs/Claude/Claude_instructions/Codegeneratie_richtlijnen.md`, punt 5c:
+  - een hulpfunctie zonder interactie met de buitenwereld krijgt alleen haar signatuur en
+    een (pseudocode-)samenvatting, bijvoorbeeld `calcNewPaddlePosition`;
+  - een hulpfunctie met interactie krijgt de volledige code; timers tellen als
+    buitenwereld, bijvoorbeeld `stopMoving()`.
+- **Nieuwe regel:** een `state = ...` staat alleen in een case van de switch in `main()`
+  (punt 5d). Initialisatie (constructor, `reset()` uit het Depot-contract) valt daar
+  niet onder.
+- **Code, alle vier de pong-varianten:**
+  - **PaddleControl** (`psim_`, `psup_`, `psimf_`, `psupf_PaddleControl.h`):
+    - `stopMoving()` stopt alleen de timer en zet de richting op 0;
+    - de case MOVING zet zelf `state = State::STATE_ENABLED;`; in super_frt staat dat in
+      twee takken, links en rechts los.
+    - pong_simple(_frt): het comment bij `movePaddle` is gelijk aan Marius' note.
+  - **BallControl pong_super(_frt)** (`psup_` en `psupf_BallControl.h`):
+    - `startAt()` en `startInTheMiddle()` zetten geen toestand meer; de case IDLE zet
+      `STATE_RUNNING`.
+    - `catchFireIfInFireBin()` is weg. Zijn guard en overgang naar `STATE_BURNING_UP`
+      staan nu in de case RUNNING, na `moveStep()`, zoals de beslisknoop in de STD.
+  - Gecontroleerd met een scan: buiten `main()` en `reset()` staat er nergens meer een
+    `state =` (pong_ascii_quest_with_3_bugs had er geen).
+- **Drawio's:**
+  - STD BallControl van pong_super en pong_super_frt: `catchFireIfInFireBin();` is uit de
+    `moveStep()`-note. De STD-pijlen modelleerden de overgang al.
+  - STD-PaddleControl in pong_simple: twee typefouten in de note, zodat die letterlijk
+    gelijk is aan de code ("verder verder", `void stopMoving` → `void stopMoving()`).
+  - STD-PaddleControl in pong_simple_frt: de note heeft nu dezelfde opbouw, met
+    `xQueueOverwrite(...)` en `xTimerStop(repeatTimer, 0)`.
+  - De STD-pijlen zelf hoefden niet te veranderen: de overgangen stonden er al.
+- **Gebouwd:** Pong_simple, Pong_super, Pong_simple_frt en Pong_super_frt zijn allemaal
+  groen. Niet geflasht. `main.cpp` staat weer op `Pong_simple.ino`.
+
+## 2026-10-21 — PaddleControl (pong_simple + _frt): calcNewPaddlePosition, en de note met code
+
+- **Code:** `psim_PaddleControl.h` en `psimf_PaddleControl.h` hebben nu, net als
+  pong_super, `int calcNewPaddlePosition(int paddlePosition, int direction) const`.
+  - Die rekent alleen: een stap verder, begrensd tussen de muren.
+  - `movePaddle(direction)` roept hem aan en geeft de nieuwe stand door aan
+    `displayControl` en de pool/queue.
+  - In frt is `{ int poolValue = ...; xQueueOverwrite(...); }` vereenvoudigd tot
+    `xQueueOverwrite(paddlePosQueue, &paddlePosition)`, zoals in pong_super_frt.
+- **STD-PaddleControl** in beide drawio's: de note "TODO: vul dit in" bevat nu letterlijk
+  de code van `calcNewPaddlePosition`, `movePaddle` en `stopMoving`. Die code is
+  rechtstreeks uit de header gehaald; in de frt-note staat dus de FreeRTOS-code.
+  - De note is in Courier New gezet en groter gemaakt, op dezelfde plek.
+  - Per tab vergeleken: alleen STD-PaddleControl is gewijzigd.
+- **Gebouwd:** pong_simple en pong_simple_frt zijn allebei groen. Niet geflasht.
+  `main.cpp` staat op `Pong_simple.ino`.
+
+## 2026-10-21 — STD-PaddleControl pong_simple_frt gelijkgetrokken met Marius' versie in pong_simple
+
+Marius heeft STD-PaddleControl in `apps/pong_simple/models/drawio/pong_cg.drawio`
+aangepast.
+
+- **Wat Marius veranderde:**
+  - een beslisknoop tussen Enabled en Moving;
+  - op de pijl erheen staan `flagLeftPressed / paddleDirection = -1, flagRightPressed / paddleDirection = +1`;
+  - op de pijl eruit staan de gemeenschappelijke acties (`movePaddle(...)`, flags wissen,
+    timer starten);
+  - een nieuwe layout;
+  - de note is nu "TODO: vul dit in";
+  - het kader is nog 190 hoog en omsluit dus alleen het interfacevak.
+- **Naar pong_simple_frt:** de tab overgenomen, met behoud van het tab-id.
+  - Vooraf in de werkkopie de afkortingen `flagLeft/Right….clear()` uitgeschreven.
+  - Alleen deze tab omgezet met `StdCleanRtosNaarStdFreeRtos --tab STD-PaddleControl`. De
+    tool maakte daarbij ook de callback-note voor `repeatTimer` opnieuw.
+  - Met de hand: het tweede event op de pijl naar de ruit omgezet naar
+    `eventBitRightPressed`, want de tool zet er maar één om.
+  - Het interfacevak (841) en het kader (1011) breder gemaakt voor de langere tekst; de
+    callback-note rechts van het kader gezet.
+  - Per tab vergeleken: alleen STD-PaddleControl is gewijzigd. Met draw.io geëxporteerd
+    en bekeken.
+- **Lessen in `Codegeneratie_richtlijnen.md`:**
+  - 5b: gemeenschappelijke acties via een beslisknoop;
+  - 5c: een note bevat code, geen samenvatting (afgeleid, nog te bevestigen);
+  - de bekende beperking van de omzettool.
+
+## 2026-10-21 — STD-PaddleControl: layout van pong_super overgenomen
+
+De layout van STD-PaddleControl uit `apps/pong_super/models/pong_dg_adv.drawio` is
+overgenomen waar de cellen te matchen zijn.
+
+- **pong_super_frt:** had al dezelfde layout. Zelfde cel-id's en posities; alleen het kader
+  en het interfacevak zijn breder door de langere FreeRTOS-tekst. Niets aangepast.
+- **pong_simple** (`pong_cg.drawio`) **en pong_simple_frt** (`pong_simple_frt.drawio`)
+  hebben een andere opbouw: geen keuzeknopen. Daarom op rol gematcht.
+  - **Overgenomen:**
+    - het kader: positie en maat van super; bij frt breder voor het interfacevak;
+    - het interfacevak: positie van super, de maat de grootste van de twee;
+    - de beginknoop, Disabled, Enabled en Moving: positie en maat;
+    - de pijlen init→Disabled, Disabled→Enabled, Enabled→Disabled en Moving→Disabled:
+      geometrie en knikpunten, labelpositie en exit/entry.
+  - **Niet te matchen:** Enabled→Moving, Moving→Enabled en de zelflus op Moving. In super
+    lopen die via keuzeknopen. Ze zijn opnieuw laten routeren, met eigen aansluitpunten.
+  - De notes staan nu onder het kader op x=418, zoals de FreeRTOS-note bij pong_super_frt.
+- **Twee fouten in pong_simple_frt meteen verholpen:**
+  - de zelflus `pc-e6` was zijn source en target kwijt;
+  - in `pc-e3` was het tweede event (`flagRightPressed`) niet omgezet naar
+    `eventBitRightPressed`. Het omzettool zet maar één event per label om.
+- Per tab vergeleken: alleen STD-PaddleControl is gewijzigd. Met draw.io geëxporteerd en
+  bekeken. De labels van Enabled↔Moving overlappen nog een beetje.
+
+## 2026-10-21 — Codegeneratie_richtlijnen: uitzondering met comment-sectie
+
+Marius: `moveStep()` in pong_super houdt zijn interacties met de buitenwereld. Ze naar de
+toestandsmachine verhuizen zou een gekunsteld resultaat geven. Zijn code staat letterlijk
+in een comment-sectie op de STD-tab, dus de interacties zijn daar nog steeds te zien.
+Marius heeft die sectie in de BallControl-STD's van de pong_super-modellen opnieuw uit de
+code gekopieerd; hij liep achter.
+
+- **In `Codegeneratie_richtlijnen.md`:**
+  - punt 1 heeft nu deze uitzondering, met de voorwaarde;
+  - punt 4 zegt dat zo'n comment-sectie net zo gelijk moet blijven met de code als de
+    pijlen;
+  - het open punt is gesloten.
+
+## 2026-10-21 — pong_simple(_frt): moveStep krijgt de peddelstand mee
+
+Vervolg op de vorige entry.
+
+- **Code:** in `psim_BallControl.h` en `psimf_BallControl.h` heet de functie nu
+  `moveStep(int paddlePosition)`.
+  - In de case STATE_RUNNING staat `moveStep(paddleControl.getPaddlePos())`.
+  - Het ophalen van de peddelstand (een interactie met PaddleControl) is daarmee zichtbaar
+    in de toestandsmachine.
+- **STD-BallControl** in beide drawio's: de pijl `[else]` en de note zijn aangepast.
+- **Richtlijnen:** in `Codegeneratie_richtlijnen.md` is het voorbeeld bijgewerkt, en het
+  open punt gaat nu over pong_super. Daar haalt `moveStep()` de peddelstand nog zelf op
+  en meldt hij zelf de kaatsing.
+- **Gebouwd:** pong_simple en pong_simple_frt zijn allebei groen. Niet geflasht.
+  `main.cpp` staat op `Pong_simple.ino`.
+
+## 2026-10-21 — BallControl: interacties met de buitenwereld in de toestandsmachine; richtlijnenbestand
+
+Aanwijzing van Marius: in de cases van de toestandsmachine moet elke interactie met de
+buitenwereld zichtbaar zijn. Hulpfuncties kapselen alleen interne berekeningen in.
+
+- **`psim_BallControl.h` en `psimf_BallControl.h`:**
+  - `initialiseRandomStartPos()` heet nu
+    `calcInitialRandomStartPosAndSpeed(int& startPosX, int& startPosY, int& startVX, int& startVY) const`;
+  - de functie rekent alleen nog en geeft alles terug via de reference-parameters;
+  - `displayControl.updateBallPosition(posX, posY)` staat nu in de case STATE_STOPPED.
+- **STD-BallControl** in `pong_cg.drawio` en `pong_simple_frt.drawio`: de pijl uit Stopped
+  en de note zijn aangepast aan de nieuwe naam en de nieuwe aanroep.
+- **Nieuw: `devdocs/Claude/Claude_instructions/Codegeneratie_richtlijnen.md`.** Daarin staan
+  de aanwijzingen voor code die bij modellen hoort, als basis voor het later automatisch
+  genereren:
+  - interacties met de buitenwereld zichtbaar in de toestandsmachine;
+  - resultaten van hulpfuncties via de parameters;
+  - benoemde stappen met dezelfde namen in elke variant;
+  - code en STD gelijk houden;
+  - STD-teksten zonder afkortingen;
+  - vaste event-patronen.
+  - Ook een open punt: `moveStep()` roept zelf `paddleControl.getPaddlePos()` aan.
+- **Gebouwd:** pong_simple en pong_simple_frt zijn allebei groen. Niet geflasht.
+  `main.cpp` staat op `Pong_simple.ino`, zoals Marius hem had.
+
+## 2026-10-21 — pong_simple(_frt): BallControl opgedeeld zoals in pong_super
+
+`updateBallPosition()` in BallControl is opgesplitst, net als in pong_super. Dat geldt zowel
+voor `apps/pong_simple/psim_BallControl.h` als voor
+`apps_frt/pong_simple_frt/psimf_BallControl.h`.
+
+- **De nieuwe functies:**
+  - `moveStep()`: een stap verder, en dan `bounceOffWallsIfHit()` en
+    `bouncePaddleIfHit(paddleControl.getPaddlePos())`;
+  - `bounceOffWallsIfHit()` en `bouncePaddleIfHit(int paddlePosition)`.
+  - De namen zijn dezelfde als in pong_super. `bouncePaddleIfHit` geeft hier niets
+    terug, want pong_simple heeft geen score.
+- **Het doorgeven aan het scherm** (`displayControl.updateBallPosition(posX, posY)`)
+  staat nu in `main()`, direct na `moveStep()`. Zo hoort `moveStep()` net als in
+  pong_super alleen bij de beweging. Het gedrag is ongewijzigd.
+- **STD-BallControl in beide drawio's:**
+  - `pong_cg.drawio`: Marius had de tab al omgebouwd met `after(FrameIntervalMs)` en
+    een keuzeknoop; die opbouw is gebleven.
+  - `pong_simple_frt.drawio` had die opbouw nog niet. Daarna is de tab uit `pong_cg.drawio`
+    overgenomen, met behoud van het tab-id, en alleen deze tab opnieuw omgezet met
+    `StdCleanRtosNaarStdFreeRtos --tab STD-BallControl`.
+    - `flagStart` is daarbij `eventBitStart` geworden; `after(FrameIntervalMs)` en de
+      keuzeknoop zijn gebleven.
+    - De overige tabs zijn ongewijzigd.
+  - In beide is alleen de pijl `[else] / ...` aangepast: daar staat nu `moveStep()` en
+    `displayControl.updateBallPosition(posX, posY)` in plaats van
+    `updateBallPosition()`.
+  - Ook de note met de uitleg per functie is in beide bijgewerkt.
+- **Gebouwd:** pong_simple en pong_simple_frt zijn allebei groen. `main.cpp` staat op
+  `Pong_simple_frt.ino`. Niet geflasht: er was geen `/dev/ttyUSB0`, de CYD hing niet aan
+  WSL.
+
 ## 2026-10-21 — apps_frt/pong_simple_frt: pong_simple op vanilla FreeRTOS
 
 Op dezelfde manier als pong_super_frt hieronder.

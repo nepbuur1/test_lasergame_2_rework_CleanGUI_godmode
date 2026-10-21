@@ -14,7 +14,7 @@
 // Testschakelaar, normaal uit. Aan: de bal begint vlak boven de doellijn en is
 // binnen een halve seconde weg, zodat de overgang naar het game-over-scherm
 // honderden keren per minuut te beproeven is in plaats van twintig keer per
-// kwartier. Zie initialiseRandomStartPos().
+// kwartier. Zie calcInitialRandomStartPosAndSpeed().
 //#define PONG_FAST_GAME_OVER
 
 using namespace crt;
@@ -87,7 +87,10 @@ namespace pong_simple
         // middelpunt.
         static const int ballRadius = BallSizePix/2;
 
-        void initialiseRandomStartPos()
+        // Berekent de startplek en -snelheid van een nieuwe bal. Alles gaat via de
+        // reference-parameters terug, zodat aan de aanroep te zien is wat er
+        // verandert; de bal zelf doorgeven aan het scherm doet de toestandsmachine.
+        void calcInitialRandomStartPosAndSpeed(int& startPosX, int& startPosY, int& startVX, int& startVY) const
         {
 #ifdef PONG_FAST_GAME_OVER
             // De bal begint vlak boven de doellijn, helemaal links, en gaat
@@ -100,31 +103,24 @@ namespace pong_simple
             // vX = 0 houdt hem bij de linkerwand vandaan: bij een botsing tegen
             // die wand zou hij naar rechts wegdraaien en alsnog bij de peddel
             // kunnen uitkomen.
-            posX = WallThicknessPix + ballRadius;
-            posY = PaddleHeightPix + ballRadius + 2*BallSpeedPixPerFrame;
-            vX = 0;
-            vY = -BallSpeedPixPerFrame;
+            startPosX = WallThicknessPix + ballRadius;
+            startPosY = PaddleHeightPix + ballRadius + 2*BallSpeedPixPerFrame;
+            startVX = 0;
+            startVY = -BallSpeedPixPerFrame;
 #else
-            posX = screenWidth/2;
-            posY = screenHeigth/2;
-            vX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
-            vY = BallSpeedPixPerFrame;
+            startPosX = screenWidth/2;
+            startPosY = screenHeigth/2;
+            startVX = ((rand()%2)*2-1) * BallSpeedPixPerFrame;
+            startVY = BallSpeedPixPerFrame;
 #endif
-
-            // Meteen doorgeven, anders staat de bal het eerste beeld van een
-            // nieuw spel nog op de plek waar het vorige spel verloren ging.
-            displayControl.updateBallPosition(posX, posY);
         }
 
-        void updateBallPosition()
+        // Tegen een wand aan: terugzetten op de rand en de richting omkeren.
+        // Terugzetten hoort erbij - zonder dat kan de bal een stap in de wand
+        // eindigen en er bij de volgende stap nog dieper in lopen, want de
+        // snelheid is groter dan een pixel.
+        void bounceOffWallsIfHit()
         {
-            posX += vX;
-            posY += vY;
-
-            // Tegen een wand aan: terugzetten op de rand en de richting omkeren.
-            // Terugzetten hoort erbij - zonder dat kan de bal een stap in de wand
-            // eindigen en er bij de volgende stap nog dieper in lopen, want de
-            // snelheid is groter dan een pixel.
             if (posX - ballRadius <= WallThicknessPix)
             {
                 posX = WallThicknessPix + ballRadius;
@@ -141,11 +137,12 @@ namespace pong_simple
                 posY = screenHeigth - WallThicknessPix - ballRadius;
                 vY = (vY > 0) ? -vY : vY;
             }
+        }
 
-            // De peddel: alleen als de bal daalt, en alleen als hij binnen de
-            // breedte van de peddel valt.
-            int paddlePosition = paddleControl.getPaddlePos();
-            
+        // De peddel: alleen als de bal daalt, en alleen als hij binnen de
+        // breedte van de peddel valt.
+        void bouncePaddleIfHit(int paddlePosition)
+        {
             if ((vY < 0) && (posY - ballRadius <= PaddleHeightPix)
                 && (posX >= paddlePosition - PaddleWidthPix/2 - ballRadius)
                 && (posX <= paddlePosition + PaddleWidthPix/2 + ballRadius))
@@ -164,8 +161,19 @@ namespace pong_simple
                     vX = (offsetFromCentre < 0) ? -1 : 1;	// nooit helemaal recht omhoog.
                 }
             }
+        }
 
-            displayControl.updateBallPosition(posX, posY);
+        // Een beeldstap: een stap verder, en dan kaatsen waar dat moet. Zoals
+        // BallControl::moveStep() in pong_super, maar zonder crates en vuurkorven.
+        // De peddelstand komt als parameter binnen: die ophalen is een interactie met
+        // een ander object, en die hoort zichtbaar in de toestandsmachine.
+        void moveStep(int paddlePosition)
+        {
+            posX += vX;
+            posY += vY;
+
+            bounceOffWallsIfHit();
+            bouncePaddleIfHit(paddlePosition);
         }
 
 		/*override keyword not supported*/
@@ -181,7 +189,10 @@ namespace pong_simple
                 {
                 case STATE_STOPPED:
                     wait(flagStart);
-                    initialiseRandomStartPos();
+                    calcInitialRandomStartPosAndSpeed(posX, posY, vX, vY);
+                    // Meteen doorgeven, anders staat de bal het eerste beeld van een
+                    // nieuw spel nog op de plek waar het vorige spel verloren ging.
+                    displayControl.updateBallPosition(posX, posY);
                     state = STATE_RUNNING;
                     break;
 
@@ -194,7 +205,8 @@ namespace pong_simple
                     }
                     else
                     {
-                        updateBallPosition();
+                        moveStep(paddleControl.getPaddlePos());
+                        displayControl.updateBallPosition(posX, posY);
                         vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
                                                         // een stap van BallSpeedPixPerFrame pixels.
                     }

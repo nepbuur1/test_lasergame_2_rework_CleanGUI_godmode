@@ -121,9 +121,8 @@ namespace pong_simple
 	}
 
 	private:
-		// Een stap in de gevraagde richting, tegen de randen aan begrensd, en
-		// meteen doorgegeven aan wie er iets aan heeft.
-		void movePaddle(int direction)
+		// Een stap in de gevraagde richting, tegen de randen aan begrensd.
+		int calcNewPaddlePosition(int paddlePosition, int direction) const
 		{
 			int minPosition = WallThicknessPix + paddleWidth/2;
 			int maxPosition = screenWidth - WallThicknessPix - paddleWidth/2;
@@ -133,6 +132,13 @@ namespace pong_simple
 			if (paddlePosition < minPosition) { paddlePosition = minPosition; }
 			if (paddlePosition > maxPosition) { paddlePosition = maxPosition; }
 
+			return paddlePosition;
+		}
+
+		// Maak een stap verder, en maak meteen de nieuwe positie beschikbaar voor andere taken (via getPaddlePos).
+		void movePaddle(int direction)
+		{
+			paddlePosition = calcNewPaddlePosition(paddlePosition, direction);
 			displayControl.updatePaddlePosition(paddlePosition);
 
 			// De bal krijgt de positie niet meer toegeschoven, hij haalt hem zelf
@@ -145,7 +151,6 @@ namespace pong_simple
 		{
 			repeatTimer.stop();
 			paddleDirection = 0;
-			state = State::STATE_ENABLED;
 		}
 
 		/*override keyword not supported*/
@@ -218,6 +223,7 @@ namespace pong_simple
 						else if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))
 						{
 							stopMoving();
+							state = State::STATE_ENABLED;
 						}
 						else if (hasFired(repeatTimer))
 						{

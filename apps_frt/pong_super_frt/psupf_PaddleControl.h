@@ -176,8 +176,7 @@ namespace pong_super_frt
 			xEventGroupSetBits(instance->eventGroup, eventBitMoveStepTimer);
 		}
 
-		// Een stap in de gevraagde richting, tegen de randen aan begrensd, en
-		// meteen doorgegeven aan wie er iets aan heeft.
+		// Een stap in de gevraagde richting, tegen de randen aan begrensd.
 		int calcNewPaddlePosition(int paddlePosition, int direction)
 		{
 			int minPosition = WallThicknessPix + paddleWidth/2;
@@ -195,7 +194,6 @@ namespace pong_super_frt
 		{
 			xTimerStop(moveStepTimer, 0);
 			paddleDirection = 0;
-			state = State::STATE_ENABLED;
 		}
 
 		void movePaddle()
@@ -278,11 +276,13 @@ namespace pong_super_frt
 						{
 							xEventGroupClearBits(eventGroup, eventBitLeftReleased);
 							stopMoving();
+							state = State::STATE_ENABLED;
 						}
 						else if (bits & eventBitRightReleased)
 						{
 							xEventGroupClearBits(eventGroup, eventBitRightReleased);
 							stopMoving();
+							state = State::STATE_ENABLED;
 						}
 						else if (bits & eventBitMoveStepTimer)
 						{

@@ -459,6 +459,105 @@ namespace pong_simple
 			page.makeNonDrawable(true);
 		}
 
+		// De boom van de drie pagina's onder de root. Per pagina komt zijn
+		// schermvullende paneel eerst, want alles daarna tekent erop.
+		//
+		// Let op: je kunt niet meer children aan pageRoot toevoegen dan is
+		// gespecificeerd in zijn template parameter (20, zie main()).
+		void defineDisplayHierarchy(IWidget& pageRoot)
+		{
+			// Game Page
+			pageRoot.addChildWidget(gamePanel);
+			gamePanel.addChildWidget(bottomLinePanel);
+			gamePanel.addChildWidget(leftBorderPanel);
+			gamePanel.addChildWidget(rightBorderPanel);
+			gamePanel.addChildWidget(topBorderPanel);
+			gamePanel.addChildWidget(ballPanel);
+			gamePanel.addChildWidget(paddlePanel);
+			gamePanel.addChildWidget(buttonLeft);
+			gamePanel.addChildWidget(buttonRight);
+
+			// Game Over Page
+			pageRoot.addChildWidget(gameOverPanel);
+			gameOverPanel.addChildWidget(gameOverLabelPanel);
+			gameOverLabelPanel.addChildWidget(gameOverText);
+			gameOverPanel.addChildWidget(buttonGameOverStart);
+
+			// Start Page
+			pageRoot.addChildWidget(startPagePanel);
+			startPagePanel.addChildWidget(startPageTitle);
+			startPagePanel.addChildWidget(buttonStartPageStart);
+		}
+
+		// Peddel en peddelknoppen in beeld, en aanraakbaar.
+		//
+		// De enable() staat er expliciet bij omdat show() niet meer enablet.
+		// Dubbelop met de page.enable(true) van showPage(), maar hij houdt deze
+		// functie op zichzelf kloppend, en het is de plek waar
+		// TouchscreenButton::enable() een verouderde bPressed weggooit.
+		void showPaddleAndButtons()
+		{
+			paddlePanel.show(true);
+			paddlePanel.enable(true);
+			buttonLeft.show(true);
+			buttonLeft.enable(true);
+			buttonRight.show(true);
+			buttonRight.enable(true);
+		}
+
+		// Hier wel hide() en geen makeNonDrawable: de gamepagina staat op dit
+		// moment nog in beeld, dus peddel en knoppen moeten er echt af. De boom
+		// tekent terug wat eronder zat.
+		//
+		// Eerst uitschakelen en dan pas weghalen: dat tekenwerk loopt via de
+		// commandobuffer van AsyncDisplay, en in het venster daartussen komt de
+		// touch-taak langs. Een knop die al van het scherm is mag geen druk meer
+		// melden.
+		void hidePaddleAndButtons()
+		{
+			paddlePanel.disable(true);
+			paddlePanel.hide(true);
+			buttonLeft.disable(true);
+			buttonLeft.hide(true);
+			buttonRight.disable(true);
+			buttonRight.hide(true);
+		}
+
+		// moveTo() en niet setLocPos(): die laatste verzet alleen de coordinaten
+		// en tekent niets, zodat de peddel op het scherm blijft staan waar hij
+		// stond. moveTo() herstelt bovendien alleen de strook die vrijkomt - dat
+		// is wat dit betaalbaar maakt bij 25 beelden per seconde.
+		//
+		// Staat de gamepagina niet in beeld, dan verzet dit alleen de
+		// coordinaten: moveTo() keert vroeg terug op een niet-tekenbare widget.
+		void movePaddlePanel(int paddlePosition)
+		{
+			paddlePanel.moveTo(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels);
+		}
+
+		// Zie movePaddlePanel().
+		void moveBallPanel(const TwoNumbers& ballPosition)
+		{
+			ballPanel.moveTo(centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix()), CoordType::Pixels);
+		}
+
+		// Beeldtelling, om te kunnen nagaan of de 25 per seconde ook echt
+		// gehaald worden in plaats van dat aan te nemen. Eens per seconde in het log.
+		int32_t nofFrames = 0;
+		int64_t timeOfLastReportUs = esp_timer_get_time();
+
+		void countFrameAndReportFps()
+		{
+			nofFrames++;
+			int64_t nowUs = esp_timer_get_time();
+			if (nowUs - timeOfLastReportUs >= 1000000)
+			{
+				ESP_LOGI("pong", "%d fps", (int)nofFrames);
+				nofFrames = 0;
+				timeOfLastReportUs = nowUs;
+			}
+		}
+
 		static Vec2 ballSizePix()   { return Vec2(BallSizePix, BallSizePix); }
 		static Vec2 paddleSizePix() { return Vec2(PaddleWidthPix, PaddleHeightPix); }
 
@@ -486,40 +585,16 @@ namespace pong_simple
 			// dus daar komt alleen de pagina uit die op dat moment aan staat. Per
 			// pagina blijft duidelijker; daar is showPage voor.
 
-			// Game Page toevoegen aan de pageRoot
 			initGamePanels();
-			pageRoot.addChildWidget(gamePanel);	// eerst, want alles hierna tekent erop.
-			gamePanel.addChildWidget(bottomLinePanel);
-			gamePanel.addChildWidget(leftBorderPanel);
-			gamePanel.addChildWidget(rightBorderPanel);
-			gamePanel.addChildWidget(topBorderPanel);
-			gamePanel.addChildWidget(ballPanel);
-			gamePanel.addChildWidget(paddlePanel);
-			gamePanel.addChildWidget(buttonLeft);
-			gamePanel.addChildWidget(buttonRight);
-			hidePage(gamePanel);
-
-			// Game Over Page toevoegen
 			initGameOverPanels();
-			pageRoot.addChildWidget(gameOverPanel);	// eerst, want alles hierna tekent erop.
-			gameOverPanel.addChildWidget(gameOverLabelPanel);
-			gameOverLabelPanel.addChildWidget(gameOverText);
-			gameOverPanel.addChildWidget(buttonGameOverStart);
-			hidePage(gameOverPanel);
-
-			// Start Page toevoegen
 			initStartPagePanels();
-			pageRoot.addChildWidget(startPagePanel);	// eerst, want alles hierna tekent erop.
-			startPagePanel.addChildWidget(startPageTitle);
-			startPagePanel.addChildWidget(buttonStartPageStart);
-			hidePage(startPagePanel);
-			// Geen showStartPage() hier: StartPageControl vraagt hem zo meteen zelf
-			// op, net als in de _dg-variant.
+			defineDisplayHierarchy(pageRoot);
 
-			// Beeldtelling, om te kunnen nagaan of de 25 per seconde ook echt
-			// gehaald worden in plaats van dat aan te nemen.
-			int32_t nofFrames = 0;
-			int64_t timeOfLastReportUs = esp_timer_get_time();
+			// Alle drie uit beeld. Geen showStartPage() hier: StartPageControl
+			// vraagt hem zo meteen zelf op, net als in de _dg-variant.
+			hidePage(gamePanel);
+			hidePage(gameOverPanel);
+			hidePage(startPagePanel);
 
 			// Geen toestand meer over welke pagina "de huidige" is: elke pagina
 			// heeft zijn eigen show en hide, en de aanroeper houdt dat paar bij.
@@ -582,65 +657,25 @@ namespace pong_simple
 					// pagina's onder een root en heeft die toestand niet.
 					if (gamePanel.isDrawable())
 					{
-						// De enable() staat er expliciet bij omdat show() niet meer
-						// enablet. Dubbelop met de page.enable(true) van showPage(),
-						// maar hij houdt deze tak op zichzelf kloppend, en het is de
-						// plek waar TouchscreenButton::enable() een verouderde
-						// bPressed weggooit.
-						paddlePanel.show(true);
-						paddlePanel.enable(true);
-						buttonLeft.show(true);
-						buttonLeft.enable(true);
-						buttonRight.show(true);
-						buttonRight.enable(true);
+						showPaddleAndButtons();
 					}
 				}
 				else if(hasFired(flagHidePaddle))
 				{
-					// Hier wel hide() en geen makeNonDrawable: de gamepagina staat
-					// op dit moment nog in beeld, dus peddel en knoppen moeten er
-					// echt af. De boom tekent terug wat eronder zat.
-					//
-					// Eerst uitschakelen en dan pas weghalen: dat tekenwerk loopt
-					// via de commandobuffer van AsyncDisplay, en in het venster
-					// daartussen komt de touch-taak langs. Een knop die al van het
-					// scherm is mag geen druk meer melden.
-					paddlePanel.disable(true);
-					paddlePanel.hide(true);
-					buttonLeft.disable(true);
-					buttonLeft.hide(true);
-					buttonRight.disable(true);
-					buttonRight.hide(true);
+					hidePaddleAndButtons();
 				}
 				else if(hasFired(flagPaddlePositionUpdated))
 				{
 					int paddlePosition;
 					poolPaddlePosition.read(paddlePosition);
-					// moveTo() en niet setLocPos(): die laatste verzet alleen de
-					// coordinaten en tekent niets, zodat de peddel op het scherm
-					// blijft staan waar hij stond. moveTo() herstelt bovendien
-					// alleen de strook die vrijkomt - dat is wat dit betaalbaar
-					// maakt bij 25 beelden per seconde.
-					//
-					// Staat de gamepagina niet in beeld, dan verzet dit alleen de
-					// coordinaten: moveTo() keert vroeg terug op een
-					// niet-tekenbare widget.
-					paddlePanel.moveTo(centreToTopLeftPix(paddlePosition, PaddleHeightPix/2, paddleSizePix()), CoordType::Pixels);
+					movePaddlePanel(paddlePosition);
 				}
 				else if(hasFired(flagBallPositionUpdated))
 				{
 					TwoNumbers ballPosition;
 					poolBallPosition.read(ballPosition);
-					ballPanel.moveTo(centreToTopLeftPix(ballPosition.number1, ballPosition.number2, ballSizePix()), CoordType::Pixels);
-
-					nofFrames++;
-					int64_t nowUs = esp_timer_get_time();
-					if (nowUs - timeOfLastReportUs >= 1000000)
-					{
-						ESP_LOGI("pong", "%d fps", (int)nofFrames);
-						nofFrames = 0;
-						timeOfLastReportUs = nowUs;
-					}
+					moveBallPanel(ballPosition);
+					countFrameAndReportFps();
 				}
 			}
 		}

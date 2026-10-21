@@ -1,4 +1,4 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.5 Chrome/134.0.6998.205 Electron/35.3.0 Safari/537.36" pages="20">
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.5 Chrome/134.0.6998.205 Electron/35.3.0 Safari/537.36" pages="19">
   <diagram id="ongkqxA6t8zwB6m4w0_r" name="GUI Design">
     <mxGraphModel dx="745" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -1907,7 +1907,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="_uXHyoPMzgHhNThG68Ej" name="STD-MainControl">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1572" dy="2" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1959,7 +1959,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="QA4jBx0oIy-9sWQaGTJ6" name="STD-GameControl">
-    <mxGraphModel dx="1298" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1400" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1400" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1986,16 +1986,10 @@
             <mxPoint x="600" y="560" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="89NzSfAYhCRJS5D0BqFg-11" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="150" as="sourcePoint" />
-            <mxPoint x="820" y="150.94" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="89NzSfAYhCRJS5D0BqFg-12" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;getScore / return score&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;// Pool not needed, because called from MainControl (same Task)&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;ballBouncedOnPaddle / score++&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // Pool not needed, because called from BallControl (same Task).&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(pButton) / if(pButton==pGameOverLabel) flagFrameOverLabelPressed.set()&lt;/p&gt;" vertex="1">
+        <mxCell id="89NzSfAYhCRJS5D0BqFg-12" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;getScore / return score&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;// Pool not needed, because called from MainControl (same Task)&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;ballBouncedOnPaddle / score++&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // Pool not needed, because called from BallControl (same Task).&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(pButton) / if(pButton==pGameOverLabel) flagGameOverLabelPressed.set()&lt;/p&gt;" vertex="1">
           <mxGeometry height="90" width="580" x="125" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="AYul0-S95-I2TYdE4OKC-2" edge="1" parent="1" source="AYul0-S95-I2TYdE4OKC-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="AYul0-S95-I2TYdE4OKC-13" value="[nofBallsInUse==0] /&lt;br&gt;&lt;div&gt;timerFrame.stop();&lt;/div&gt;&lt;div&gt;timerFrame.clear();&lt;/div&gt;&lt;div&gt;spawnables.releaseCratesAndFireBins();&lt;br&gt;spawnables.publishStates(score);&lt;/div&gt;&lt;div&gt;paddleControl.disable();&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;flagGameOverLabelPressed.clear();&lt;/div&gt;&lt;div&gt;gameDisplayControl.showGameOverLabel();&lt;br&gt;timeGameOverLabel.start(GameOverLabelTimeoutMs * 1000)&lt;/div&gt;&lt;/div&gt;">
+        <mxCell id="AYul0-S95-I2TYdE4OKC-2" edge="1" parent="1" source="AYul0-S95-I2TYdE4OKC-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="AYul0-S95-I2TYdE4OKC-13" value="[nofBallsInUse==0] /&lt;br&gt;&lt;div&gt;timerFrame.stop();&lt;/div&gt;&lt;div&gt;timerFrame.clear();&lt;/div&gt;&lt;div&gt;spawnables.releaseCratesAndFireBins();&lt;br&gt;spawnables.publishStates(score);&lt;/div&gt;&lt;div&gt;paddleControl.disable();&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;flagGameOverLabelPressed.clear();&lt;/div&gt;&lt;div&gt;gameDisplayControl.showGameOverLabel();&lt;br&gt;timerGameOverLabel.start(GameOverLabelTimeoutMs * 1000)&lt;/div&gt;&lt;/div&gt;">
           <mxGeometry relative="1" x="0.0455" y="75" as="geometry">
             <mxPoint as="offset" />
             <mxPoint x="120" y="415" as="targetPoint" />
@@ -2032,7 +2026,7 @@
         <mxCell id="AYul0-S95-I2TYdE4OKC-7" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="730" y="180" as="geometry" />
         </mxCell>
-        <mxCell id="AYul0-S95-I2TYdE4OKC-10" parent="1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;" value="&lt;div&gt;void spawnObject()&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;int posX, posY;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pickRandomSpawnPosition(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;bool bFireBin = (nofBalls &amp;gt;= NofBallsForCertainFireBin) ||&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; ((int)(rand() % NofBallsForCertainFireBin) &amp;lt; nofBalls);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;if (bFireBin)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; spawnables.spawnFireBinAt(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;else&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;spawnables.spawnCrateAt(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;}&lt;br&gt;}&lt;/span&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="AYul0-S95-I2TYdE4OKC-10" parent="1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;" value="&lt;div&gt;void &lt;b&gt;spawnObject()&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt; &lt;/span&gt;int posX, posY;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pickRandomSpawnPosition(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;bool bFireBin = (nofBalls &amp;gt;= NofBallsForCertainFireBin) ||&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; ((int)(rand() % NofBallsForCertainFireBin) &amp;lt; nofBalls);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;if (bFireBin)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; spawnables.spawnFireBinAt(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;else&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;spawnables.spawnCrateAt(posX, posY);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt; &lt;/span&gt;}&lt;br&gt;}&lt;/span&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="280" width="410" x="390" y="640" as="geometry" />
         </mxCell>
         <mxCell id="AYul0-S95-I2TYdE4OKC-12" parent="1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;" value="" vertex="1">
@@ -2050,7 +2044,7 @@
         <mxCell id="AYul0-S95-I2TYdE4OKC-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="ShowingGameOverLabel" vertex="1">
           <mxGeometry height="40" width="140" x="60" y="395" as="geometry" />
         </mxCell>
-        <mxCell id="AYul0-S95-I2TYdE4OKC-17" edge="1" parent="1" source="AYul0-S95-I2TYdE4OKC-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=light-dark(#000000,transparent);labelBackgroundColor=default;" target="AYul0-S95-I2TYdE4OKC-12" value="&lt;div&gt;flagGameOverLabelPressed.clear();&lt;/div&gt;&lt;div&gt;timerGameOverLabel.stop();&lt;/div&gt;&lt;div&gt;timerGameOverLabel.clear();&lt;/div&gt;&lt;div&gt;gameDisplayControl.hideGameOverLabel();&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;gameDisplayControl.hideGamePage();&lt;/div&gt;&lt;/div&gt;">
+        <mxCell id="AYul0-S95-I2TYdE4OKC-17" edge="1" parent="1" source="AYul0-S95-I2TYdE4OKC-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=default;" target="AYul0-S95-I2TYdE4OKC-12" value="&lt;div&gt;/ flagGameOverLabelPressed.clear();&lt;/div&gt;&lt;div&gt;timerGameOverLabel.stop();&lt;/div&gt;&lt;div&gt;timerGameOverLabel.clear();&lt;/div&gt;&lt;div&gt;gameDisplayControl.hideGameOverLabel();&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;gameDisplayControl.hideGamePage();&lt;/div&gt;&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.0769" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
@@ -2068,11 +2062,14 @@
             <mxPoint x="120" y="569" as="targetPoint" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="146" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="Jh9OSBWhsDvSuSpdjiKG" name="STD-GameDisplayControl">
-    <mxGraphModel dx="1689" dy="1676" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="TnJXvQ2mKdRsLpWc-0" />
         <mxCell id="TnJXvQ2mKdRsLpWc-1" parent="TnJXvQ2mKdRsLpWc-0" />
@@ -2081,12 +2078,6 @@
         </mxCell>
         <mxCell id="TnJXvQ2mKdRsLpWc-3" parent="TnJXvQ2mKdRsLpWc-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;updateGameObjects(ballStates, crateStates, fireBinStates, score) /&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;poolBallStates.write(ballStates); poolCrateStates.write(crateStates);&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;poolFireBinStates.write(fireBinStates); poolScore.write(score);&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;flagBallPositionUpdated.set()&lt;br&gt;updatePaddlePosition(x) / poolPaddlePosition.write(x); flagPaddlePositionUpdated.set()&lt;br&gt;showGamePage()        / flagDeshowGamePage.clear(); flagShowGamePage.set()&lt;br&gt;hideGamePage()        / flagShowGamePage.clear(); flagDeshowGamePage.set()&lt;br&gt;showPaddle()          / flagHidePaddle.clear(); flagShowPaddle.set()&lt;br&gt;hidePaddle()          / flagShowPaddle.clear(); flagHidePaddle.set()&lt;br&gt;showGameOverLabel()   / flagHideGameOverLabel.clear(); flagShowGameOverLabel.set()&lt;br&gt;hideGameOverLabel()   / flagShowGameOverLabel.clear(); flagHideGameOverLabel.set()&lt;br&gt;getWidth() / return width;      getHeight() / return height;&lt;br&gt;getBallOffScreenY() / return (height-1) - screenHeight - ballPanelSizePix().y/2;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// deze drie: geen aanpassing na initialisatie/constructie -&amp;gt; geen synchronisatie nodig&lt;br&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="245" width="520" x="380" y="50" as="geometry" />
-        </mxCell>
-        <mxCell id="TnJXvQ2mKdRsLpWc-4" edge="1" parent="TnJXvQ2mKdRsLpWc-1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="20" y="330" as="sourcePoint" />
-            <mxPoint x="1630" y="330" as="targetPoint" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="TnJXvQ2mKdRsLpWc-5" parent="TnJXvQ2mKdRsLpWc-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="260" y="495" as="geometry" />
@@ -2120,7 +2111,7 @@
             <mxPoint x="890" y="552.5" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="TnJXvQ2mKdRsLpWc-11" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;div&gt;&lt;b&gt;void applyGameState()&lt;/b&gt;&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;BallStates ballStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;poolBallStates.read(ballStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;CrateStates crateStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;poolCrateStates.read(crateStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;FireBinStates fireBinStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;poolFireBinStates.read(fireBinStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;int32_t score;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;poolScore.read(score);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;applyCrateStates(crateStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;applyFireBinStates(fireBinStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;applyScore(score);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;applyBallStates(ballStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="TnJXvQ2mKdRsLpWc-11" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;div&gt;void &lt;b&gt;applyGameState()&lt;/b&gt;&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;BallStates ballStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;poolBallStates.read(ballStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;CrateStates crateStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;poolCrateStates.read(crateStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;FireBinStates fireBinStates;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;poolFireBinStates.read(fireBinStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;int32_t score;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;poolScore.read(score);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;applyCrateStates(crateStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;applyFireBinStates(fireBinStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;applyScore(score);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;applyBallStates(ballStates);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="300" width="250" x="70" y="580" as="geometry" />
         </mxCell>
         <mxCell id="TnJXvQ2mKdRsLpWc-12" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;b&gt;Waarom per frame de hele boom&lt;/b&gt; - deze app rekent op de backbuffer&lt;br&gt;van de PAL8-adapter; GameDisplayControl::main() controleert dat.&lt;br&gt;&lt;br&gt;Tekenen in geheugen is bijna gratis, maar uitsturen kost altijd&lt;br&gt;het hele scherm (~31 ms). Dan is de hele boom opnieuw opbouwen&lt;br&gt;en er een redraw() overheen doen goedkoper dan het slim proberen&lt;br&gt;te doen - en flikkervrij: er komt pas iets op het scherm als het&lt;br&gt;beeld af is.&amp;nbsp;&lt;br&gt;&lt;br&gt;redraw() en niet show(): de boom zit vol widgets die met opzet&lt;br&gt;uit staan (ongebruikte bal-, crate- en vuurkorfslots, en na&lt;br&gt;hidePaddle ook de peddel). show() zou die weer aanzetten." vertex="1">
@@ -2129,7 +2120,7 @@
         <mxCell id="TnJXvQ2mKdRsLpWc-13" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;b&gt;Toestanden&lt;br&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;Hidden&lt;/b&gt;: de spelpagina is niet in beeld. Er wordt niets getekend;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;binnenkomende beeld- en peddelvlaggen worden niet afgewacht&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;en dus ook niet verwerkt.&lt;br&gt;&lt;b&gt;Shown&lt;/b&gt;: de spelpagina is in beeld en wordt bijgewerkt op elke&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;stand die GameControl en PaddleControl doorgeven." vertex="1">
           <mxGeometry height="130" width="390" x="1180" y="405" as="geometry" />
         </mxCell>
-        <mxCell id="BVQBgyILcWpBfLLa7Rj2-0" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;void defineDisplayHierarchy(IWidget&amp;amp; pageRoot)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(backgroundPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(bottomLinePanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(leftBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(rightBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(topBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(paddlePanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(buttonLeft);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(buttonRight);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// De crates vóór de ballen, zodat een bal er overheen gaat en niet&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// erachter verdwijnt op het moment dat hij hem raakt.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofCrates; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;pageRoot.addChildWidget(arCratePanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofFireBins; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;pageRoot.addChildWidget(arFireBinPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;for (int i = 0; i &amp;lt; NofScoreDigits; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;pageRoot.addChildWidget(arScoreDigitPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// kaatsing tegen de peddel: een brandende bal valt onder de doellijn&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// door en komt daarbij over de peddelknoppen heen.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofBalls; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;pageRoot.addChildWidget(arBallPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;// En het GAME OVER-vignet daar nog overheen.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;pageRoot.addChildWidget(buttonGameOverLabel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;" vertex="1">
+        <mxCell id="BVQBgyILcWpBfLLa7Rj2-0" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;void &lt;b&gt;defineDisplayHierarchy(IWidget&amp;amp; pageRoot)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(backgroundPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(bottomLinePanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(leftBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(rightBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(topBorderPanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(paddlePanel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(buttonLeft);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(buttonRight);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// De crates vóór de ballen, zodat een bal er overheen gaat en niet&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// erachter verdwijnt op het moment dat hij hem raakt.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofCrates; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;pageRoot.addChildWidget(arCratePanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofFireBins; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;pageRoot.addChildWidget(arFireBinPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;for (int i = 0; i &amp;lt; NofScoreDigits; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;pageRoot.addChildWidget(arScoreDigitPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// De ballen als laatste, dus bovenop. Dat is niet alleen mooier bij een&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// kaatsing tegen de peddel: een brandende bal valt onder de doellijn&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// door en komt daarbij over de peddelknoppen heen.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;for (int i = 0; i &amp;lt; MaxNofBalls; i++)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;  &lt;/span&gt;pageRoot.addChildWidget(arBallPanels[i]);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;// En het GAME OVER-vignet daar nog overheen.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt; &lt;/span&gt;pageRoot.addChildWidget(buttonGameOverLabel);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;" vertex="1">
           <mxGeometry height="590" width="420" x="1180" y="550" as="geometry" />
         </mxCell>
         <mxCell id="r723ki3-5yY8NdxZmrxx-0" parent="TnJXvQ2mKdRsLpWc-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;Hidden&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;flagDeshowGamePage / .&amp;nbsp; &amp;nbsp;// al uit beeld: niets te doen, flag consumeren.&lt;/p&gt;" vertex="1">
@@ -2138,16 +2129,19 @@
         <mxCell id="BrvEYYTI_gRzCjXCi2ai-2" parent="TnJXvQ2mKdRsLpWc-1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;b&gt;Selectie van private functies&lt;/b&gt;&lt;div&gt;&lt;br&gt;Als vuistregel laat je in ieder geval private functies in je STD zien die berichten sturen naar andere objecten uit je object model.&lt;br&gt;&lt;br&gt;Verder (zoals in deze STD) kun je naar believen private functies toevoegen als je vind dat ze iets belangrijks verduidelijken.&lt;/div&gt;" vertex="1">
           <mxGeometry height="130" width="390" x="640" y="930" as="geometry" />
         </mxCell>
+        <mxCell id="std-separator" parent="TnJXvQ2mKdRsLpWc-1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="1610" x="20" y="326" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="IWqHjscSkSpRofJ7v2-y" name="STD-PaddleControl">
-    <mxGraphModel dx="852" dy="149" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="SndSm24W8n3QeOwuOcNm-1" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=117.33;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  PaddleControl&lt;/p&gt;" vertex="1">
-          <mxGeometry height="790" width="810" x="9" y="1190" as="geometry" />
+          <mxGeometry height="1010" width="810" x="9" y="1190" as="geometry" />
         </mxCell>
         <mxCell id="SndSm24W8n3QeOwuOcNm-2" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;getPaddlePosition /&amp;nbsp; return&amp;nbsp;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;poolPaddlePos.read(tempPaddlePos)&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;buttonPressed(IButton* pButton) /&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;if(pButton == pButtonLeft)&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagLeftPressed.set() &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; else&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;if(pButton == pButtonRight)&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagRightPressed.set()&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;buttonReleased(IButton* pButton) /&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;if(pButton == pButtonLeft)&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagLeftReleased.set()&amp;nbsp;&lt;br&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp;e&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;lse if(pButton == pButtonRight)&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagRightReleased.set()&lt;br&gt;&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(int buttonIndex) / if(buttonIndex == AdcButtonLeft) flagLeftPressed.set()&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;else if(buttonIndex == AdcButtonRight) flagRightPressed.set()&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonReleased(int buttonIndex) / if(buttonIndex == AdcButtonLeft) flagLeftReleased.set()&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;else if(buttonIndex == AdcButtonRight) flagRightReleased.set()&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;enable /&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagEnable.set()&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;disable /&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagDisable.set()&lt;/span&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="220" width="510" x="159" y="1210" as="geometry" />
@@ -2197,12 +2191,8 @@
           <mxGeometry height="40" width="150" x="200" y="1880" as="geometry" />
         </mxCell>
         <mxCell id="SndSm24W8n3QeOwuOcNm-10" edge="1" parent="1" source="SndSm24W8n3QeOwuOcNm-11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="SndSm24W8n3QeOwuOcNm-20" value="&lt;div&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagLeftReleased.clear();&lt;/span&gt;&lt;/div&gt;&lt;div&gt;flagRightReleased.clear();&lt;/div&gt;&lt;div&gt;moveStepTimer.start_periodic(repeatPeriodUs);&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.1942" y="-1" as="geometry">
+          <mxGeometry relative="1" x="0.0059" as="geometry">
             <mxPoint x="-1" as="offset" />
-            <Array as="points">
-              <mxPoint x="584.52" y="1810" />
-              <mxPoint x="585" y="1850" />
-            </Array>
             <mxPoint x="690" y="1770" as="sourcePoint" />
             <mxPoint x="630" y="1570" as="targetPoint" />
           </mxGeometry>
@@ -2267,7 +2257,7 @@
         <mxCell id="SndSm24W8n3QeOwuOcNm-18" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="304" y="1625" as="geometry" />
         </mxCell>
-        <mxCell id="SndSm24W8n3QeOwuOcNm-19" edge="1" parent="1" source="SndSm24W8n3QeOwuOcNm-20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="SndSm24W8n3QeOwuOcNm-21" value="/ paddlePosition =&lt;br&gt;calcNewPaddlePosition(paddlePosition,paddleDirection);&lt;br&gt;&lt;div&gt;poolPaddlePos.write(paddlePosition);&lt;br&gt;gameDisplayControl.updatePaddlePosition(paddlePosition);&lt;br&gt;&lt;/div&gt;">
+        <mxCell id="SndSm24W8n3QeOwuOcNm-19" edge="1" parent="1" source="SndSm24W8n3QeOwuOcNm-20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="SndSm24W8n3QeOwuOcNm-21" value="/ m&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;ovePaddle()&lt;/span&gt;">
           <mxGeometry relative="1" y="5" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
@@ -2282,17 +2272,17 @@
         <mxCell id="SndSm24W8n3QeOwuOcNm-21" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Moving" vertex="1">
           <mxGeometry height="60" width="230" x="540" y="1600" as="geometry" />
         </mxCell>
-        <mxCell id="SndSm24W8n3QeOwuOcNm-22" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="9" y="1450" as="sourcePoint" />
-            <mxPoint x="819" y="1450.94" as="targetPoint" />
-          </mxGeometry>
+        <mxCell id="A9j_T2uOyNsxWUSVCyVJ-1" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;void &lt;b&gt;movePaddle()&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;{&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;paddlePosition=calcNewPaddlePosition(paddlePosition,paddleDirection);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;poolPaddlePos.write(paddlePosition);&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&lt;/span&gt;// beschikbaar maken voor&amp;nbsp; getPaddlePosition()&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;gameDisplayControl.updatePaddlePosition(paddlePosition);&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;}&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;calcNewPaddlePosition :&lt;br&gt;bereken een nieuwe paddel position op basis van een stap in de richting&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="550" x="130" y="2010" as="geometry" />
+        </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="9" y="1446" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="qA7288arvoiqX2J4i8KT" name="STD-StartPageControl">
-    <mxGraphModel dx="1298" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -2301,12 +2291,6 @@
         </mxCell>
         <mxCell id="WnDHUJPIlGAFYGLlxkvt-2" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pStartPageStartButton) flagStartPressed.set()&lt;/p&gt;" vertex="1">
           <mxGeometry height="60" width="526" x="152" y="50" as="geometry" />
-        </mxCell>
-        <mxCell id="WnDHUJPIlGAFYGLlxkvt-3" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="130" as="sourcePoint" />
-            <mxPoint x="820" y="130.94000000000005" as="targetPoint" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="C9znQ1BFV909Kvk5UDyc-2" edge="1" parent="1" source="wATtwtyZM7QlIGBdzzBh-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="C9znQ1BFV909Kvk5UDyc-1" value="flagStartPressed&amp;nbsp;&lt;div&gt;/ startPageDisplayControl.hideStartPage()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry">
@@ -2331,11 +2315,14 @@
         <mxCell id="C9znQ1BFV909Kvk5UDyc-1" parent="1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="410" y="350" as="geometry" />
         </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="126" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram name="STD-StartPageDisplayControl" id="_xesPO5l_1BYwhhjh8Av">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="rGrPoaE_1Ofbrk77DHm--0" />
         <mxCell id="rGrPoaE_1Ofbrk77DHm--1" parent="rGrPoaE_1Ofbrk77DHm--0" />
@@ -2344,12 +2331,6 @@
         </mxCell>
         <mxCell id="rGrPoaE_1Ofbrk77DHm--3" parent="rGrPoaE_1Ofbrk77DHm--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showStartPage / flagHideStartPage.clear(); flagShowStartPage.set();&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideStartPage / flagShowStartPage.clear(); flagHideStartPage.set();&lt;br&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="80" width="379" x="224" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="rGrPoaE_1Ofbrk77DHm--4" edge="1" parent="rGrPoaE_1Ofbrk77DHm--1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="138" as="sourcePoint" />
-            <mxPoint x="820" y="138.94000000000005" as="targetPoint" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="rGrPoaE_1Ofbrk77DHm--5" edge="1" parent="rGrPoaE_1Ofbrk77DHm--1" source="rGrPoaE_1Ofbrk77DHm--6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="rGrPoaE_1Ofbrk77DHm--10" value="flagShowStartPage /&amp;nbsp;&lt;div&gt;showPage(pageStart);&lt;br&gt;timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/div&gt;">
           <mxGeometry relative="1" x="0.0041" y="1" as="geometry">
@@ -2381,6 +2362,9 @@
         <mxCell id="rGrPoaE_1Ofbrk77DHm--10" parent="rGrPoaE_1Ofbrk77DHm--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&lt;font&gt;Showing&lt;/font&gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;timerTorch /&amp;nbsp;selectNextAnimationFrameOfTorches();&lt;/font&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pageStart.show(true);&lt;br&gt;&lt;span style=&quot;text-align: center; white-space: nowrap; background-color: rgb(255, 255, 255);&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="90" width="420" x="310" y="320" as="geometry" />
         </mxCell>
+        <mxCell id="std-separator" parent="rGrPoaE_1Ofbrk77DHm--1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="134" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
@@ -2410,11 +2394,8 @@
         <mxCell id="AQHbiJzzmoyddYZwN-ur-6" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" source="AQHbiJzzmoyddYZwN-ur-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="AQHbiJzzmoyddYZwN-ur-4" value="flagContinuePressed&amp;nbsp;&lt;div&gt;/ buttonInfoDisplayControl.hideButtonInfoPage()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="m0Z6GlPVakSJ5UepNy74-0" edge="1" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="128" as="sourcePoint" />
-            <mxPoint x="820" y="128.94000000000005" as="targetPoint" />
-          </mxGeometry>
+        <mxCell id="std-separator" parent="kCu2Ed_x2A5ZzgsTHIum-1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="124" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
@@ -2462,33 +2443,24 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="TJcUBXzVDUejYeBXl-8_-0" edge="1" parent="nUaiiQ3_n64finr22Q7G-1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="170" as="sourcePoint" />
-            <mxPoint x="820" y="170.94000000000005" as="targetPoint" />
-          </mxGeometry>
+        <mxCell id="std-separator" parent="nUaiiQ3_n64finr22Q7G-1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="166" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="wJvUrm6UrdfN4soESG62" name="STD HallOfFameDisplayControl">
-    <mxGraphModel dx="1182" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="tUfY83pHKQjDBm9qF8yz-1" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=184;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  HallOfFameDisplayControl&lt;/p&gt;" vertex="1">
-          <mxGeometry height="430" width="810" x="80" y="80" as="geometry" />
+          <mxGeometry height="455" width="1027" x="80" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-2" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showHallOfFamePage / flagHideHallOfFamePage.clear(); &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; flagShowHallOfFamePage.set();&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideHallOfFamePage / flagShowHallOfFamePage.clear(); &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; flagHideHallOfFamePage.set();&lt;br&gt;&lt;/p&gt;" vertex="1">
-          <mxGeometry height="100" width="316" x="294" y="100" as="geometry" />
+        <mxCell id="tUfY83pHKQjDBm9qF8yz-2" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showHallOfFamePage(const HallOfFameData&amp;amp; hallOfFameData) / poolHallOfFame.write(hallOfFameData);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;flagHideHallOfFamePage.clear(); flagShowHallOfFamePage.set()&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideHallOfFamePage() / flagShowHallOfFamePage.clear(); flagHideHallOfFamePage.set()&lt;/p&gt;" vertex="1">
+          <mxGeometry height="100" width="793" x="294" y="100" as="geometry" />
         </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-3" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="80" y="220" as="sourcePoint" />
-            <mxPoint x="890" y="220.94000000000005" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-4" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="tUfY83pHKQjDBm9qF8yz-9" value="flagShowHallOfFamePage /&amp;nbsp;&lt;div&gt;showPage(pageHallOfFame);&lt;br&gt;timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/div&gt;">
+        <mxCell id="tUfY83pHKQjDBm9qF8yz-4" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="tUfY83pHKQjDBm9qF8yz-9" value="flagShowHallOfFamePage /&lt;br&gt;poolHallOfFame.read(snapshot);&lt;br&gt;fillHallOfFameLines(snapshot);&lt;br&gt;showPage(pageHallOfFame);&lt;br&gt;timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())">
           <mxGeometry relative="1" x="0.0041" y="1" as="geometry">
             <mxPoint x="1" y="1" as="offset" />
             <mxPoint x="600" y="370" as="targetPoint" />
@@ -2497,7 +2469,7 @@
         <mxCell id="tUfY83pHKQjDBm9qF8yz-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Hidden" vertex="1">
           <mxGeometry height="40" width="80" x="550" y="240" as="geometry" />
         </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-6" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=none;" target="tUfY83pHKQjDBm9qF8yz-5" value="initPanels();&lt;br&gt;&lt;div&gt;PageRoot&amp;lt;18&amp;gt; pageHallOfFame(&quot;rootHallOfFamePageDisplay&quot;,display);&lt;/div&gt;&lt;div&gt;defineDisplayHierarchy(pageHallOfFame);&lt;/div&gt;hidePage(pageHallofFame)">
+        <mxCell id="tUfY83pHKQjDBm9qF8yz-6" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=none;" target="tUfY83pHKQjDBm9qF8yz-5" value="/ initPanels();&lt;br&gt;PAGE pageHallOfFame(&quot;rootHallOfFameDisplay&quot;,display);&lt;br&gt;defineDisplayHierarchy(pageHallOfFame);&lt;br&gt;hidePage(pageHallOfFame)">
           <mxGeometry relative="1" x="-0.7838" y="-40" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
@@ -2505,45 +2477,45 @@
         <mxCell id="tUfY83pHKQjDBm9qF8yz-7" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="150" y="240" as="geometry" />
         </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-8" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="tUfY83pHKQjDBm9qF8yz-5" value="flagHideHallOfFamePage &lt;br&gt;/ timerTorch.stop();&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; hidePage(pageHallOfFame)&amp;nbsp;">
+        <mxCell id="tUfY83pHKQjDBm9qF8yz-8" edge="1" parent="1" source="tUfY83pHKQjDBm9qF8yz-9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="tUfY83pHKQjDBm9qF8yz-5" value="flagHideHallOfFamePage&lt;br&gt;/ enterHidden(pageHallOfFame)">
           <mxGeometry relative="1" x="0.4419" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="830" y="440" />
-              <mxPoint x="830" y="260" />
+              <mxPoint x="886.5" y="450" />
+              <mxPoint x="886.5" y="260" />
             </Array>
             <mxPoint x="640" y="390" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="tUfY83pHKQjDBm9qF8yz-9" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&lt;font&gt;Shown&lt;/font&gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;timerTorch /&amp;nbsp;selectNextAnimationFrameOfTorches();&lt;/font&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pageHallOfFame.show(true);&lt;br&gt;&lt;span style=&quot;text-align: center; white-space: nowrap; background-color: rgb(255, 255, 255);&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" vertex="1">
-          <mxGeometry height="90" width="420" x="380" y="400" as="geometry" />
+        <mxCell id="tUfY83pHKQjDBm9qF8yz-9" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;Shown&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;flagShowHallOfFamePage / poolHallOfFame.read(snapshot); fillHallOfFameLines(snapshot);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pageHallOfFame.redraw(true);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;timerTorch / selectNextAnimationFrameOfTorches(); pageHallOfFame.redraw(true);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/p&gt;" vertex="1">
+          <mxGeometry height="115" width="533" x="323.5" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="hof-note" parent="1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;verticalAlign=top;fontFamily=Courier New;fontSize=11;spacingTop=6;" value="// Hulpfuncties met interactie met de buitenwereld (timer): de code.&lt;br&gt;void &lt;b&gt;enterHidden(PAGE&amp;amp; page)&lt;/b&gt;&lt;br&gt;{&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// stop() laat een tik die al gevallen is gewoon staan - daar is clear()&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// voor (zie crt_Timer.h). Buiten beeld wacht niemand meer op de klok, dus&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// zonder deze regel valt die tik pas binnen als de pagina terugkomt, met&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// een fakkelstap en een volledige hertekening op het moment van&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;// verschijnen.&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;timerTorch.stop();&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;timerTorch.clear();&lt;br&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;hidePage(page);&lt;br&gt;}&lt;br&gt;&lt;br&gt;// Hulpfuncties zonder interactie met de buitenwereld (alleen de eigen widgets):&lt;br&gt;void &lt;b&gt;fillHallOfFameLines(const HallOfFameData&amp;amp; hallOfFameData)&lt;/b&gt;: per regel naam en score als tekst,&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;de twee kolommen gemeten (display.getTextWidth) en samen gecentreerd.&lt;br&gt;void &lt;b&gt;initPanels()&lt;/b&gt;: maat, plek en kleur van alle widgets van de pagina.&lt;br&gt;void &lt;b&gt;defineDisplayHierarchy(IWidget&amp;amp; pageRoot)&lt;/b&gt;: pageRoot { backgroundPanel, hallOfFameTitlePanel,&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;per regel arHallOfFameNames[i] en arHallOfFameScores[i], buttonPlayAgain, arTorchPanels[0..1] }&lt;br&gt;void &lt;b&gt;showPage(PAGE&amp;amp; page)&lt;/b&gt;: tekenbaar maken, aanraakbaar maken, tekenen.&lt;br&gt;void &lt;b&gt;hidePage(PAGE&amp;amp; page)&lt;/b&gt;: niet tekenbaar en niet aanraakbaar maken, zonder te tekenen.&lt;br&gt;void &lt;b&gt;selectNextAnimationFrameOfTorches()&lt;/b&gt;: de volgende fakkelstap (TorchesDisplayHelpers::stepTorches)." vertex="1">
+          <mxGeometry height="352" width="768" x="80" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="1027" x="80" y="216" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram name="STD-GameOverPageControl" id="kV5rW2og0tr74tKkwSKl">
-    <mxGraphModel dx="1298" dy="1173" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="lEyVNEpSy5q4bLTfdEN--0" />
         <mxCell id="lEyVNEpSy5q4bLTfdEN--1" parent="lEyVNEpSy5q4bLTfdEN--0" />
         <mxCell id="lEyVNEpSy5q4bLTfdEN--2" parent="lEyVNEpSy5q4bLTfdEN--1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=255.67;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  GameOverPageControl - doGameOver()&lt;/p&gt;" vertex="1">
           <mxGeometry height="450" width="801" x="9" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="lEyVNEpSy5q4bLTfdEN--3" parent="lEyVNEpSy5q4bLTfdEN--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pGameOverPageStartButton) flagStartPressed.set()&lt;/p&gt;" vertex="1">
+        <mxCell id="lEyVNEpSy5q4bLTfdEN--3" parent="lEyVNEpSy5q4bLTfdEN--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;buttonPressed(IButton* pButton) / if(pButton == pPlayAgainButton) flagPlayAgainPressed.set()&lt;/p&gt;" vertex="1">
           <mxGeometry height="60" width="548" x="156" y="67" as="geometry" />
         </mxCell>
-        <mxCell id="lEyVNEpSy5q4bLTfdEN--4" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="lEyVNEpSy5q4bLTfdEN--2" style="endArrow=none;html=1;rounded=1;entryX=0.999;entryY=0.215;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.001;exitY=0.212;exitDx=0;exitDy=0;exitPerimeter=0;" target="lEyVNEpSy5q4bLTfdEN--2" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="120" y="140.94" as="sourcePoint" />
-            <mxPoint x="710" y="140.94000000000005" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="lEyVNEpSy5q4bLTfdEN--5" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="HrXdRYG9PQUd29WUeJMg-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="lEyVNEpSy5q4bLTfdEN--9" value="flagStartPressed&amp;nbsp;&lt;div&gt;/ gameOverDisplayControl.hideGameOverPage()&lt;/div&gt;">
+        <mxCell id="lEyVNEpSy5q4bLTfdEN--5" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="HrXdRYG9PQUd29WUeJMg-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="lEyVNEpSy5q4bLTfdEN--9" value="flagPlayAgainPressed&amp;nbsp;&lt;div&gt;/ hallOfFameDisplayControl.hideHallOfFamePage()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="228.5" y="355" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lEyVNEpSy5q4bLTfdEN--7" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="lEyVNEpSy5q4bLTfdEN--8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=default;" target="dO1La9sBfaQMMEGByZ8S-0" value="&lt;div&gt;/ gameOverDisplayControl&lt;br&gt;&amp;nbsp; &amp;nbsp; .showGameOverPage();&lt;/div&gt;">
+        <mxCell id="lEyVNEpSy5q4bLTfdEN--7" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="lEyVNEpSy5q4bLTfdEN--8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=default;" target="dO1La9sBfaQMMEGByZ8S-0" value="">
           <mxGeometry relative="1" x="-0.8625" y="15" as="geometry">
             <mxPoint as="offset" />
             <mxPoint x="269" y="165" as="targetPoint" />
@@ -2555,7 +2527,7 @@
         <mxCell id="lEyVNEpSy5q4bLTfdEN--9" parent="lEyVNEpSy5q4bLTfdEN--1" style="html=1;shape=mxgraph.sysml.actFinal;strokeWidth=2;verticalLabelPosition=bottom;verticalAlignment=top;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="219" y="425" as="geometry" />
         </mxCell>
-        <mxCell id="_LchACKr2pvOzs5jcrfi-1" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="dO1La9sBfaQMMEGByZ8S-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HrXdRYG9PQUd29WUeJMg-2" value="&lt;span style=&quot;text-align: left;&quot;&gt;hallOfFame.isQualifyingScore(score)&lt;/span&gt;">
+        <mxCell id="_LchACKr2pvOzs5jcrfi-1" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="dO1La9sBfaQMMEGByZ8S-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HrXdRYG9PQUd29WUeJMg-2" value="&lt;span style=&quot;text-align: left;&quot;&gt;[hallOfFame.isQualifyingScore(score)]&lt;/span&gt;">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="466" y="215" as="targetPoint" />
           </mxGeometry>
@@ -2577,67 +2549,20 @@
             <mxPoint x="630" y="245" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="HrXdRYG9PQUd29WUeJMg-0" parent="lEyVNEpSy5q4bLTfdEN--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&lt;font&gt;WaitingForStart&lt;/font&gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;entry /&amp;nbsp;&lt;/font&gt;&lt;span style=&quot;background-color: rgb(255, 255, 255); font-size: 11px; text-wrap-mode: nowrap; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;gameOverDisplayControl.showHallOfFame (hallOfFame.getHallOfFameData());&lt;/span&gt;&lt;/p&gt;&lt;span style=&quot;font-size: 11px; text-wrap-mode: nowrap; background-color: rgb(255, 255, 255);&quot;&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; flagStartPressed.clear();&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;" vertex="1">
-          <mxGeometry height="70" width="440" x="19" y="277" as="geometry" />
+        <mxCell id="HrXdRYG9PQUd29WUeJMg-0" parent="lEyVNEpSy5q4bLTfdEN--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;WaitingForStart&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;entry / hallOfFameDisplayControl.showHallOfFamePage(hallOfFame.getHallOfFameData());&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;flagPlayAgainPressed.clear();&lt;/p&gt;" vertex="1">
+          <mxGeometry height="70" width="589" x="19" y="277" as="geometry" />
         </mxCell>
         <mxCell id="HrXdRYG9PQUd29WUeJMg-2" parent="lEyVNEpSy5q4bLTfdEN--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&lt;font&gt;WaitingForUserName&lt;/font&gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;text-align: left; margin: 4px 0px 0px;&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp; do/&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-wrap-mode: nowrap; font-size: 11px;&quot;&gt;nameInputControl.doQueryName(strName, sizeof(strName));&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;text-align: left; margin: 4px 0px 0px;&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-wrap-mode: nowrap; font-size: 11px;&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-wrap-mode: nowrap; font-size: 11px;&quot;&gt;&amp;nbsp;exit/&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;font-size: 11px; text-wrap-mode: nowrap; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;hallOfFame.insert(strName, score);&lt;/span&gt;&lt;/p&gt;&lt;div style=&quot;text-wrap-mode: nowrap; font-size: 11px; text-align: left;&quot;&gt;&lt;span style=&quot;white-space-collapse: preserve;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp; hallOfFame.save();&lt;/div&gt;" vertex="1">
           <mxGeometry height="90" width="330" x="470" y="170" as="geometry" />
         </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-  <diagram name="STD-GameOverDisplayControl" id="Y9ppuywa5yMfpNZ6aGcs">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
-      <root>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-0" />
-        <mxCell id="oe7GdN5sLLdbybtO89G7-1" parent="oe7GdN5sLLdbybtO89G7-0" />
-        <mxCell id="oe7GdN5sLLdbybtO89G7-2" parent="oe7GdN5sLLdbybtO89G7-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=174.33;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  GameOverDisplayControl&lt;/p&gt;" vertex="1">
-          <mxGeometry height="520" width="810" x="10" y="20" as="geometry" />
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-3" parent="oe7GdN5sLLdbybtO89G7-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;showGameOverPage / flagHideGameOverPage.clear(); flagShowGameOverPage.set();&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;hideGameOverPage / flagShowGameOverPage.clear(); flagHideGameOverPage.set();&lt;br&gt;showNameInput / flagShowNameInput.set()&lt;br&gt;showHallOffFame(hallOfFameData) / poolHallOfFame.write(hallOfFameData);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; flagShowHallOfFame.set();&lt;br&gt;inputNewKey(IInputfield* pInputfield, const char* strKey) / poolNewKey.write(strKey);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;flagNewKey.set()&lt;/p&gt;" vertex="1">
-          <mxGeometry height="150" width="486" x="210" y="35" as="geometry" />
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-4" edge="1" parent="oe7GdN5sLLdbybtO89G7-1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="200" as="sourcePoint" />
-            <mxPoint x="820" y="200.94000000000005" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-5" edge="1" parent="oe7GdN5sLLdbybtO89G7-1" source="oe7GdN5sLLdbybtO89G7-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="oe7GdN5sLLdbybtO89G7-10" value="flagShowStartPage /&amp;nbsp;&lt;div&gt;showPage(pageStart);&lt;br&gt;timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.5294" as="geometry">
-            <mxPoint as="offset" />
-            <mxPoint x="510" y="350" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-6" parent="oe7GdN5sLLdbybtO89G7-1" style="rounded=1;whiteSpace=wrap;html=1;" value="Hidden" vertex="1">
-          <mxGeometry height="40" width="80" x="460" y="220" as="geometry" />
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-7" edge="1" parent="oe7GdN5sLLdbybtO89G7-1" source="oe7GdN5sLLdbybtO89G7-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=none;" target="oe7GdN5sLLdbybtO89G7-6" value="initPanels();&amp;nbsp; &amp;nbsp;// background, title, typeYourNameText,&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;hallOfFameNames, hallOfFameScores,&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;playAgainButton, torches, inputfield,&lt;br&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp;keyboard.&lt;br&gt;&lt;div&gt;&lt;div&gt;PageRoot&amp;lt;22 + 2*NofHallOfFameEntries&amp;gt; &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pageGameOver(&quot;rootGameOverDisplay&quot;,display);&lt;/div&gt;&lt;div&gt;defineDisplayHierarchy(pageGameOver);&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;initKeyboardPos();&lt;/span&gt;&lt;/div&gt;&lt;div&gt;drawAndEnableWidgetsForPhase(PHASE_HALLOFFAME);&lt;/div&gt;&lt;div&gt;hidePage(pageGameOver);&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.8824" y="-70" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-8" parent="oe7GdN5sLLdbybtO89G7-1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="80" y="220" as="geometry" />
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-9" edge="1" parent="oe7GdN5sLLdbybtO89G7-1" source="oe7GdN5sLLdbybtO89G7-10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="oe7GdN5sLLdbybtO89G7-6" value="flagHideStartPage &lt;br&gt;/ timerTorch.stop();&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; hidePage(pageStart)&amp;nbsp;">
-          <mxGeometry relative="1" x="0.5319" y="30" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="740" y="480" />
-              <mxPoint x="740" y="240" />
-            </Array>
-            <mxPoint x="550" y="370" as="sourcePoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="oe7GdN5sLLdbybtO89G7-10" parent="oe7GdN5sLLdbybtO89G7-1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;&lt;font&gt;Showing&lt;/font&gt;&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;timerTorch /&amp;nbsp;selectNextAnimationFrameOfTorches();&lt;/font&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&lt;font&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pageStart.show(true);&lt;br&gt;&lt;span style=&quot;text-align: center; white-space: nowrap; background-color: rgb(255, 255, 255);&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; timerTorch.start(TorchesDisplayHelpers::nextTorchIntervalUs())&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" vertex="1">
-          <mxGeometry height="90" width="420" x="290" y="430" as="geometry" />
+        <mxCell id="std-separator" parent="lEyVNEpSy5q4bLTfdEN--1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="801" x="9" y="136.94" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram name="STD NameInputControl" id="FKv8v1X5C_VN-bi7Zv5Z">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="856" dy="1346" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="G3orrbXF2cFiUzGHI3W9-0" />
         <mxCell id="G3orrbXF2cFiUzGHI3W9-1" parent="G3orrbXF2cFiUzGHI3W9-0" />
@@ -2670,17 +2595,14 @@
         <mxCell id="LSfaZtXoBHpDOGA1qyid-8" edge="1" parent="G3orrbXF2cFiUzGHI3W9-1" source="LSfaZtXoBHpDOGA1qyid-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LSfaZtXoBHpDOGA1qyid-5" value="flagPageHidden">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="LSfaZtXoBHpDOGA1qyid-9" edge="1" parent="G3orrbXF2cFiUzGHI3W9-1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="7" y="170" as="sourcePoint" />
-            <mxPoint x="817" y="170.94000000000005" as="targetPoint" />
-          </mxGeometry>
+        <mxCell id="std-separator" parent="G3orrbXF2cFiUzGHI3W9-1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="6" y="166" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram name="STD NameInputDisplayControl" id="GE_1AGywU2vgplIisGF7">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="745" dy="1171" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="JzwlsAO07MTOa1DbtS_--0" />
         <mxCell id="JzwlsAO07MTOa1DbtS_--1" parent="JzwlsAO07MTOa1DbtS_--0" />
@@ -2694,7 +2616,7 @@
           <mxGeometry height="40" width="40" x="30" y="220" as="geometry" />
         </mxCell>
         <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-3" parent="JzwlsAO07MTOa1DbtS_--1" style="rounded=1;whiteSpace=wrap;html=1;" value="Hidden" vertex="1">
-          <mxGeometry height="40" width="80" x="480" y="220" as="geometry" />
+          <mxGeometry height="40" width="170" x="480" y="220" as="geometry" />
         </mxCell>
         <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-4" parent="JzwlsAO07MTOa1DbtS_--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;Shown&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;flagNewKey / poolNewKey.read(strKey);&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;if(strKey != &quot;ENTER&quot;) pageNameInput.redraw(true)&lt;/p&gt;" vertex="1">
           <mxGeometry height="80" width="350" x="285" y="490" as="geometry" />
@@ -2704,12 +2626,12 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-6" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-3" value="flagHideNameInputPage &lt;br&gt;/ enterHidden(pageNameInput):&lt;br&gt;&amp;nbsp; &amp;nbsp;if(bKeyboardIsUp) doSlideKeyboard&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; (pageNameInput, yKeyboardUpPix, yKeyboardDownPix);&lt;br&gt;&amp;nbsp; &amp;nbsp;hidePage(pageNameInput);&lt;br&gt;&amp;nbsp; &amp;nbsp;signalPageHidden()">
-          <mxGeometry relative="1" x="-0.4872" as="geometry">
+        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-6" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-3" value="&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagHideNameInputPage&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-align: center;&quot;&gt;/&lt;br&gt;&amp;nbsp; &amp;nbsp; enterHidden(pageNameInput);&lt;br&gt;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-align: center;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;if(bKeyboardIsUp) doSlideKeyboard&lt;/span&gt;&lt;/div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;(pageNameInput, yKeyboardUpPix, yKeyboardDownPix);&lt;br&gt;&amp;nbsp; &amp;nbsp;hidePage(pageNameInput);&lt;br&gt;&amp;nbsp; &amp;nbsp;signalPageHidden()">
+          <mxGeometry relative="1" x="-0.487" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="540" y="430" />
-              <mxPoint x="540" y="430" />
+              <mxPoint x="620" y="370" />
+              <mxPoint x="620" y="370" />
             </Array>
             <mxPoint x="530" y="240" as="targetPoint" />
           </mxGeometry>
@@ -2718,34 +2640,31 @@
           <mxGeometry relative="1" y="70" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="610" y="230" />
-              <mxPoint x="610" y="250" />
+              <mxPoint x="670" y="230" />
+              <mxPoint x="670" y="250" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-8" parent="JzwlsAO07MTOa1DbtS_--1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;" value="signalPageHidden()&lt;br&gt;{ &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp;if(pNameInputPageListener != nullptr)&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;pNameInputPageListener-&amp;gt;nameInputPageHidden()&lt;br&gt;}" vertex="1">
+        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-8" parent="JzwlsAO07MTOa1DbtS_--1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;" value="void &lt;b&gt;signalPageHidden()&lt;/b&gt;&lt;br&gt;{ &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp;if(pNameInputPageListener != nullptr)&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;pNameInputPageListener-&amp;gt;nameInputPageHidden()&lt;br&gt;}" vertex="1">
           <mxGeometry height="90" width="335" x="380" y="600" as="geometry" />
         </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-9" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="170" as="sourcePoint" />
-            <mxPoint x="820" y="170.94000000000005" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-10" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-4" value="flagShowNameInputPage /&amp;nbsp;&lt;div&gt;inputfield.clearInput();&lt;br&gt;flagNewKey.clear();&lt;br&gt;showPage(pageNameInput);&lt;br&gt;doSlideKeyboard(pageNameInput, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardDownPix, yKeyboardUpPix)&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.3503" y="-52" as="geometry">
-            <mxPoint x="26" y="-45" as="offset" />
+        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-10" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-4" value="flagShowNameInputPage /&amp;nbsp;&lt;div&gt;inputfield.clearInput();&lt;br&gt;flagNewKey.clear();&lt;br&gt;showPage(pageNameInput);&lt;br&gt;doSlideKeyboard(pageNameInpu&lt;/div&gt;&lt;div&gt;t, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardDownPix, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardUpPix)&lt;/div&gt;">
+          <mxGeometry relative="1" x="-0.3913" y="-20" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="500" y="375" />
-              <mxPoint x="376" y="375" />
+              <mxPoint x="500" y="430" />
+              <mxPoint x="500" y="430" />
             </Array>
           </mxGeometry>
+        </mxCell>
+        <mxCell id="std-separator" parent="JzwlsAO07MTOa1DbtS_--1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="166" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="std-ballcontrol-20260823" name="STD BallControl">
-    <mxGraphModel dx="1075" dy="978" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -2754,12 +2673,6 @@
         </mxCell>
         <mxCell id="ball-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;spawnInTheMiddle() / bFlagSpawnInTheMiddle = true&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;// bool, called from Spawnables (same Task)&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;spawnAt(posX, posY) / spawnAtPosX = posX; spawnAtPosY = posY; bFlagSpawnAt = true&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // bool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getBallState() /&amp;nbsp;&lt;span style=&quot;background-color: transparent;&quot;&gt;if (state == STATE_IDLE)&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; return BallState();&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;else&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; return BallState(posX, posY,&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; (state == STATE_FALLING_OUT) ||&amp;nbsp;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&lt;span style=&quot;white-space: normal;&quot;&gt;&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&#x9;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; (state == STATE_BURNING_UP),&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; indexBurnAnimationStep)&lt;/span&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;// no Pool, same Task&lt;/p&gt;" vertex="1">
           <mxGeometry height="180" width="660" x="90" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="ball-divider" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="235" as="sourcePoint" />
-            <mxPoint x="820" y="235" as="targetPoint" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="ball-initial" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="40" y="290" as="geometry" />
@@ -2879,20 +2792,23 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="ball-movestep-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;moveStep()&lt;/b&gt;&lt;/div&gt;&lt;div&gt;posX += vX; posY += vY;&lt;/div&gt;&lt;div&gt;bounceOffWallsIfHit();&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;paddlePosition = pBallCollisionCheck-&amp;gt;getPaddlePosition();&lt;/div&gt;&lt;div&gt;if (bouncePaddleIfHit(paddlePosition))&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;pBallListener-&amp;gt;ballBouncedOnPaddle();&amp;nbsp; &amp;nbsp; // notify for score+=1&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;CrateHit hit = pBallCollisionCheck-&amp;gt;getCrateHitAtPos(posX,posY,ballRadius);&lt;/div&gt;&lt;div&gt;if (hit.bHit)&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;pBallCollisionCheck-&amp;gt;crateWasHitAtPos(hit);&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;bounceOffCrate(hit);&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;if (state == STATE_RUNNING &amp;amp;&amp;amp; pBallCollisionCheck-&amp;gt;isFireBinTouchedAtPos&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; (posX,posY,ballRadius))&lt;/div&gt;&lt;div&gt;{&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;nofBurnUpClockStepsLeft = NofBallBurnUpSteps;&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;indexBurnAnimationStep = 0;&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;state = STATE_BURNING_UP;&lt;/div&gt;&lt;div&gt;}&lt;/div&gt;" vertex="1">
-          <mxGeometry height="345" width="460" x="350" y="750" as="geometry" />
+        <mxCell id="ball-movestep-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; void &lt;b&gt;moveStep()&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; {&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; posX += vX;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; posY += vY;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; bounceOffWallsIfHit();&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; int paddlePosition =&amp;nbsp;(pBallCollisionCheck != nullptr) &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; ? pBallCollisionCheck-&amp;gt;getPaddlePosition() : 0;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; bool bBouncedPaddle = bouncePaddleIfHit(paddlePosition);&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; if (bBouncedPaddle &amp;amp;&amp;amp; (pBallListener != nullptr))&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; {&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // De score gaat omhoog bij een kaatsing op de&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // peddel. Daartoe de bounce doorgeven.&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; pBallListener-&amp;gt;ballBouncedOnPaddle();&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; }&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; bounceOffCrateIfHit();&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; }&lt;/div&gt;" vertex="1">
+          <mxGeometry height="310" width="420" x="370" y="750" as="geometry" />
         </mxCell>
         <mxCell id="ball-state-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;State meaning&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Idle: In the depot; no active state is published.&lt;/div&gt;&lt;div&gt;Running: Normal movement and collisions.&lt;/div&gt;&lt;div&gt;BurningUp: Still collides; ends when its burn clock expires.&lt;/div&gt;&lt;div&gt;FallingOut: Burns and falls without collisions; ends off-screen.&lt;/div&gt;" vertex="1">
-          <mxGeometry height="125" width="316" x="24" y="850" as="geometry" />
+          <mxGeometry height="110" width="326" x="24" y="890" as="geometry" />
         </mxCell>
         <mxCell id="hXAVik4KtP5QGc_tJwIm-1" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;Update() calls / Handler Pattern&lt;/b&gt;&lt;/div&gt;&lt;div&gt;BallControl receives update() calls from a Handler.&lt;br&gt;So rather than contintuously, only on every update() call, the conditions for evaluating the current state are evaluated.&lt;/div&gt;" vertex="1">
-          <mxGeometry height="90" width="316" x="24" y="750" as="geometry" />
+          <mxGeometry height="100" width="326" x="24" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="231" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="std-firebincontrol-20260823" name="STD FireBinControl">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -2901,12 +2817,6 @@
         </mxCell>
         <mxCell id="fire-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;spawnAt(posX, posY) / spawnAtPosX = posX; spawnAtPosY = posY; bFlagSpawnAt = true&amp;nbsp;&amp;nbsp;// no Pool, no Flag, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;reset() /&amp;nbsp;&lt;span style=&quot;background-color: transparent;&quot;&gt;posX = 0;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;posY = 0;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;nofStepsLeft = 0;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;indexAnimationStep = 0;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;bFlagSpawnAt = false;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;spawnAtPosX = 0;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;spawnAtPosY = 0;&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosX() / return posX&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosY() / return posY&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;isTouchedAtPos(ballPosX, ballPosY, ballRadius) /&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;if (state != STATE_BURNING) return false;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;span style=&quot;background-color: transparent;&quot;&gt;int halfSize = FireBinSizePix/2&lt;/span&gt;&lt;span style=&quot;background-color: transparent; white-space: pre;&quot;&gt;&#x9;&#x9;&#x9;&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; int dx = (ballPosX &amp;gt; posX) ? (ballPosX - posX) : (posX - ballPosX);&lt;span style=&quot;white-space:pre&quot;&gt;&#x9;&#x9;&#x9;&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp; &amp;nbsp; int dy = (ballPosY &amp;gt; posY) ? (ballPosY - posY) : (posY - ballPosY);&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&amp;nbsp; &amp;nbsp; return (dx &amp;lt; halfSize + ballRadius) &amp;amp;&amp;amp; (dy &amp;lt; halfSize + ballRadius); /&lt;/span&gt;/ direct call, same Task&lt;br&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getFireBinState() /&amp;nbsp;&lt;span style=&quot;background-color: transparent;&quot;&gt;if (state != STATE_BURNING)&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;{&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;return FireBinState();&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;}&lt;/span&gt;&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; else&amp;nbsp;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;return FireBinState(posX, posY, indexAnimationStep);&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/span&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="210" width="740" x="45" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="fire-divider" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="270" as="sourcePoint" />
-            <mxPoint x="820" y="270" as="targetPoint" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="fire-initial" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="40" y="325" as="geometry" />
@@ -2972,37 +2882,34 @@
             <mxPoint x="440" y="580" as="targetPoint" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="266" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="std-cratecontrol-20260823" name="STD CrateControl">
-    <mxGraphModel dx="852" dy="1318" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="856" dy="1346" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="crate-frame" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=180;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;std&lt;/b&gt;  CrateControl - update()&lt;/p&gt;" vertex="1">
-          <mxGeometry height="770" width="810" x="10" y="10" as="geometry" />
+          <mxGeometry height="860" width="810" x="10" y="10" as="geometry" />
         </mxCell>
-        <mxCell id="crate-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;spawnAt(posX, posY) / this-&amp;gt;posX = posX; this-&amp;gt;posY = posY; nofHitsLeft = NofCrateHits&amp;nbsp;&amp;nbsp;// direct, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosX() / return posX&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosY() / return posY&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;isHitAtPos(ballPosX, ballPosY, ballRadius) /&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; halfSize = CrateSizePix/2; dx = abs(ballPosX-posX); dy = abs(ballPosY-posY);&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; return (dx &amp;lt; halfSize + ballRadius) &amp;amp;&amp;amp; (dy &amp;lt; halfSize + ballRadius)&amp;nbsp;&amp;nbsp;// direct call, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;wasHit() / decrement nofHitsLeft; when opened, spawn NofBallsPerCrate balls and release this slot&amp;nbsp;&amp;nbsp;// direct call, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;isOpened() / return (nofHitsLeft &amp;lt;= 0)&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getCrateState() / return CrateState(posX, posY, nofHitsLeft)&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;" vertex="1">
-          <mxGeometry height="180" width="720" x="55" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="crate-divider" edge="1" parent="1" style="endArrow=none;html=1;rounded=1;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="10" y="240" as="sourcePoint" />
-            <mxPoint x="820" y="240" as="targetPoint" />
-          </mxGeometry>
+        <mxCell id="crate-interface" parent="1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center&quot;&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;spawnAt(posX, posY) / this-&amp;gt;posX = posX; this-&amp;gt;posY = posY; nofHitsLeft = NofCrateHits&amp;nbsp;&amp;nbsp;// direct, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosX() / return posX&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getPosY() / return posY&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;isHitAtPos(ballPosX, ballPosY, ballRadius) /&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; halfSize = CrateSizePix/2; dx = abs(ballPosX-posX); dy = abs(ballPosY-posY);&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; return (dx &amp;lt; halfSize + ballRadius) &amp;amp;&amp;amp; (dy &amp;lt; halfSize + ballRadius)&amp;nbsp;&amp;nbsp;// direct call, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;wasHit() / if (nofHitsLeft &amp;gt; 0) nofHitsLeft--; if (!isOpened()) return;&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; if (pBallSpawner != nullptr) pBallSpawner-&amp;gt;spawnBallsAt(posX, posY, NofBallsPerCrate);&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; assert(pDepot != nullptr); pDepot-&amp;gt;release(indexSlot);&amp;nbsp;&amp;nbsp;// direct call, same Task&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;isOpened() / return (nofHitsLeft &amp;lt;= 0)&lt;/p&gt;&lt;p style=&quot;margin:0px;margin-left:8px;text-align:left&quot;&gt;getCrateState() / return CrateState(posX, posY, nofHitsLeft)&amp;nbsp;&amp;nbsp;// no Pool, same Task&lt;/p&gt;" vertex="1">
+          <mxGeometry height="210" width="720" x="55" y="40" as="geometry" />
         </mxCell>
         <mxCell id="crate-initial" parent="1" style="shape=ellipse;html=1;fillColor=#000000;fontSize=18;fontColor=#ffffff;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="40" y="295" as="geometry" />
+          <mxGeometry height="40" width="40" x="40" y="325" as="geometry" />
         </mxCell>
         <mxCell id="crate-in-depot" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="InDepot" vertex="1">
-          <mxGeometry height="70" width="120" x="110" y="280" as="geometry" />
+          <mxGeometry height="70" width="120" x="110" y="310" as="geometry" />
         </mxCell>
         <mxCell id="crate-closed" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Closed" vertex="1">
-          <mxGeometry height="70" width="130" x="550" y="280" as="geometry" />
+          <mxGeometry height="70" width="130" x="550" y="310" as="geometry" />
         </mxCell>
         <mxCell id="crate-after-hit" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
-          <mxGeometry height="40" width="40" x="595" y="460" as="geometry" />
+          <mxGeometry height="40" width="40" x="595" y="500" as="geometry" />
         </mxCell>
         <mxCell id="crate-start" edge="1" parent="1" source="crate-initial" style="endArrow=classic;html=1;rounded=1;align=center;curved=0;" target="crate-in-depot" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -3011,21 +2918,8 @@
           <mxGeometry relative="1" y="28" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="390" y="315" />
-              <mxPoint x="390" y="315" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="crate-hit" edge="1" parent="1" source="crate-closed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="crate-after-hit" value="&lt;div&gt;wasHit() /&lt;/div&gt;&lt;div&gt;if (nofHitsLeft &amp;gt; 0) nofHitsLeft--&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.27" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="crate-remains-closed" edge="1" parent="1" source="crate-after-hit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="crate-closed" value="[!isOpened()]">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="750" y="480" />
-              <mxPoint x="750" y="315" />
+              <mxPoint x="390" y="345" />
+              <mxPoint x="390" y="345" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -3033,18 +2927,53 @@
           <mxGeometry relative="1" x="-0.25" y="-28" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="170" y="480" />
+              <mxPoint x="170" y="520" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="crate-handler-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;Update() calls / Handler Pattern&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Depot calls update() while the slot is in use; update() currently has no behaviour. wasHit() is handled immediately inside the BallControl update and therefore in the same Task.&lt;/div&gt;" vertex="1">
-          <mxGeometry height="115" width="350" x="24" y="530" as="geometry" />
+          <mxGeometry height="115" width="350" x="24" y="610" as="geometry" />
         </mxCell>
         <mxCell id="crate-state-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;State meaning&lt;/b&gt;&lt;/div&gt;&lt;div&gt;InDepot: The slot is not in use; no update or state is published.&lt;/div&gt;&lt;div&gt;Closed: The crate is visible and waiting for hits.&lt;/div&gt;&lt;div&gt;Opened is not a persistent state: balls are spawned and the slot is released within the same wasHit() call.&lt;/div&gt;" vertex="1">
-          <mxGeometry height="130" width="420" x="390" y="530" as="geometry" />
+          <mxGeometry height="95" width="420" x="390" y="610" as="geometry" />
         </mxCell>
         <mxCell id="crate-state-representation-note" parent="1" style="shape=note;size=15;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;html=1;whiteSpace=wrap;" value="&lt;div&gt;&lt;b&gt;State representation&lt;/b&gt;&lt;/div&gt;&lt;div&gt;There is no State member. The lifecycle state follows ownership of the Depot slot; nofHitsLeft is the progress within Closed.&lt;/div&gt;" vertex="1">
-          <mxGeometry height="95" width="350" x="24" y="660" as="geometry" />
+          <mxGeometry height="95" width="350" x="24" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="std-separator" parent="1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="810" x="10" y="266" as="geometry" />
+        </mxCell>
+        <mxCell id="crate-hit-choice" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="40" width="40" x="595" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="crate-hit" edge="1" parent="1" source="crate-closed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;align=left;verticalAlign=top;labelBackgroundColor=none;" target="crate-hit-choice" value="wasHit()">
+          <mxGeometry relative="1" x="-1" as="geometry">
+            <mxPoint x="8" y="2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="crate-hit-yes" edge="1" parent="1" source="crate-hit-choice" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;align=right;verticalAlign=top;labelBackgroundColor=none;" target="crate-after-hit" value="[nofHitsLeft &amp;gt; 0] / nofHitsLeft--">
+          <mxGeometry relative="1" x="-1" as="geometry">
+            <mxPoint x="-8" y="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="crate-hit-else" edge="1" parent="1" source="crate-hit-choice" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;exitX=1;exitY=0.5;entryX=1;entryY=0.5;align=left;verticalAlign=top;labelBackgroundColor=none;" target="crate-after-hit" value="[else]">
+          <mxGeometry relative="1" x="-1" as="geometry">
+            <mxPoint x="6" y="-24" as="offset" />
+            <Array as="points">
+              <mxPoint x="700" y="430" />
+              <mxPoint x="700" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="crate-remains-closed" edge="1" parent="1" source="crate-after-hit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;exitX=0.5;exitY=1;entryX=1;entryY=0.5;align=left;verticalAlign=top;labelBackgroundColor=none;" target="crate-closed" value="[!isOpened()]">
+          <mxGeometry relative="1" x="-1" as="geometry">
+            <mxPoint x="40" y="28" as="offset" />
+            <Array as="points">
+              <mxPoint x="615" y="565" />
+              <mxPoint x="760" y="565" />
+              <mxPoint x="760" y="345" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

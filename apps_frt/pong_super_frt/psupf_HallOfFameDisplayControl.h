@@ -130,6 +130,11 @@ namespace pong_super_frt
 		// vanuit GameOverControl aangeroepen en de opbouw gebeurt hier.
 		QueueHandle_t hallOfFameQueue;		// lengte 1: was Pool<HallOfFameData> poolHallOfFame
 
+		// De lijst zoals hij het laatst uit de pool is gelezen. Een member en geen
+		// lokale variabele: hij wordt in de case gelezen (zichtbaar in de STD) en dan
+		// aan fillHallOfFameLines() gegeven.
+		HallOfFameData snapshot{};
+
 		State state;
 
 	public:
@@ -249,18 +254,16 @@ namespace pong_super_frt
 			buttonPlayAgain.setImage(&imageButtonPlayAgain);
 		}
 
-		void fillHallOfFameLines()
+		// Rekent alleen met de lijst die hij krijgt; het lezen van de pool staat in de case.
+		void fillHallOfFameLines(const HallOfFameData& hallOfFameData)
 		{
-			HallOfFameData snapshot;
-			xQueuePeek(hallOfFameQueue, &snapshot, 0);
-
 			// Eerst de teksten, en meteen meten hoe breed de twee kolommen worden.
 			int32_t maxNameWidthPix = 0;
 			int32_t maxScoreWidthPix = 0;
 
 			for (int i = 0; i < NofHallOfFameEntries; i++)
 			{
-				const HallOfFameEntry& entry = snapshot.arEntry[i];
+				const HallOfFameEntry& entry = hallOfFameData.arEntry[i];
 				bool bEmpty = (entry.strName[0] == '\0');
 
 				snprintf(arNameText[i], sizeof(arNameText[i]), "%d  %s",
@@ -421,7 +424,8 @@ namespace pong_super_frt
 
 						if(hasFired(eventBitShowHallOfFamePage))
 						{
-							fillHallOfFameLines();
+							xQueuePeek(hallOfFameQueue, &snapshot, 0);
+							fillHallOfFameLines(snapshot);
 							showPage(pageHallOfFame);
 
 							// De klok loopt alleen zolang de fakkels in beeld staan:
@@ -444,7 +448,8 @@ namespace pong_super_frt
 						else if(hasFired(eventBitShowHallOfFamePage))
 						{
 							// Een nieuwe lijst op de pagina die er al staat.
-							fillHallOfFameLines();
+							xQueuePeek(hallOfFameQueue, &snapshot, 0);
+							fillHallOfFameLines(snapshot);
 							pageHallOfFame.redraw(true);
 
 							// De klok liep al, maar hem hier opnieuw opwinden houdt de

@@ -185,7 +185,6 @@ namespace pong_super
 		{
 			moveStepTimer.stop();
 			paddleDirection = 0;
-			state = State::STATE_ENABLED;
 		}
 
 		void movePaddle()
@@ -259,6 +258,7 @@ namespace pong_super
 						else if (hasFired(flagLeftReleased) || hasFired(flagRightReleased))
 						{
 							stopMoving();
+							state = State::STATE_ENABLED;
 						}
 						else if (hasFired(moveStepTimer))
 						{

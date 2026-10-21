@@ -131,9 +131,8 @@ namespace pong_simple_frt
 	}
 
 	private:
-		// Een stap in de gevraagde richting, tegen de randen aan begrensd, en
-		// meteen doorgegeven aan wie er iets aan heeft.
-		void movePaddle(int direction)
+		// Een stap in de gevraagde richting, tegen de randen aan begrensd.
+		int calcNewPaddlePosition(int paddlePosition, int direction) const
 		{
 			int minPosition = WallThicknessPix + paddleWidth/2;
 			int maxPosition = screenWidth - WallThicknessPix - paddleWidth/2;
@@ -143,19 +142,25 @@ namespace pong_simple_frt
 			if (paddlePosition < minPosition) { paddlePosition = minPosition; }
 			if (paddlePosition > maxPosition) { paddlePosition = maxPosition; }
 
+			return paddlePosition;
+		}
+
+		// Maak een stap verder, en maak meteen de nieuwe positie beschikbaar voor andere taken (via getPaddlePos).
+		void movePaddle(int direction)
+		{
+			paddlePosition = calcNewPaddlePosition(paddlePosition, direction);
 			displayControl.updatePaddlePosition(paddlePosition);
 
 			// De bal krijgt de positie niet meer toegeschoven, hij haalt hem zelf
 			// op met getPaddlePos(). Deze pool is dus de enige koppeling die
 			// daarvoor nodig is.
-			{ int poolValue = paddlePosition; xQueueOverwrite(paddlePosQueue, &poolValue); }		// facilitatie getPaddlePos()
+			xQueueOverwrite(paddlePosQueue, &paddlePosition);		// facilitatie getPaddlePos()
 		}
 
 		void stopMoving()
 		{
 			xTimerStop(repeatTimer, 0);
 			paddleDirection = 0;
-			state = State::STATE_ENABLED;
 		}
 
 
@@ -261,6 +266,7 @@ namespace pong_simple_frt
 						else if (hasFired(eventBitLeftReleased) || hasFired(eventBitRightReleased))
 						{
 							stopMoving();
+							state = State::STATE_ENABLED;
 						}
 						else if (hasFired(eventBitRepeatTimer))
 						{

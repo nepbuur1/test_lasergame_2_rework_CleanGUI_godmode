@@ -185,11 +185,13 @@ namespace pong_super_frt
                 {
                     bFlagSpawnInTheMiddle = false;
                     startInTheMiddle();
+                    state = STATE_RUNNING;
                 }
                 else if (bFlagSpawnAt)
                 {
                     bFlagSpawnAt = false;
                     startAt(spawnAtPosX, spawnAtPosY);
+                    state = STATE_RUNNING;
                 }
                 break;
 
@@ -205,6 +207,17 @@ namespace pong_super_frt
                 else
                 {
                     moveStep();
+
+                    // Een bal die een vuurkorf raakt vliegt in brand en brandt
+                    // op in BallBurnUpMs. Geen kaatsing - een korf is vuur en geen kist, dus
+                    // hij vliegt er doorheen. (Alleen hier, in Running: een bal die al
+                    // brandt kan niet nog eens vlam vatten.)
+                    if ((pBallCollisionCheck != nullptr) && pBallCollisionCheck->isFireBinTouchedAtPos(posX, posY, ballRadius))
+                    {
+                        nofBurnUpClockStepsLeft = NofBallBurnUpSteps;
+                        indexBurnAnimationStep = 0;
+                        state = STATE_BURNING_UP;
+                    }
                 }
                 break;
 
@@ -322,7 +335,6 @@ namespace pong_super_frt
             vY = ((rand()%2) == 0) ? BallSpeedPixPerFrame : -BallSpeedPixPerFrame;
 
             indexBurnAnimationStep = 0;
-            state = STATE_RUNNING;
         }
 
         void startInTheMiddle()
@@ -349,7 +361,6 @@ namespace pong_super_frt
             vY = BallSpeedPixPerFrame;
 #endif
             indexBurnAnimationStep = 0;
-            state = STATE_RUNNING;
         }
 
         void bounceOffWallsIfHit()
@@ -421,29 +432,8 @@ namespace pong_super_frt
             }
 
             bounceOffCrateIfHit();
-            catchFireIfInFireBin();
         }
 
-        // Een bal die een vuurkorf raakt vliegt in brand en brandt
-        // op in BallBurnUpMs. Geen kaatsing - een korf is vuur en geen kist, dus
-        // hij vliegt er doorheen.
-        void catchFireIfInFireBin()
-        {
-            // Alleen een bal die nog niet brandt kan vlam vatten. 
-            if (state != STATE_RUNNING)
-            {
-                return;
-            }
-
-            if ((pBallCollisionCheck == nullptr) || !pBallCollisionCheck->isFireBinTouchedAtPos(posX, posY, ballRadius))
-            {
-                return;
-            }
-
-            nofBurnUpClockStepsLeft = NofBallBurnUpSteps;
-            indexBurnAnimationStep = 0;
-            state = STATE_BURNING_UP;
-        }
 
         // De hit komt van buiten binnen als parameter, zodat hier alleen rekenwerk
         // staat. Zie bounceOffCrateIfHit() voor de externe kant.
