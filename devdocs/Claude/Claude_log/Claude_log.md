@@ -1,5 +1,25 @@
 # Claude log
 
+## 2026-10-22 — Verouderde arduino-esp32-aanwijzingen (ESP-IDF 5.3) opgeruimd
+
+- **Hoe het nu werkt:** arduino-esp32 wordt automatisch binnengehaald door de ESP-IDF
+  Component Manager.
+  - Het staat in `main/idf_component.yml` als `espressif/arduino-esp32: ^3.3.5`; nu gekozen:
+    3.3.10.
+  - Bij `idf.py build` of `idf.py reconfigure` komt het in
+    `managed_components/espressif__arduino-esp32`, en de gekozen versies staan in
+    `dependencies.lock`. Beide staan in `.gitignore`.
+- **`components/Readme.md`:** de aanwijzing om voor ESP-IDF 5.3 te `git clone`n is vervangen
+  door een uitleg van de Component Manager-aanpak: waar de afhankelijkheid staat, waar hij
+  terechtkomt, hoe je een andere versie kiest, en waar de Arduino-voorbeelden nu staan.
+- **`.gitignore`:** de regel `components/arduino-esp32/` en zijn commentaar ("voor esp-idf 53")
+  zijn weg. Die map bestaat lokaal ook niet meer.
+- **`main/CMakeLists.txt`:** de vier uitgecommentarieerde paden naar
+  `../components/arduino-esp32/libraries/...` zijn weg, samen met het commentaar erboven over
+  de Serial Monitor-output, dat alleen bij die voorbeelden hoorde.
+- **Gebouwd** met Marius' huidige keuze in `main.cpp` (`Pong_super_frt.ino`): groen. Niet
+  geflasht.
+
 ## 2026-10-22 — Auteursregel: gegenereerde bestanden teruggedraaid
 
 - **Marius:** voor gegenereerde bestanden hoeft de auteursregel niet, en de generator hoeft

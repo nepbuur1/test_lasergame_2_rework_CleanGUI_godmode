@@ -125,14 +125,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
 #"../libs/hwlib/peripherals"
 #"../libs/hwlib/char-io"
 
-# Belangrijk voor Arduino IDE code: de output van Serial Monitor
-# wordt naar een van de USB-ports van je devkit gestuurd. 
-# Als je toevallig programmeert via de andere, dan zie je niets.
-#"../components/arduino-esp32/libraries/ESP32/examples/Analogread"
-#"../components/arduino-esp32/libraries/WiFi/examples/WifiAccessPoint"
-#"../components/arduino-esp32/libraries/WiFi/examples/WifiScan"
-#"../components/arduino-esp32/libraries/LittleFS/examples/LITTLEFS_test"
-
 "../apps/kopie_van_wifi_scan_example_van_esp_idf"
 "../libs/esp_http_client/main"
 

@@ -4,9 +4,6 @@ compile_commands.json
 *.dtmp
 *.bkp
 
-# arduino ide component voor esp-idf 53
-components/arduino-esp32/
-
 # ESP-IDF default build directory name
 build
 build/
