@@ -228,7 +228,7 @@
       <root>
         <mxCell id="i2ZLhmX3XP9klJuQTrsw-0" />
         <mxCell id="i2ZLhmX3XP9klJuQTrsw-1" parent="i2ZLhmX3XP9klJuQTrsw-0" />
-        <mxCell id="a36rjgweGjGRvy6xVc10-0" parent="i2ZLhmX3XP9klJuQTrsw-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=214.11;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;om&lt;/b&gt;  Pong DG (decentralised Graphics)&lt;/p&gt;" vertex="1">
+        <mxCell id="a36rjgweGjGRvy6xVc10-0" parent="i2ZLhmX3XP9klJuQTrsw-1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=109.98;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;om&lt;/b&gt;  Super Pong&lt;/p&gt;" vertex="1">
           <mxGeometry height="1130" width="815" x="5" y="30" as="geometry" />
         </mxCell>
         <mxCell id="a36rjgweGjGRvy6xVc10-1" parent="i2ZLhmX3XP9klJuQTrsw-1" style="rounded=0;whiteSpace=wrap;html=1;" value="&amp;lt;&amp;lt;control&amp;gt;&amp;gt;&lt;br&gt;gameControl" vertex="1">
@@ -591,12 +591,12 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="a36rjgweGjGRvy6xVc10-57" edge="1" parent="i2ZLhmX3XP9klJuQTrsw-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;jumpStyle=arc;" value="isConnected">
-          <mxGeometry relative="1" x="-0.8611" y="10" as="geometry">
+        <mxCell id="a36rjgweGjGRvy6xVc10-57" edge="1" parent="i2ZLhmX3XP9klJuQTrsw-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;jumpStyle=arc;" target="a36rjgweGjGRvy6xVc10-54" value="isConnected">
+          <mxGeometry relative="1" x="-0.8684" y="10" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="60" y="410" />
-              <mxPoint x="60" y="962" />
+              <mxPoint x="20" y="410" />
+              <mxPoint x="20" y="962" />
             </Array>
             <mxPoint x="200" y="410" as="sourcePoint" />
             <mxPoint x="88" y="962" as="targetPoint" />
@@ -650,11 +650,11 @@
     </mxGraphModel>
   </diagram>
   <diagram id="nsgcM9fFMiR2QZiZBHgd" name="CD">
-    <mxGraphModel dx="1693" dy="3835" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1080" dy="2869" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="oIPpi4XdfetO8aW478HC-1" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=313.33;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;cd&lt;/b&gt;  Pong DG-ADV (decentralised Graphics, Advanced)&lt;/p&gt;" vertex="1">
+        <mxCell id="oIPpi4XdfetO8aW478HC-1" parent="1" style="html=1;shape=mxgraph.sysml.package;overflow=fill;labelX=106;strokeWidth=2;align=center;" value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:7px;text-align:left;&quot;&gt;&lt;b&gt;cd&lt;/b&gt;  Super Pong&lt;/p&gt;" vertex="1">
           <mxGeometry height="2640" width="1600" x="10" y="-310" as="geometry" />
         </mxCell>
         <mxCell id="oIPpi4XdfetO8aW478HC-2" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=55;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;font-weight: 400;&quot;&gt;&amp;lt;&amp;lt;isActive&amp;gt;&amp;gt;&lt;/span&gt;&lt;br style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;&amp;lt;&amp;lt;control&amp;gt;&amp;gt;&lt;/span&gt;&lt;br style=&quot;font-weight: 400;&quot;&gt;MainControl" vertex="1">
@@ -2500,7 +2500,7 @@
     </mxGraphModel>
   </diagram>
   <diagram name="STD-GameOverPageControl" id="kV5rW2og0tr74tKkwSKl">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="847" dy="1333" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="lEyVNEpSy5q4bLTfdEN--0" />
         <mxCell id="lEyVNEpSy5q4bLTfdEN--1" parent="lEyVNEpSy5q4bLTfdEN--0" />
@@ -2512,6 +2512,10 @@
         </mxCell>
         <mxCell id="lEyVNEpSy5q4bLTfdEN--5" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="HrXdRYG9PQUd29WUeJMg-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="lEyVNEpSy5q4bLTfdEN--9" value="flagPlayAgainPressed&amp;nbsp;&lt;div&gt;/ hallOfFameDisplayControl.hideHallOfFamePage()&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="386" />
+              <mxPoint x="239" y="386" />
+            </Array>
             <mxPoint x="228.5" y="355" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
@@ -2535,6 +2539,10 @@
         <mxCell id="_LchACKr2pvOzs5jcrfi-2" edge="1" parent="lEyVNEpSy5q4bLTfdEN--1" source="dO1La9sBfaQMMEGByZ8S-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HrXdRYG9PQUd29WUeJMg-0" value="[else]">
           <mxGeometry relative="1" x="-0.0476" y="27" as="geometry">
             <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="239" y="260" />
+              <mxPoint x="239" y="260" />
+            </Array>
             <mxPoint x="228.5" y="315" as="targetPoint" />
           </mxGeometry>
         </mxCell>
@@ -2602,7 +2610,7 @@
     </mxGraphModel>
   </diagram>
   <diagram name="STD NameInputDisplayControl" id="GE_1AGywU2vgplIisGF7">
-    <mxGraphModel dx="745" dy="1171" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="856" dy="1348" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="JzwlsAO07MTOa1DbtS_--0" />
         <mxCell id="JzwlsAO07MTOa1DbtS_--1" parent="JzwlsAO07MTOa1DbtS_--0" />
@@ -2619,15 +2627,15 @@
           <mxGeometry height="40" width="170" x="480" y="220" as="geometry" />
         </mxCell>
         <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-4" parent="JzwlsAO07MTOa1DbtS_--1" style="shape=mxgraph.sysml.simpleState;html=1;overflow=fill;whiteSpace=wrap;align=center;" value="&lt;p style=&quot;margin: 0px ; margin-top: 4px ; text-align: center&quot;&gt;Shown&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;flagNewKey / poolNewKey.read(strKey);&lt;/p&gt;&lt;p style=&quot;margin: 0px ; margin-left: 8px ; text-align: left&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;if(strKey != &quot;ENTER&quot;) pageNameInput.redraw(true)&lt;/p&gt;" vertex="1">
-          <mxGeometry height="80" width="350" x="285" y="490" as="geometry" />
+          <mxGeometry height="80" width="350" x="285" y="500" as="geometry" />
         </mxCell>
         <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-5" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;align=left;labelBackgroundColor=none;" target="VJY4Mf2YdeJH0WAEeZ1P-3" value="initPanels();&amp;nbsp; &amp;nbsp;// background, typeYourNameText&lt;br&gt;PageRoot&amp;lt;8&amp;gt; pageNameInput(&quot;rootNameInputPageDisplay&quot;,display);&lt;br&gt;defineDisplayHierarchy(pageNameInput);&amp;nbsp; // + inputfield, touchscreenKeyboard&lt;br&gt;initKeyboardPos();&lt;br&gt;hidePage(pageNameInput)">
           <mxGeometry relative="1" x="-0.9525" y="-6" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-6" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-3" value="&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagHideNameInputPage&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-align: center;&quot;&gt;/&lt;br&gt;&amp;nbsp; &amp;nbsp; enterHidden(pageNameInput);&lt;br&gt;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255)); text-align: center;&quot;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;if(bKeyboardIsUp) doSlideKeyboard&lt;/span&gt;&lt;/div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;(pageNameInput, yKeyboardUpPix, yKeyboardDownPix);&lt;br&gt;&amp;nbsp; &amp;nbsp;hidePage(pageNameInput);&lt;br&gt;&amp;nbsp; &amp;nbsp;signalPageHidden()">
-          <mxGeometry relative="1" x="-0.487" as="geometry">
+        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-6" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;" target="VJY4Mf2YdeJH0WAEeZ1P-3" value="&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;flagHideNameInputPage&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;/&lt;br&gt;&amp;nbsp; &amp;nbsp; enterHidden(pageNameInput);&lt;br&gt;&lt;/span&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp; &amp;nbsp; if(bKeyboardIsUp) doSlideKeyboard&lt;/span&gt;&lt;/div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;(pageNameInput, yKeyboardUpPix,&amp;nbsp;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;yKeyboardDownPix);&lt;br&gt;&amp;nbsp; &amp;nbsp;hidePage(pageNameInput);&lt;br&gt;&amp;nbsp; &amp;nbsp;signalPageHidden()&lt;/div&gt;">
+          <mxGeometry relative="1" x="-0.4783" y="60" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="620" y="370" />
@@ -2646,9 +2654,9 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-8" parent="JzwlsAO07MTOa1DbtS_--1" style="shape=note;size=15;align=left;spacingLeft=10;html=1;whiteSpace=wrap;" value="void &lt;b&gt;signalPageHidden()&lt;/b&gt;&lt;br&gt;{ &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp;if(pNameInputPageListener != nullptr)&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;pNameInputPageListener-&amp;gt;nameInputPageHidden()&lt;br&gt;}" vertex="1">
-          <mxGeometry height="90" width="335" x="380" y="600" as="geometry" />
+          <mxGeometry height="90" width="335" x="380" y="610" as="geometry" />
         </mxCell>
-        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-10" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-4" value="flagShowNameInputPage /&amp;nbsp;&lt;div&gt;inputfield.clearInput();&lt;br&gt;flagNewKey.clear();&lt;br&gt;showPage(pageNameInput);&lt;br&gt;doSlideKeyboard(pageNameInpu&lt;/div&gt;&lt;div&gt;t, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardDownPix, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardUpPix)&lt;/div&gt;">
+        <mxCell id="VJY4Mf2YdeJH0WAEeZ1P-10" edge="1" parent="JzwlsAO07MTOa1DbtS_--1" source="VJY4Mf2YdeJH0WAEeZ1P-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;" target="VJY4Mf2YdeJH0WAEeZ1P-4" value="flagShowNameInputPage /&amp;nbsp;&lt;div&gt;inputfield.clearInput();&lt;br&gt;flagNewKey.clear();&lt;br&gt;showPage(pageNameInput);&lt;br&gt;doSlideKeyboard(pageNameInpu&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;t,&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardDownPix, &lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; yKeyboardUpPix)&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.3913" y="-20" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">

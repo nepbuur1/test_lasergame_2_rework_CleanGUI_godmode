@@ -1,5 +1,36 @@
 # Claude log
 
+## 2026-10-22 — Auteursregel: gegenereerde bestanden teruggedraaid
+
+- **Marius:** voor gegenereerde bestanden hoeft de auteursregel niet, en de generator hoeft
+  hem ook niet toe te voegen.
+- **Teruggedraaid** met `scratchpad/authors_revert.py`:
+  - de 42 afbeeldingsheaders in `images/_pal8` (pong_super en pong_super_frt);
+  - `tools/img2rgb565.py`.
+  - Alleen teruggezet omdat elk bestand precies "back-up + mijn toevoeging" was. Alle 43
+    bestanden zijn nu weer gelijk aan git (`git status` toont niets).
+- De 94 handgeschreven bronbestanden hadden de regel al en zijn niet veranderd.
+
+## 2026-10-22 — Auteursregel in alle bronbestanden van CleanGUI en de vier pong-varianten
+
+- **Marius' verzoek:** bovenaan elk .cpp-/headerbestand van `libs/CleanGUI`, `apps/pong_simple`,
+  `apps/pong_super`, `apps_frt/pong_simple_frt` en `apps_frt/pong_super_frt` staat
+  `// by Marius Versteegen, <jaar>`. Een `(c)` wordt `by`.
+- **Stand** (`scratchpad/authors_survey.sh`): 136 bestanden (.h, .cpp, .ino).
+  - 94 hadden de regel al (jaren 2022–2026).
+  - `(c)` of "copyright" kwam nergens voor.
+  - 42 hadden geen regel: de gegenereerde afbeeldingsheaders in `images/_pal8` van
+    pong_super en pong_super_frt.
+- **Aangepast** (`scratchpad/authors_apply.py`, back-ups in `scratchpad/voor_authors`):
+  - De 42 headers hebben `// by Marius Versteegen, 2026` als eerste regel. 2026 is het jaar
+    van hun eerste commit.
+  - `tools/img2rgb565.py` zet die regel voortaan zelf bovenaan elke gegenereerde header, op
+    alle 5 plekken. Zo verdwijnt hij niet bij opnieuw genereren. De tool leest de headers
+    alleen terug via de `// crt-img-meta:`-regels, dus een extra eerste regel stoort niet.
+- **Controle:** de inventarisatie geeft nu 136/136 in orde, en de Python-syntax van de
+  generator klopt. Pong_super en Pong_super_frt bouwen; niet geflasht. `main.cpp` staat op
+  `Pong_simple.ino`.
+
 ## 2026-10-22 — Groen terug naar de normale kleur in alle vier de drawio's
 
 - Op Marius' verzoek is al het groen (#2e7d32) weggehaald, met `scratchpad/dc/ungreen.py`.

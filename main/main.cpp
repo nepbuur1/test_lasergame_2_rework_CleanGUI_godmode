@@ -67,11 +67,11 @@ namespace crt
 //#include <MultiPanel.ino>
 //#include <ShowEnableSemantics.ino>			// zelftest, internal/tests: wat show, enable en tekenen elk wel en niet doen
 //#include <Pong2.ino>						// console-versie, apps/pong_ascii_quest_with_3_bugs
-#include <Pong_simple.ino>			// touchscreen-versie, apps/pong_simple
+//#include <Pong_simple.ino>			// touchscreen-versie, apps/pong_simple
 //#include <Pong_super.ino>			// touchscreen-versie, apps/pong_super
 
 // **** Apps op vanilla FreeRTOS (apps_frt) ****
-//#include <Pong_super_frt.ino>		// apps_frt/pong_super_frt: pong_super, eigen klassen op FreeRTOS i.p.v. CleanRTOS
+#include <Pong_super_frt.ino>		// apps_frt/pong_super_frt: pong_super, eigen klassen op FreeRTOS i.p.v. CleanRTOS
 //#include <Pong_simple_frt.ino>		// apps_frt/pong_simple_frt: pong_simple, eigen klassen op FreeRTOS i.p.v. CleanRTOS
 
 // **** CYD_tools_crt ****
