@@ -778,7 +778,8 @@ void TFT_eSPI::init(uint8_t tc)
   {
     uint32_t panelId = readPanelId();
     bool bLandscapeRgbPanel = (panelId == 0x1081B3);
-    _panelRotationOffset = bLandscapeRgbPanel ? 1 : 0;
+    bool bLandscapePanel = bLandscapeRgbPanel || (panelId == 0x108552);
+    _panelRotationOffset = bLandscapePanel ? 1 : 0;
     _panelMadctlXor      = bLandscapeRgbPanel ? TFT_MAD_BGR : 0;
 
     // Met de ILI9341-gammacurve van hierboven worden de middentonen op dit paneel
