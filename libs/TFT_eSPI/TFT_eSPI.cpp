@@ -775,18 +775,21 @@ void TFT_eSPI::init(uint8_t tc)
   // Inim (2026-10-20): RDID1..3 = 10 81 B3; het paneel staat liggend, heeft
   // rood en blauw andersom en wil een andere gammacurve. De gewone CYD (Guition, ILI9341) geeft daar iets
   // anders en houdt alles bij het oude.
+  // Een tweede CYD (typenummer 108552) geeft RDID1..3 = 10 85 52 en heeft
+  // hetzelfde: liggend, rood en blauw andersom. De gammacurve is daar (nog)
+  // niet aangepast.
   {
     uint32_t panelId = readPanelId();
-    bool bLandscapeRgbPanel = (panelId == 0x1081B3);
-    bool bLandscapePanel = bLandscapeRgbPanel || (panelId == 0x108552);
+    bool bInimPanel      = (panelId == 0x1081B3);
+    bool bLandscapePanel = bInimPanel || (panelId == 0x108552);
     _panelRotationOffset = bLandscapePanel ? 1 : 0;
-    _panelMadctlXor      = bLandscapeRgbPanel ? TFT_MAD_BGR : 0;
+    _panelMadctlXor      = bLandscapePanel ? TFT_MAD_BGR : 0;
 
     // Met de ILI9341-gammacurve van hierboven worden de middentonen op dit paneel
     // te licht (rood op donkergrijs werd roze op middelgrijs). De curve uit
     // ST7789_Init.h komt het dichtst bij de oude CYD; vergeleken met
     // apps/DisplayId (gammaproef).
-    if (bLandscapeRgbPanel)
+    if (bInimPanel)
     {
       static const uint8_t arGammaP[14] = { 0xD0,0x00,0x02,0x07,0x0A,0x28,0x32,0x44,0x42,0x06,0x0E,0x12,0x14,0x17 };
       static const uint8_t arGammaN[14] = { 0xD0,0x00,0x02,0x07,0x0A,0x28,0x31,0x54,0x47,0x0E,0x1C,0x17,0x1B,0x1E };
