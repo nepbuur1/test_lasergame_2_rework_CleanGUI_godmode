@@ -230,9 +230,8 @@
 #define TOUCH_SCLK 25
 #define TOUCH_IRQ  36
 // Lower pressure threshold helps some CYD panels register touches reliably.
-// Dit is de drempel voor het *aanraken*. Voor het vasthouden hanteert
-// crt_TFT_eSPI_TouchDetector.h een kwart hiervan, zodat een vinger die stil ligt
-// niet om de drempel heen wipt; die volgt dus vanzelf mee als je hier draait.
+// Dit is de drempel voor zowel aanraken als vasthouden; waarom er geen lagere
+// drempel voor vasthouden is, staat in crt_TFT_eSPI_TouchDetector.h.
 // 200 is geen willekeurige keuze. Gemeten op dit paneel: in rust leest Z tussen
 // de 25 en 80, bij een echte aanraking 1700 tot 2500. Daar ligt 200 ruim
 // tussenin.
@@ -245,12 +244,18 @@
 // seconde. Het scherm wordt daar juist onbetrouwbaar van in plaats van
 // gevoeliger.
 #define TOUCH_THRESHOLD 200
+// Debug-schakelaars, uit laten staan. TOUCH_DEBUG_DIRECT doet in
+// crt_TFT_eSPI_DisplayAdapter.h::pollTouch() een extra volledige getTouch()
+// naast die van de TouchDetector. Zolang een vinger op het scherm ligt is dat
+// een tweede ronde validTouch() met delay(1)'s, in de taak die ook tekent - het
+// spel hapert dan zolang je een knop vasthoudt. DRAW en POLL worden nergens
+// meer gebruikt.
 // Debug: draw touch points and log coordinates when a touch is detected
-#define TOUCH_DEBUG_DRAW
+//#define TOUCH_DEBUG_DRAW
 // Debug: direct touch read in display adapter
-#define TOUCH_DEBUG_DIRECT
+//#define TOUCH_DEBUG_DIRECT
 // Debug: log touch polling ticks from AsyncDisplay
-#define TOUCH_DEBUG_POLL
+//#define TOUCH_DEBUG_POLL
 // Skip interactive calibration in CleanGUI (use file or default values)
 //#define TOUCH_SKIP_CALIBRATION
 
