@@ -197,6 +197,8 @@ namespace pong_simple
                     break;
 
                 case STATE_RUNNING:
+                    vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
+                                                    // een stap van BallSpeedPixPerFrame pixels.
                     if (posY + ballRadius <= 0)		// helemaal onder de doellijn door.
                     {
                         assert(pBallControlListener!=nullptr);
@@ -206,9 +208,7 @@ namespace pong_simple
                     else
                     {
                         moveStep(paddleControl.getPaddlePos());
-                        displayControl.updateBallPosition(posX, posY);
-                        vTaskDelay(FrameIntervalMs);	// de beeldklok van het spel: 25 keer per seconde
-                                                        // een stap van BallSpeedPixPerFrame pixels.
+                        displayControl.updateBallPosition(posX, posY);   
                     }
                     break;
                 

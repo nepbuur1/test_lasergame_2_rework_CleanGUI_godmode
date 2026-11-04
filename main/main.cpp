@@ -71,8 +71,8 @@ namespace crt
 //#include <Pong_super.ino>			// touchscreen-versie, apps/pong_super
 
 // **** Apps op vanilla FreeRTOS (apps_frt) ****
-#include <Pong_super_frt.ino>		// apps_frt/pong_super_frt: pong_super, eigen klassen op FreeRTOS i.p.v. CleanRTOS
-//#include <Pong_simple_frt.ino>		// apps_frt/pong_simple_frt: pong_simple, eigen klassen op FreeRTOS i.p.v. CleanRTOS
+//#include <Pong_super_frt.ino>		// apps_frt/pong_super_frt: pong_super, eigen klassen op FreeRTOS i.p.v. CleanRTOS
+#include <Pong_simple_frt.ino>		// apps_frt/pong_simple_frt: pong_simple, eigen klassen op FreeRTOS i.p.v. CleanRTOS
 
 // **** CYD_tools_crt ****
 //#include <ADC_buttons.ino>				// zes knoppen via een E12-weerstandsladder op GPIO35
