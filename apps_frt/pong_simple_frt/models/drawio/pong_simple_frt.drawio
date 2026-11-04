@@ -1174,7 +1174,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="simple-e50ff30a2e83" name="STD-PaddleControl">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1038" dy="4" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1210,7 +1210,8 @@
           <mxGeometry height="60" width="150" x="660" y="1550" as="geometry" />
         </mxCell>
         <mxCell id="pc-e0" edge="1" parent="1" source="pc-init" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;" target="pc-disabled" value="/ repeatTimer = xTimerCreate(&quot;RepeatTimer&quot;, pdMS_TO_TICKS(repeatPeriodUs/1000), pdTRUE, this, repeatTimerCallback)">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
+          <mxGeometry height="50" relative="1" width="50" y="-245" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="365" y="1450" />
               <mxPoint x="365" y="1450" />
@@ -1257,7 +1258,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="pc-e5" edge="1" parent="1" source="pc-moving" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;" target="pc-disabled" value="eventBitDisable&lt;br&gt;/ stopMoving();&lt;br&gt;displayControl.hidePaddle()">
-          <mxGeometry relative="1" x="0.2113" y="-30" as="geometry">
+          <mxGeometry relative="1" x="0.4366" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="705" y="1500" />
@@ -1266,8 +1267,8 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="pc-e6" edge="1" parent="1" source="pc-moving" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;curved=0;align=left;labelBackgroundColor=default;innerLoopWaypoints=1;" target="pc-moving" value="eventBitRepeatTimer&lt;br&gt;/ movePaddle(paddleDirection)">
-          <mxGeometry relative="1" x="0.5745" y="-20" as="geometry">
-            <mxPoint x="20" y="-20" as="offset" />
+          <mxGeometry relative="1" x="0.3617" y="-10" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="830" y="1570" />
               <mxPoint x="830" y="1500" />
